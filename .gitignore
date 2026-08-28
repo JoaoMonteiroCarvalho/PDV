@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+*.tsbuildinfo
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+e2e/.dados-seed.json

@@ -1,0 +1,506 @@
+// PDV — modelo de domínio
+//
+// Decisões estruturais que este schema materializa:
+//
+// 1. Dinheiro é sempre Int (centavos). Não existe Decimal nem Float aqui.
+// 2. Venda finalizada é imutável. Correção só via Cancelamento/Devolução, que
+//    é um documento NOVO apontando para o original. Há trigger no banco
+//    impedindo UPDATE/DELETE (ver migrations/*_imutabilidade).
+// 3. Estoque é livro-razão. Não existe coluna "quantidadeAtual" em Variante —
+//    o saldo é a soma de MovimentoEstoque. Cada movimento aponta para o
+//    documento que o originou.
+// 4. Campos fiscais existem e são nuláveis, mas nada é transmitido nesta
+//    versão. O regime tributário ainda não foi definido pelo contador, então
+//    `situacaoTributaria` é string livre — serve para CSOSN (Simples) ou CST
+//    (Presumido) sem precisar remodelar.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Pessoas e acesso
+// ---------------------------------------------------------------------------
+
+enum Papel {
+  OPERADOR
+  GERENTE
+  ADMIN
+}
+
+model Usuario {
+  id                String   @id @default(uuid())
+  nome              String
+  login             String   @unique
+  senhaHash         String
+  papel             Papel    @default(OPERADOR)
+  /// Teto de desconto que este usuário concede sozinho, em pontos-base.
+  /// Acima disso, exige autorização de GERENTE (registrada em auditoria).
+  limiteDescontoBps Int      @default(0)
+  ativo             Boolean  @default(true)
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
+
+  sessoesCaixa          SessaoCaixa[]
+  vendas                Venda[]              @relation("OperadorDaVenda")
+  movimentosCaixa       MovimentoCaixa[]     @relation("AutorDoMovimentoCaixa")
+  movimentosAutorizados MovimentoCaixa[]     @relation("AutorizadorDoMovimentoCaixa")
+  movimentosEstoque     MovimentoEstoque[]
+  cancelamentos         Cancelamento[]       @relation("AutorDoCancelamento")
+  cancelamentosAutoriz  Cancelamento[]       @relation("AutorizadorDoCancelamento")
+  descontosAutorizados  ItemVenda[]          @relation("AutorizadorDoDesconto")
+  recebimentos          RecebimentoParcela[]
+  auditoria             RegistroAuditoria[]  @relation("AutorDaAcao")
+  auditoriaAutorizada   RegistroAuditoria[]  @relation("AutorizadorDaAcao")
+}
+
+model Cliente {
+  id                      String   @id @default(uuid())
+  nome                    String
+  cpf                     String?  @unique
+  telefone                String?
+  email                   String?
+  /// Teto de crediário em aberto para este cliente, em centavos.
+  limiteCrediarioCentavos Int      @default(0)
+  observacao              String?
+  ativo                   Boolean  @default(true)
+  criadoEm                DateTime @default(now())
+  atualizadoEm            DateTime @updatedAt
+
+  vendas  Venda[]
+  titulos TituloCrediario[]
+
+  @@index([nome])
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo
+//
+// Produto é o item comercial; Variante é o que tem preço, código de barras e
+// estoque. Peça de lingerie/pijama/praia tem várias variantes (tamanho × cor);
+// perfume e item de sexshop têm uma só. Nunca duas tabelas paralelas — o caixa
+// sempre vende uma Variante.
+// ---------------------------------------------------------------------------
+
+model Categoria {
+  id       String    @id @default(uuid())
+  nome     String    @unique
+  ativo    Boolean   @default(true)
+  produtos Produto[]
+}
+
+model Produto {
+  id          String  @id @default(uuid())
+  nome        String
+  descricao   String?
+  marca       String?
+  categoriaId String?
+  ativo       Boolean @default(true)
+
+  /// Campos fiscais — preenchidos quando o módulo fiscal for ligado.
+  /// Nenhum é usado para calcular preço ou total nesta versão.
+  ncm                String?
+  cest               String?
+  origem             Int?
+  situacaoTributaria String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  categoria Categoria? @relation(fields: [categoriaId], references: [id])
+  variantes Variante[]
+
+  @@index([nome])
+}
+
+model Variante {
+  id           String  @id @default(uuid())
+  produtoId    String
+  sku          String  @unique
+  codigoBarras String? @unique
+  tamanho      String?
+  cor          String?
+
+  precoCentavos Int
+  custoCentavos Int     @default(0)
+  ativo         Boolean @default(true)
+
+  criadoEm     DateTime @default(now())
+  /// Chave da sincronização incremental: o caixa pede só o que mudou depois
+  /// do último `atualizadoEm` que ele já tem. Com +10 mil SKUs, carregar o
+  /// catálogo inteiro a cada sync seria inviável.
+  atualizadoEm DateTime @updatedAt
+
+  produto    Produto            @relation(fields: [produtoId], references: [id])
+  itensVenda ItemVenda[]
+  movimentos MovimentoEstoque[]
+
+  @@index([atualizadoEm])
+  @@index([produtoId])
+}
+
+// ---------------------------------------------------------------------------
+// Caixa
+// ---------------------------------------------------------------------------
+
+model Terminal {
+  id      String        @id @default(uuid())
+  nome    String        @unique
+  ativo   Boolean       @default(true)
+  sessoes SessaoCaixa[]
+}
+
+enum StatusSessaoCaixa {
+  ABERTA
+  FECHADA
+}
+
+model SessaoCaixa {
+  id                   String            @id @default(uuid())
+  terminalId           String
+  operadorId           String
+  status               StatusSessaoCaixa @default(ABERTA)
+  fundoTrocoCentavos   Int               @default(0)
+  abertaEm             DateTime          @default(now())
+  fechadaEm            DateTime?
+  /// Preenchidos no fechamento: o que o operador contou na gaveta e a
+  /// diferença contra o esperado. Diferença ≠ 0 é evento auditado.
+  valorContadoCentavos Int?
+  diferencaCentavos    Int?
+
+  terminal     Terminal             @relation(fields: [terminalId], references: [id])
+  operador     Usuario              @relation(fields: [operadorId], references: [id])
+  vendas       Venda[]
+  movimentos   MovimentoCaixa[]
+  recebimentos RecebimentoParcela[]
+
+  @@index([terminalId, status])
+}
+
+enum TipoMovimentoCaixa {
+  ABERTURA
+  SUPRIMENTO
+  SANGRIA
+  VENDA_DINHEIRO
+  RECEBIMENTO_CREDIARIO
+  CANCELAMENTO
+  FECHAMENTO
+}
+
+model MovimentoCaixa {
+  id              String             @id @default(uuid())
+  sessaoCaixaId   String
+  tipo            TipoMovimentoCaixa
+  /// Positivo entra na gaveta, negativo sai. Sangria é negativa.
+  valorCentavos   Int
+  observacao      String?
+  usuarioId       String
+  /// Sangria e suprimento exigem gerente. Nulo só em movimento automático.
+  autorizadoPorId String?
+  documentoTipo   String?
+  documentoId     String?
+  criadoEm        DateTime           @default(now())
+
+  sessaoCaixa   SessaoCaixa @relation(fields: [sessaoCaixaId], references: [id])
+  usuario       Usuario     @relation("AutorDoMovimentoCaixa", fields: [usuarioId], references: [id])
+  autorizadoPor Usuario?    @relation("AutorizadorDoMovimentoCaixa", fields: [autorizadoPorId], references: [id])
+
+  @@index([sessaoCaixaId, criadoEm])
+}
+
+// ---------------------------------------------------------------------------
+// Venda — imutável após finalizada
+// ---------------------------------------------------------------------------
+
+model Venda {
+  /// UUID gerado NO CLIENTE, antes de qualquer chamada de rede. É a chave de
+  /// idempotência: reenviar a mesma venda na fila de sincronização nunca cria
+  /// um segundo registro.
+  id            String  @id
+  /// Sequencial legível, atribuído pelo servidor no momento do registro.
+  /// Único: é o identificador que o operador digita ao atender uma
+  /// devolução, tem que localizar exatamente uma venda.
+  numero        Int     @unique @default(autoincrement())
+  sessaoCaixaId String
+  operadorId    String
+  clienteId     String?
+  /// NAO existe coluna de status. Venda cancelada e aquela que possui um
+  /// registro em Cancelamento apontando para ela. Isso mantem a tabela
+  /// estritamente insert-only: nao ha UPDATE algum a fazer numa venda.
+
+  subtotalCentavos Int
+  descontoCentavos Int @default(0)
+  totalCentavos    Int
+
+  /// Relógio do caixa no momento do fechamento (a venda pode ter ocorrido
+  /// offline horas antes de chegar ao servidor).
+  criadaEmCliente DateTime
+  /// Relógio do servidor quando a venda foi efetivamente persistida.
+  registradaEm    DateTime @default(now())
+
+  sessaoCaixa   SessaoCaixa        @relation(fields: [sessaoCaixaId], references: [id])
+  operador      Usuario            @relation("OperadorDaVenda", fields: [operadorId], references: [id])
+  cliente       Cliente?           @relation(fields: [clienteId], references: [id])
+  itens         ItemVenda[]
+  pagamentos    Pagamento[]
+  /// Uma venda pode ter VÁRIAS devoluções ao longo do tempo — parciais,
+  /// item por item. Por isso não é mais 1:1 (cancelamento único da venda),
+  /// e sim 1:N de documentos de devolução.
+  cancelamentos Cancelamento[]
+  titulo        TituloCrediario?
+  movimentos    MovimentoEstoque[]
+
+  @@index([sessaoCaixaId])
+  @@index([registradaEm])
+}
+
+model ItemVenda {
+  id         String @id @default(uuid())
+  vendaId    String
+  varianteId String
+  sequencia  Int
+
+  /// Cópia congelada do catálogo no instante da venda. Se o produto for
+  /// renomeado ou o preço mudar amanhã, a venda de ontem continua contando
+  /// a verdade do que foi vendido.
+  descricao String
+  sku       String
+  tamanho   String?
+  cor       String?
+
+  quantidade            Int
+  precoUnitarioCentavos Int
+  descontoCentavos      Int     @default(0)
+  totalCentavos         Int
+  /// Preenchido quando o desconto do item passou da alçada do operador.
+  autorizadoPorId       String?
+
+  venda           Venda              @relation(fields: [vendaId], references: [id])
+  variante        Variante           @relation(fields: [varianteId], references: [id])
+  autorizadoPor   Usuario?           @relation("AutorizadorDoDesconto", fields: [autorizadoPorId], references: [id])
+  itensDevolvidos ItemCancelamento[]
+
+  @@unique([vendaId, sequencia])
+  @@index([varianteId])
+}
+
+enum FormaPagamento {
+  DINHEIRO
+  DEBITO
+  CREDITO
+  PIX
+  CREDIARIO
+}
+
+model Pagamento {
+  id             String         @id @default(uuid())
+  vendaId        String
+  forma          FormaPagamento
+  valorCentavos  Int
+  /// Só em DINHEIRO. O troco não abate do total da venda — ele é registrado
+  /// para a conferência da gaveta.
+  trocoCentavos  Int            @default(0)
+  /// Digitados pelo operador a partir do comprovante da maquininha, que opera
+  /// separada do PDV. Nenhuma integração, nenhuma dependência de rede.
+  bandeira       String?
+  autorizacao    String?
+  parcelasCartao Int?
+
+  venda Venda @relation(fields: [vendaId], references: [id])
+
+  @@index([vendaId])
+}
+
+/// Forma como o dinheiro estornado sai da loja.
+/// DINHEIRO e PIX saem da gaveta na hora (MovimentoCaixa negativo).
+/// CARTAO não pode ser estornado automaticamente pelo PDV — a maquininha
+/// opera separada — então vira registro informativo para o operador
+/// providenciar o estorno manual na maquininha.
+/// VALE_TROCA não tira dinheiro nenhum: vira crédito futuro do cliente.
+enum FormaEstorno {
+  DINHEIRO
+  PIX
+  CARTAO
+  VALE_TROCA
+}
+
+/// Documento de devolução — pode ser parcial (alguns itens, quantidade
+/// parcial) ou cobrir a venda inteira. Nunca altera a Venda original: é um
+/// registro novo que aponta para ela, preservando a regra de imutabilidade.
+/// Uma venda pode ter várias devoluções ao longo do tempo.
+model Cancelamento {
+  id              String       @id @default(uuid())
+  vendaOriginalId String
+  motivo          String
+  /// Soma do valor devolvido nos itens abaixo. Sempre > 0 e <= total da venda
+  /// menos o que já foi devolvido antes (garantido pelo serviço, não pelo banco).
+  valorCentavos   Int
+  formaEstorno    FormaEstorno
+  usuarioId       String
+  /// Devolução SEMPRE exige gerente. Não é nulável por decisão de negócio —
+  /// mesma regra do cancelamento de venda no briefing original.
+  autorizadoPorId String
+  criadoEm        DateTime     @default(now())
+
+  vendaOriginal Venda              @relation(fields: [vendaOriginalId], references: [id])
+  usuario       Usuario            @relation("AutorDoCancelamento", fields: [usuarioId], references: [id])
+  autorizadoPor Usuario            @relation("AutorizadorDoCancelamento", fields: [autorizadoPorId], references: [id])
+  itens         ItemCancelamento[]
+
+  @@index([vendaOriginalId])
+}
+
+/// Quanto de cada item da venda original foi devolvido neste documento.
+/// Quantidade parcial é o caso normal: cliente devolve 1 de 3 peças iguais.
+model ItemCancelamento {
+  id             String @id @default(uuid())
+  cancelamentoId String
+  itemVendaId    String
+  quantidade     Int
+  valorCentavos  Int
+
+  cancelamento Cancelamento @relation(fields: [cancelamentoId], references: [id])
+  itemVenda    ItemVenda    @relation(fields: [itemVendaId], references: [id])
+
+  @@index([cancelamentoId])
+  @@index([itemVendaId])
+}
+
+// ---------------------------------------------------------------------------
+// Estoque — livro-razão
+//
+// Saldo atual = SUM(quantidade) WHERE varianteId = ?. Nunca um campo editado.
+// Venda grava quantidade negativa; entrada de compra, positiva.
+// ---------------------------------------------------------------------------
+
+enum TipoMovimentoEstoque {
+  ENTRADA_COMPRA
+  VENDA
+  CANCELAMENTO_VENDA
+  DEVOLUCAO
+  AJUSTE_INVENTARIO
+  PERDA
+  TRANSFERENCIA
+}
+
+model MovimentoEstoque {
+  id                    String               @id @default(uuid())
+  varianteId            String
+  tipo                  TipoMovimentoEstoque
+  /// Com sinal: negativo tira do estoque, positivo põe. Nunca zero.
+  quantidade            Int
+  /// Custo unitário no momento do movimento, para apuração de margem.
+  custoUnitarioCentavos Int                  @default(0)
+
+  /// Documento que originou o movimento. `vendaId` é a FK real quando a
+  /// origem é uma venda; os campos genéricos cobrem compra, inventário, perda.
+  vendaId       String?
+  documentoTipo String?
+  documentoId   String?
+
+  usuarioId  String?
+  observacao String?
+  criadoEm   DateTime @default(now())
+
+  variante Variante @relation(fields: [varianteId], references: [id])
+  venda    Venda?   @relation(fields: [vendaId], references: [id])
+  usuario  Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([varianteId, criadoEm])
+  @@index([criadoEm])
+}
+
+// ---------------------------------------------------------------------------
+// Crediário
+// ---------------------------------------------------------------------------
+
+enum StatusTitulo {
+  ABERTO
+  QUITADO
+  CANCELADO
+}
+
+enum StatusParcela {
+  ABERTA
+  PAGA
+  CANCELADA
+}
+
+model TituloCrediario {
+  id                 String       @id @default(uuid())
+  vendaId            String       @unique
+  clienteId          String
+  valorTotalCentavos Int
+  status             StatusTitulo @default(ABERTO)
+  criadoEm           DateTime     @default(now())
+
+  venda    Venda              @relation(fields: [vendaId], references: [id])
+  cliente  Cliente            @relation(fields: [clienteId], references: [id])
+  parcelas ParcelaCrediario[]
+
+  @@index([clienteId, status])
+}
+
+model ParcelaCrediario {
+  id            String        @id @default(uuid())
+  tituloId      String
+  numero        Int
+  valorCentavos Int
+  vencimento    DateTime
+  status        StatusParcela @default(ABERTA)
+
+  titulo       TituloCrediario      @relation(fields: [tituloId], references: [id])
+  recebimentos RecebimentoParcela[]
+
+  @@unique([tituloId, numero])
+  @@index([vencimento, status])
+}
+
+model RecebimentoParcela {
+  id            String         @id @default(uuid())
+  parcelaId     String
+  valorCentavos Int
+  forma         FormaPagamento
+  /// Recebimento entra na gaveta, então pertence a uma sessão de caixa e
+  /// precisa bater no fechamento.
+  sessaoCaixaId String
+  usuarioId     String
+  criadoEm      DateTime       @default(now())
+
+  parcela     ParcelaCrediario @relation(fields: [parcelaId], references: [id])
+  sessaoCaixa SessaoCaixa      @relation(fields: [sessaoCaixaId], references: [id])
+  usuario     Usuario          @relation(fields: [usuarioId], references: [id])
+
+  @@index([parcelaId])
+}
+
+// ---------------------------------------------------------------------------
+// Auditoria — tudo que envolve dinheiro passa por aqui
+// ---------------------------------------------------------------------------
+
+model RegistroAuditoria {
+  id              String   @id @default(uuid())
+  /// Ex.: "SANGRIA", "CANCELAMENTO_VENDA", "DESCONTO_ACIMA_LIMITE",
+  /// "REABERTURA_CAIXA", "ALTERACAO_PRECO".
+  acao            String
+  entidade        String
+  entidadeId      String
+  usuarioId       String
+  /// Gerente que liberou a operação, quando ela exige alçada.
+  autorizadoPorId String?
+  valorAntes      Json?
+  valorDepois     Json?
+  terminalId      String?
+  criadoEm        DateTime @default(now())
+
+  usuario       Usuario  @relation("AutorDaAcao", fields: [usuarioId], references: [id])
+  autorizadoPor Usuario? @relation("AutorizadorDaAcao", fields: [autorizadoPorId], references: [id])
+
+  @@index([acao, criadoEm])
+  @@index([entidade, entidadeId])
+}

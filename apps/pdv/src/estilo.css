@@ -1,0 +1,633 @@
+/*
+ * Estilo do caixa.
+ *
+ * Decisões de uso, não de gosto:
+ *   - alto contraste: a loja tem vitrine e o balcão pega sol;
+ *   - alvos grandes: a operadora usa com pressa, às vezes com a mão ocupada;
+ *   - o total é o maior elemento da tela — é o número que ela confere em voz
+ *     alta com a cliente.
+ */
+
+:root {
+  --fundo: #0f172a;
+  --superficie: #1e293b;
+  --superficie-clara: #334155;
+  --borda: #475569;
+  --texto: #f1f5f9;
+  --texto-fraco: #94a3b8;
+  --destaque: #6366f1;
+  --sucesso: #22c55e;
+  --alerta: #f59e0b;
+  --perigo: #ef4444;
+  --raio: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  /* O caixa é um app em tela cheia: a página nunca rola inteira. */
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--raio);
+  background: var(--superficie-clara);
+  color: var(--texto);
+  padding: 10px 14px;
+  transition: filter 0.12s ease;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.25);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+input {
+  font: inherit;
+  background: var(--fundo);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+  width: 100%;
+}
+
+input:focus {
+  outline: 2px solid var(--destaque);
+  outline-offset: 1px;
+}
+
+/* --- Login ---------------------------------------------------------------- */
+
+.tela-login {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+}
+
+.cartao-login {
+  background: var(--superficie);
+  padding: 32px;
+  border-radius: 16px;
+  width: min(380px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cartao-login h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.subtitulo {
+  margin: 0 0 8px;
+  color: var(--texto-fraco);
+  font-size: 14px;
+}
+
+.cartao-login label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.cartao-login button[type='submit'] {
+  background: var(--destaque);
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* --- Barra de status ------------------------------------------------------ */
+
+.barra-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+  font-size: 13px;
+}
+
+.barra-status .marca {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--destaque);
+}
+
+.barra-status .preenche {
+  flex: 1;
+}
+
+.indicador {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* Offline não é erro: o caixa continua vendendo. A cor comunica isso. */
+.indicador.online {
+  background: color-mix(in srgb, var(--sucesso) 20%, transparent);
+  color: var(--sucesso);
+}
+
+.indicador.offline {
+  background: color-mix(in srgb, var(--alerta) 20%, transparent);
+  color: var(--alerta);
+}
+
+.indicador.pendente {
+  background: color-mix(in srgb, var(--destaque) 25%, transparent);
+  color: #c7d2fe;
+}
+
+.indicador.bloqueado {
+  background: color-mix(in srgb, var(--perigo) 22%, transparent);
+  color: #fca5a5;
+}
+
+.barra-status .catalogo,
+.barra-status .operador {
+  color: var(--texto-fraco);
+}
+
+.barra-status .sair {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* --- Tela de venda -------------------------------------------------------- */
+
+.tela-venda {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.corpo {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 380px;
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.painel-busca,
+.painel-carrinho,
+.painel-total {
+  background: var(--superficie);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.campo-busca {
+  font-size: 16px;
+  padding: 14px;
+}
+
+.resultados {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resultados button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  text-align: left;
+  background: var(--superficie-clara);
+  padding: 12px;
+}
+
+.resultados .nome {
+  font-weight: 600;
+}
+
+.resultados .variacao {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.resultados .preco {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-weight: 700;
+}
+
+.vazio {
+  color: var(--texto-fraco);
+  font-size: 14px;
+}
+
+.painel-carrinho h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.painel-carrinho h2 small {
+  color: var(--texto-fraco);
+  font-weight: 400;
+}
+
+.itens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itens li {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--superficie-clara);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+}
+
+.itens .descricao {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.itens .descricao span {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.quantidade {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quantidade button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+}
+
+.itens .valor {
+  font-weight: 700;
+  min-width: 90px;
+  text-align: right;
+}
+
+.itens .remover {
+  background: transparent;
+  color: var(--perigo);
+  font-size: 20px;
+  padding: 4px 8px;
+}
+
+/* --- Totais e pagamento --------------------------------------------------- */
+
+.painel-total {
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.painel-total .linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+}
+
+.painel-total .linha.total {
+  font-size: 30px;
+  font-weight: 800;
+  border-top: 1px solid var(--borda);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.campo-valor {
+  width: 130px;
+  text-align: right;
+}
+
+.pagamentos {
+  border-top: 1px solid var(--borda);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pagamentos h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--texto-fraco);
+}
+
+.pagamentos ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pagamentos li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  background: var(--superficie-clara);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.formas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.troco {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sucesso);
+}
+
+.finalizar {
+  background: var(--sucesso);
+  color: #052e16;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.cancelar {
+  background: transparent;
+  color: var(--texto-fraco);
+  font-size: 13px;
+}
+
+.limpar {
+  background: transparent;
+  color: var(--texto-fraco);
+  font-size: 12px;
+  padding: 4px;
+}
+
+.erro {
+  color: #fca5a5;
+  background: color-mix(in srgb, var(--perigo) 15%, transparent);
+  padding: 10px;
+  border-radius: var(--raio);
+  font-size: 14px;
+  margin: 0;
+}
+
+.sucesso {
+  color: var(--sucesso);
+  font-size: 14px;
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .corpo {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .painel-total {
+    grid-column: span 2;
+  }
+}
+
+/* --- Tela de caixa (abertura/fechamento) ---------------------------------- */
+
+.tela-caixa {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+}
+
+.cartao-caixa {
+  background: var(--superficie);
+  padding: 32px;
+  border-radius: 16px;
+  width: min(420px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cartao-caixa-largo {
+  width: min(560px, 92vw);
+}
+
+.cartao-caixa h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.cartao-caixa label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.campo-valor-grande {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: right;
+  padding: 14px;
+}
+
+.ajuda {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.acao-principal {
+  background: var(--destaque);
+  font-weight: 700;
+  padding: 14px;
+  font-size: 16px;
+}
+
+.acao-perigo {
+  background: var(--perigo);
+  color: #450a0a;
+  font-weight: 700;
+}
+
+.resumo-caixa {
+  display: grid;
+  gap: 10px;
+  background: var(--superficie-clara);
+  border-radius: var(--raio);
+  padding: 14px;
+}
+
+.resumo-caixa div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.acoes-caixa {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.painel-flutuante {
+  background: var(--superficie-clara);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.painel-flutuante h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.acoes-formulario {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.barra-status .caixa {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* --- Devolução -------------------------------------------------------------- */
+
+.barra-status .devolucao {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.cabecalho-devolucao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cabecalho-devolucao h1 {
+  margin: 0;
+}
+
+.busca-venda,
+.formulario-devolucao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.busca-venda label,
+.formulario-devolucao label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.formulario-devolucao select {
+  font: inherit;
+  background: var(--fundo);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+}
+
+.itens-devolucao {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.itens-devolucao li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--superficie-clara);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+}
+
+.itens-devolucao .descricao {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.itens-devolucao .descricao span {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.total-devolucao {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.resultado-devolucao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}

@@ -1,0 +1,29 @@
+{
+  "name": "pdv",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "e2e"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "npm run test --workspaces --if-present --workspace=packages/shared --workspace=apps/api --workspace=apps/pdv",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:migrate": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema apps/api/prisma/schema.prisma",
+    "test:integracao": "npm run test:integracao --workspaces --if-present",
+    "db:migrate:teste": "node scripts/migrar-teste.mjs",
+    "test:e2e": "npm run test -w @pdv/e2e"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

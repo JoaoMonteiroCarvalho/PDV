@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pdv-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pdv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-pdv}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pdv-dados:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdv} -d ${POSTGRES_DB:-pdv}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: pdv-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pdv}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pdv}?schema=public
+      JWT_SEGREDO: ${JWT_SEGREDO:?defina JWT_SEGREDO no .env}
+      PORTA: 3333
+      NODE_ENV: production
+    ports:
+      - "${API_PORTA:-3333}:3333"
+
+volumes:
+  pdv-dados:
