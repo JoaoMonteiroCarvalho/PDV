@@ -229,6 +229,18 @@ ou o código curto do UUID quando a venda ainda está na fila offline (o número
 sequencial só existe depois que o servidor confirma — o código de 8
 caracteres é impresso sempre, mesmo sem rede).
 
+## Histórico de vendas
+
+Lista da mais recente para a mais antiga, com filtro de período e por
+operador, acessível pelo botão "Histórico" na barra de status. Clicar numa
+linha abre o detalhe: itens, pagamentos e as devoluções já feitas contra ela.
+
+A venda original **nunca muda** — o que a lista mostra como "total devolvido"
+é calculado somando as devoluções reais no momento da consulta, não um campo
+gravado na venda. Paginação por cursor (`registradaEm`, `id`), pelo mesmo
+motivo do `/catalogo`: com offset, uma venda registrada durante a navegação
+desloca as páginas seguintes e uma linha some ou repete na tela do operador.
+
 ## Estado atual
 
 | Modulo | Situacao |
@@ -242,6 +254,7 @@ caracteres é impresso sempre, mesmo sem rede).
 | API — vendas e catalogo | verificada de ponta a ponta — 39 testes |
 | API — sessao de caixa (abrir, sangria, suprimento, fechar) | verificada de ponta a ponta — 17 testes |
 | API — devolucao (parcial, busca por numero/codigo, alcada) | verificada de ponta a ponta — 23 testes |
+| API — historico de vendas (listagem paginada, filtro, detalhe) | verificada de ponta a ponta — 12 testes |
 | Seed | 8 produtos, 60 variantes, sessao de caixa aberta |
 | Banco local do caixa (IndexedDB) | pronto |
 | Fila de sincronizacao | pronta — 25 testes |
@@ -250,5 +263,5 @@ caracteres é impresso sempre, mesmo sem rede).
 | Comprovante 80mm | pronto — 12 testes |
 | Tela de venda + abertura/fechamento de caixa + devolucao + PWA instalavel | verificada de ponta a ponta — **7 testes Playwright** |
 
-**269 testes de API/unitarios** (174 unitarios + 95 de integracao) **+ 7
+**281 testes de API/unitarios** (174 unitarios + 107 de integracao) **+ 7
 testes E2E**, `tsc --strict` limpo nos quatro workspaces.
