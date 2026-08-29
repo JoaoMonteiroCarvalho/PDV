@@ -15,8 +15,10 @@ import { carregarConfiguracao, type Configuracao } from './config.js';
 import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
+import { esquemaListarVendas } from './esquemas/historico.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
+import { listarHistoricoVendas, obterDetalheVenda } from './servicos/historico.js';
 import {
   abrirSessao,
   fecharSessao,
@@ -268,6 +270,35 @@ export async function construirServidor(
       }
     },
   );
+
+  // --- Histórico de vendas ---------------------------------------------------
+
+  /**
+   * Lista vendas da mais recente para a mais antiga, com filtro opcional de
+   * período e operador. Leitura pura — nenhuma alçada além de estar
+   * autenticado, porque consultar o que já foi vendido não move dinheiro.
+   */
+  app.get('/vendas', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaListarVendas.safeParse(requisicao.query);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    return listarHistoricoVendas(prisma, entrada.data);
+  });
+
+  /**
+   * Detalhe completo de uma venda: itens, pagamentos e devoluções já feitas
+   * contra ela. A tela de histórico usa isso ao abrir uma linha da lista.
+   */
+  app.get('/vendas/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    if (!parametros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: parametros.error.issues });
+    }
+    const detalhe = await obterDetalheVenda(prisma, parametros.data.id);
+    if (!detalhe) return resposta.status(404).send({ codigo: 'VENDA_INEXISTENTE' });
+    return detalhe;
+  });
 
   // --- Catálogo ------------------------------------------------------------
 

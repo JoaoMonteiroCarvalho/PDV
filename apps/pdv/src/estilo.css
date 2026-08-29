@@ -631,3 +631,149 @@ input:focus {
   gap: 14px;
   align-items: flex-start;
 }
+
+/* --- Histórico de vendas ---------------------------------------------------- */
+
+.barra-status .historico {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.cartao-caixa-historico {
+  width: min(900px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.lista-historico {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.filtros-historico {
+  display: flex;
+  gap: 16px;
+}
+
+.filtros-historico label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.filtros-historico input {
+  font: inherit;
+  background: var(--fundo);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 8px 10px;
+}
+
+.tabela-historico {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tabela-historico th {
+  text-align: left;
+  color: var(--texto-fraco);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.tabela-historico td {
+  padding: 10px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.tabela-historico .linha-clicavel {
+  cursor: pointer;
+}
+
+.tabela-historico .linha-clicavel:hover {
+  background: var(--superficie-clara);
+}
+
+.tabela-historico .ver-mais {
+  color: var(--destaque);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.marca-devolucao {
+  color: var(--texto-fraco);
+  font-size: 12px;
+}
+
+.carregar-mais {
+  align-self: center;
+}
+
+.detalhe-venda {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voltar-lista {
+  align-self: flex-start;
+  background: transparent;
+  padding: 4px 0;
+}
+
+.detalhe-venda .linha {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.detalhe-venda .linha.total {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.detalhe-venda h3 {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.detalhe-venda ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.devolucoes-historico {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.devolucoes-historico li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--superficie-clara);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+}
+
+.devolucoes-historico .descricao {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.devolucoes-historico .descricao span {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}

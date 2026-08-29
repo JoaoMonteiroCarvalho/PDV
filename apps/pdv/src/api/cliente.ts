@@ -255,6 +255,37 @@ export class ClienteApi {
     });
     return this.json(resposta);
   }
+
+  // --- Histórico de vendas -----------------------------------------------
+
+  /**
+   * Lista paginada por cursor — mesmo motivo do catálogo: com offset, uma
+   * venda registrada durante a consulta desloca as páginas e uma linha some
+   * ou repete na tela do operador.
+   */
+  async listarVendas(filtro: {
+    antesDe?: string;
+    ultimoId?: string;
+    limite?: number;
+    desde?: string;
+    ate?: string;
+    operadorId?: string;
+  }): Promise<PaginaHistoricoVendas> {
+    const parametros = new URLSearchParams();
+    for (const [chave, valor] of Object.entries(filtro)) {
+      if (valor !== undefined && valor !== '') parametros.set(chave, String(valor));
+    }
+    const consulta = parametros.toString();
+    const resposta = await fetch(`${BASE}/vendas${consulta ? `?${consulta}` : ''}`, {
+      headers: this.cabecalhos(),
+    });
+    return this.json(resposta);
+  }
+
+  async buscarDetalheVenda(vendaId: string): Promise<DetalheVenda> {
+    const resposta = await fetch(`${BASE}/vendas/${vendaId}`, { headers: this.cabecalhos() });
+    return this.json(resposta);
+  }
 }
 
 export interface ItemDisponivelParaDevolucao {
@@ -270,6 +301,58 @@ export interface ItemDisponivelParaDevolucao {
 export interface DisponivelParaDevolucao {
   vendaId: string;
   itens: ItemDisponivelParaDevolucao[];
+}
+
+export interface LinhaHistoricoVenda {
+  id: string;
+  numero: number;
+  registradaEm: string;
+  criadaEmCliente: string;
+  operador: { id: string; nome: string };
+  totalCentavos: number;
+  quantidadeItens: number;
+  formasPagamento: string[];
+  totalDevolvidoCentavos: number;
+}
+
+export interface PaginaHistoricoVendas {
+  itens: LinhaHistoricoVenda[];
+  proximoAntesDe: string | null;
+  proximoUltimoId: string | null;
+  temMais: boolean;
+}
+
+export interface DetalheVenda {
+  id: string;
+  numero: number;
+  registradaEm: string;
+  criadaEmCliente: string;
+  operador: { id: string; nome: string };
+  cliente: { id: string; nome: string } | null;
+  subtotalCentavos: number;
+  descontoCentavos: number;
+  totalCentavos: number;
+  itens: Array<{
+    id: string;
+    descricao: string;
+    sku: string;
+    tamanho: string | null;
+    cor: string | null;
+    quantidade: number;
+    precoUnitarioCentavos: number;
+    descontoCentavos: number;
+    totalCentavos: number;
+  }>;
+  pagamentos: Array<{ forma: string; valorCentavos: number; trocoCentavos: number }>;
+  devolucoes: Array<{
+    id: string;
+    motivo: string;
+    formaEstorno: string;
+    valorCentavos: number;
+    criadoEm: string;
+    autorizadoPor: { nome: string };
+    itens: Array<{ itemVendaId: string; quantidade: number; valorCentavos: number }>;
+  }>;
 }
 
 export const clienteApi = new ClienteApi();
