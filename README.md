@@ -96,6 +96,7 @@ cp .env.example .env         # POSTGRES_PASSWORD, JWT_SEGREDO e as duas DATABASE
 npm run db:up                # Postgres em container
 npm run db:migrate           # migrations do banco de desenvolvimento
 npm run db:migrate:teste     # migrations do banco de teste
+npm run db:migrate:e2e       # migrations do banco do Playwright (pdv_e2e)
 npm run seed -w @pdv/api     # catalogo de exemplo + sessao de caixa aberta
 
 npm run dev -w @pdv/api      # API   -> http://localhost:3333

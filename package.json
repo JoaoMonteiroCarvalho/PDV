@@ -19,7 +19,8 @@
     "db:migrate": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
     "db:studio": "prisma studio --schema apps/api/prisma/schema.prisma",
     "test:integracao": "npm run test:integracao --workspaces --if-present",
-    "db:migrate:teste": "node scripts/migrar-teste.mjs",
+    "db:migrate:teste": "node scripts/migrar-banco.mjs DATABASE_URL_TESTE",
+    "db:migrate:e2e": "node scripts/migrar-banco.mjs DATABASE_URL_E2E",
     "test:e2e": "npm run test -w @pdv/e2e"
   },
   "devDependencies": {
