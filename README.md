@@ -241,6 +241,34 @@ gravado na venda. Paginação por cursor (`registradaEm`, `id`), pelo mesmo
 motivo do `/catalogo`: com offset, uma venda registrada durante a navegação
 desloca as páginas seguintes e uma linha some ou repete na tela do operador.
 
+## Relatório de vendas
+
+Painel de gestão acessível pelo botão "Relatórios": filtro por período
+(padrão últimos 30 dias) e por operador, cartões de total vendido/devolvido/
+líquido/ticket médio, gráfico de vendas por dia, formas de pagamento,
+desempenho por operador e produtos mais vendidos. Exporta em **CSV**
+(ponto-e-vírgula, com BOM, para abrir direto no Excel brasileiro) e em
+**PDF** via impressão do navegador — sem trazer biblioteca de geração de PDF
+só para isso.
+
+Toda a agregação roda no servidor (`calcularRelatorio`, em
+`packages/shared/src/relatorio.ts`) como função pura, sem I/O — testável sem
+Postgres. A API só busca as vendas do período e entrega para ela.
+
+**Bug real encontrado na checagem visual, não hipotético:** a primeira
+versão somava o valor BRUTO recebido em dinheiro para compor "por forma de
+pagamento". Um pagamento de R$ 100,00 com R$ 10,10 de troco numa venda de
+R$ 89,90 aparecia como "Dinheiro: R$ 100,00" — mais do que a própria venda
+valeu, e a soma das formas não batia com o total vendido. Corrigido para
+descontar o troco (`valorCentavos - trocoCentavos`), com dois testes de
+regressão que provam que a soma das formas sempre bate com o total do
+período.
+
+**Segundo bug, no HTML de impressão:** a barra do gráfico "vendas por dia"
+nunca aparecia preenchida. Causa: `<span class="barra-cheia" style="width:
+50%">` — elemento inline ignora a propriedade `width` no CSS. Corrigido com
+`display: block`.
+
 ## Estado atual
 
 | Modulo | Situacao |
@@ -255,6 +283,9 @@ desloca as páginas seguintes e uma linha some ou repete na tela do operador.
 | API — sessao de caixa (abrir, sangria, suprimento, fechar) | verificada de ponta a ponta — 17 testes |
 | API — devolucao (parcial, busca por numero/codigo, alcada) | verificada de ponta a ponta — 23 testes |
 | API — historico de vendas (listagem paginada, filtro, detalhe) | verificada de ponta a ponta — 12 testes |
+| Relatorio (agregacao pura: totais, por dia, por forma, por operador, produtos) | pronta — 19 testes |
+| API — relatorio de vendas (resumo, filtro por periodo/operador) | verificada de ponta a ponta — 10 testes |
+| Exportacao CSV do relatorio | pronta — 7 testes |
 | Seed | 8 produtos, 60 variantes, sessao de caixa aberta |
 | Banco local do caixa (IndexedDB) | pronto |
 | Fila de sincronizacao | pronta — 25 testes |
@@ -263,5 +294,5 @@ desloca as páginas seguintes e uma linha some ou repete na tela do operador.
 | Comprovante 80mm | pronto — 12 testes |
 | Tela de venda + abertura/fechamento de caixa + devolucao + PWA instalavel | verificada de ponta a ponta — **7 testes Playwright** |
 
-**281 testes de API/unitarios** (174 unitarios + 107 de integracao) **+ 7
+**317 testes de API/unitarios** (200 unitarios + 117 de integracao) **+ 7
 testes E2E**, `tsc --strict` limpo nos quatro workspaces.

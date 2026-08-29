@@ -286,6 +286,29 @@ export class ClienteApi {
     const resposta = await fetch(`${BASE}/vendas/${vendaId}`, { headers: this.cabecalhos() });
     return this.json(resposta);
   }
+
+  // --- Relatórios ----------------------------------------------------------
+
+  async buscarRelatorioResumo(filtro: {
+    desde?: string;
+    ate?: string;
+    operadorId?: string;
+  }): Promise<RelatorioResumo> {
+    const parametros = new URLSearchParams();
+    for (const [chave, valor] of Object.entries(filtro)) {
+      if (valor !== undefined && valor !== '') parametros.set(chave, valor);
+    }
+    const consulta = parametros.toString();
+    const resposta = await fetch(`${BASE}/relatorios/resumo${consulta ? `?${consulta}` : ''}`, {
+      headers: this.cabecalhos(),
+    });
+    return this.json(resposta);
+  }
+
+  async listarOperadores(): Promise<{ operadores: Array<{ id: string; nome: string }> }> {
+    const resposta = await fetch(`${BASE}/operadores`, { headers: this.cabecalhos() });
+    return this.json(resposta);
+  }
 }
 
 export interface ItemDisponivelParaDevolucao {
@@ -353,6 +376,56 @@ export interface DetalheVenda {
     autorizadoPor: { nome: string };
     itens: Array<{ itemVendaId: string; quantidade: number; valorCentavos: number }>;
   }>;
+}
+
+export interface PontoPorDia {
+  data: string;
+  quantidadeVendas: number;
+  totalCentavos: number;
+}
+
+export interface LinhaPorFormaPagamento {
+  forma: string;
+  quantidade: number;
+  totalCentavos: number;
+}
+
+export interface LinhaPorOperador {
+  operadorId: string;
+  nome: string;
+  quantidadeVendas: number;
+  totalCentavos: number;
+  ticketMedioCentavos: number;
+}
+
+export interface LinhaProdutoMaisVendido {
+  varianteId: string;
+  descricao: string;
+  sku: string;
+  quantidadeVendida: number;
+  totalCentavos: number;
+}
+
+export interface LinhaDevolucaoPorForma {
+  formaEstorno: string;
+  quantidade: number;
+  valorCentavos: number;
+}
+
+export interface RelatorioResumo {
+  periodo: { desde: string; ate: string };
+  quantidadeVendas: number;
+  totalVendidoCentavos: number;
+  totalDevolvidoCentavos: number;
+  totalLiquidoCentavos: number;
+  ticketMedioCentavos: number;
+  totalItensVendidos: number;
+  quantidadeDevolucoes: number;
+  porDia: PontoPorDia[];
+  porFormaPagamento: LinhaPorFormaPagamento[];
+  porOperador: LinhaPorOperador[];
+  produtosMaisVendidos: LinhaProdutoMaisVendido[];
+  devolucoesPorFormaEstorno: LinhaDevolucaoPorForma[];
 }
 
 export const clienteApi = new ClienteApi();

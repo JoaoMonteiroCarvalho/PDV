@@ -16,9 +16,11 @@ import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
 import { esquemaListarVendas } from './esquemas/historico.js';
+import { esquemaRelatorioResumo } from './esquemas/relatorios.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import { listarHistoricoVendas, obterDetalheVenda } from './servicos/historico.js';
+import { gerarRelatorioResumo } from './servicos/relatorios.js';
 import {
   abrirSessao,
   fecharSessao,
@@ -298,6 +300,32 @@ export async function construirServidor(
     const detalhe = await obterDetalheVenda(prisma, parametros.data.id);
     if (!detalhe) return resposta.status(404).send({ codigo: 'VENDA_INEXISTENTE' });
     return detalhe;
+  });
+
+  // --- Relatórios ------------------------------------------------------------
+
+  /**
+   * Resumo de vendas do período: totais, série por dia, por forma de
+   * pagamento, por operador, produtos mais vendidos e devoluções.
+   * Sem argumento, cobre os últimos 30 dias.
+   */
+  app.get('/relatorios/resumo', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaRelatorioResumo.safeParse(requisicao.query);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    const relatorio = await gerarRelatorioResumo(prisma, entrada.data);
+    return { periodo: { desde: entrada.data.desde, ate: entrada.data.ate }, ...relatorio };
+  });
+
+  /** Lista operadores ativos, para o filtro do relatório. */
+  app.get('/operadores', { preHandler: exigirOperador }, async () => {
+    const operadores = await prisma.usuario.findMany({
+      where: { ativo: true },
+      select: { id: true, nome: true },
+      orderBy: { nome: 'asc' },
+    });
+    return { operadores };
   });
 
   // --- Catálogo ------------------------------------------------------------

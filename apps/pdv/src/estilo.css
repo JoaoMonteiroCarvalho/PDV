@@ -777,3 +777,174 @@ input:focus {
   font-size: 12px;
   color: var(--texto-fraco);
 }
+
+/* --- Relatórios --------------------------------------------------------- */
+
+.barra-status .relatorios {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.filtros-relatorio {
+  align-items: flex-end;
+}
+
+.preenche-relatorio {
+  flex: 1;
+}
+
+.filtros-relatorio select {
+  font: inherit;
+  background: var(--fundo);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 8px 10px;
+}
+
+.resumo-secundario {
+  margin-top: -6px;
+}
+
+.painel-relatorio {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.painel-relatorio h3 {
+  margin: 14px 0 8px;
+  font-size: 14px;
+  color: var(--texto-fraco);
+  font-weight: 500;
+}
+
+.cartoes-kpi {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.cartao-kpi {
+  background: var(--superficie-clara);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cartao-kpi-destaque {
+  border-color: var(--destaque);
+  background: color-mix(in srgb, var(--destaque) 12%, var(--superficie-clara));
+}
+
+.cartao-kpi-atencao .valor-kpi {
+  color: var(--perigo);
+}
+
+.rotulo-kpi {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.valor-kpi {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Gráfico de barras verticais (vendas por dia), só CSS -- sem dependência de
+   biblioteca de gráfico para uma série simples de até ~31 pontos. */
+.grafico-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 140px;
+  padding: 8px 4px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--borda);
+}
+
+.coluna-barra {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 22px;
+  flex: 1;
+  gap: 6px;
+}
+
+.coluna-barra .barra {
+  width: 100%;
+  max-width: 26px;
+  background: var(--destaque);
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  transition: opacity 0.15s;
+}
+
+.coluna-barra:hover .barra {
+  opacity: 0.8;
+}
+
+.rotulo-dia {
+  font-size: 10px;
+  color: var(--texto-fraco);
+  white-space: nowrap;
+}
+
+.colunas-relatorio {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.lista-barras-horizontais {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lista-barras-horizontais li {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.rotulo-barra {
+  color: var(--texto-fraco);
+}
+
+.barra-fundo {
+  background: var(--superficie-clara);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.barra-preenchida {
+  display: block;
+  height: 100%;
+  background: var(--destaque);
+  border-radius: 999px;
+}
+
+.valor-barra {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tabela-compacta th,
+.tabela-compacta td {
+  padding: 6px 8px;
+  font-size: 12px;
+}
