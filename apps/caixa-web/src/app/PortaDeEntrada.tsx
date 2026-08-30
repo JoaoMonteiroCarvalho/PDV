@@ -5,7 +5,7 @@ import { Cabecalho } from '@/telas/Cabecalho.js';
 import { TelaAberturaCaixa } from '@/telas/TelaAberturaCaixa.js';
 import { TelaConfigurarTerminal } from '@/telas/TelaConfigurarTerminal.js';
 import { TelaLogin } from '@/telas/TelaLogin.js';
-import { TelaVendaPlaceholder } from '@/telas/TelaVendaPlaceholder.js';
+import { TelaVenda } from '@/telas/venda/TelaVenda.js';
 
 /**
  * Decide qual tela mostrar, na ordem que faz sentido operacionalmente:
@@ -63,5 +63,5 @@ function ConteudoComTerminal({ terminalId }: { terminalId: string }) {
   }
 
   if (!sessao) return <TelaAberturaCaixa />;
-  return <TelaVendaPlaceholder />;
+  return <TelaVenda />;
 }
