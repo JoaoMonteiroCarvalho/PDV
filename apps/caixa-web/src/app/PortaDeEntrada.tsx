@@ -7,6 +7,7 @@ import { TelaAberturaCaixa } from '@/telas/TelaAberturaCaixa.js';
 import { TelaConfigurarTerminal } from '@/telas/TelaConfigurarTerminal.js';
 import { TelaLogin } from '@/telas/TelaLogin.js';
 import { TelaGestaoCaixa } from '@/telas/caixa/TelaGestaoCaixa.js';
+import { TelaDevolucao } from '@/telas/devolucao/TelaDevolucao.js';
 import { TelaProdutos } from '@/telas/produtos/TelaProdutos.js';
 import { TelaVenda } from '@/telas/venda/TelaVenda.js';
 
@@ -69,5 +70,6 @@ function ConteudoComTerminal({ terminalId }: { terminalId: string }) {
   if (!sessao) return <TelaAberturaCaixa />;
   if (tela === 'gestao-caixa') return <TelaGestaoCaixa sessao={sessao} />;
   if (tela === 'produtos') return <TelaProdutos />;
+  if (tela === 'devolucao') return <TelaDevolucao />;
   return <TelaVenda />;
 }
