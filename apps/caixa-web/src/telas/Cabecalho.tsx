@@ -19,6 +19,7 @@ export function Cabecalho() {
   const tela = useNavegacao((estado) => estado.tela);
   const irParaVenda = useNavegacao((estado) => estado.irParaVenda);
   const irParaGestaoCaixa = useNavegacao((estado) => estado.irParaGestaoCaixa);
+  const irParaProdutos = useNavegacao((estado) => estado.irParaProdutos);
 
   if (!operador) return null;
 
@@ -31,12 +32,19 @@ export function Cabecalho() {
         <span className="text-rotulo text-texto-secundario">
           {operador.nome} <span className="text-texto-secundario/70">· {operador.papel}</span>
         </span>
+        {sessaoCaixa && tela === 'venda' && (
+          <Button variante="secundaria" onClick={irParaGestaoCaixa}>
+            Caixa
+          </Button>
+        )}
         {sessaoCaixa && (
-          <Button
-            variante="secundaria"
-            onClick={() => (tela === 'venda' ? irParaGestaoCaixa() : irParaVenda())}
-          >
-            {tela === 'venda' ? 'Caixa' : 'Voltar pra venda'}
+          <Button variante="secundaria" onClick={() => (tela === 'produtos' ? irParaVenda() : irParaProdutos())}>
+            {tela === 'produtos' ? 'Voltar pra venda' : 'Produtos'}
+          </Button>
+        )}
+        {sessaoCaixa && tela === 'gestao-caixa' && (
+          <Button variante="secundaria" onClick={irParaVenda}>
+            Voltar pra venda
           </Button>
         )}
         <Button variante="secundaria" onClick={() => setModalAberto(true)}>

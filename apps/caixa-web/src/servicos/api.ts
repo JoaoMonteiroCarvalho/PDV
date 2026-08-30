@@ -14,7 +14,7 @@ export class ErroApi extends Error {
 }
 
 interface OpcoesRequisicao {
-  metodo?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  metodo?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   corpo?: unknown;
   /** Chamadas de login não têm token ainda — todas as outras têm. */
   semAutenticacao?: boolean;
