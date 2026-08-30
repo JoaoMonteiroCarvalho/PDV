@@ -12,14 +12,34 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { z } from 'zod';
 import { type TokenOperador, verificarSenha } from './autenticacao.js';
 import { carregarConfiguracao, type Configuracao } from './config.js';
-import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
+import { ErroCaixa, ErroDevolucao, ErroEstoque, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
 import { esquemaListarVendas } from './esquemas/historico.js';
+import {
+  esquemaAtualizarProduto,
+  esquemaAtualizarVariante,
+  esquemaConfirmarImportacaoXml,
+  esquemaCriarProduto,
+  esquemaCriarVariante,
+  esquemaImportarXml,
+  esquemaListarProdutos,
+  esquemaMovimentoEstoque,
+} from './esquemas/produto.js';
 import { esquemaRelatorioResumo } from './esquemas/relatorios.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import { listarHistoricoVendas, obterDetalheVenda } from './servicos/historico.js';
+import { confirmarImportacao, preVisualizarImportacao } from './servicos/importacao-xml.js';
+import {
+  atualizarProduto,
+  atualizarVariante,
+  criarProduto,
+  criarVariante,
+  listarProdutos,
+  obterEstoqueVariante,
+  registrarMovimentoEstoqueManual,
+} from './servicos/produto.js';
 import { gerarRelatorioResumo } from './servicos/relatorios.js';
 import {
   abrirSessao,
@@ -62,6 +82,10 @@ const STATUS_POR_CODIGO: Readonly<Record<string, number>> = {
   VENDA_INEXISTENTE: 404,
   QUANTIDADE_MAIOR_QUE_DISPONIVEL: 422,
   ITEM_INEXISTENTE: 404,
+  // Produto / estoque
+  PRODUTO_INEXISTENTE: 404,
+  XML_INVALIDO: 400,
+  ITEM_SEM_DESTINO: 422,
 };
 
 export async function construirServidor(
@@ -520,6 +544,158 @@ export async function construirServidor(
         return resultado;
       } catch (erro) {
         return tratarErroCaixa(erro, resposta);
+      }
+    },
+  );
+
+  // --- Produtos, variantes e estoque -----------------------------------------
+
+  function tratarErroEstoque(erro: unknown, resposta: FastifyReply): FastifyReply | never {
+    if (erro instanceof ErroEstoque) {
+      const status = STATUS_POR_CODIGO[erro.codigo] ?? 422;
+      return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  app.get('/produtos', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaListarProdutos.safeParse(requisicao.query);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    return listarProdutos(prisma, entrada.data);
+  });
+
+  app.post('/produtos', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarProduto.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    const produto = await criarProduto(prisma, entrada.data);
+    return resposta.status(201).send(produto);
+  });
+
+  app.patch('/produtos/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarProduto.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+      });
+    }
+    try {
+      return await atualizarProduto(prisma, parametros.data.id, entrada.data);
+    } catch (erro) {
+      return tratarErroEstoque(erro, resposta);
+    }
+  });
+
+  app.post('/produtos/:id/variantes', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaCriarVariante.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+      });
+    }
+    try {
+      const variante = await criarVariante(prisma, parametros.data.id, entrada.data);
+      return resposta.status(201).send(variante);
+    } catch (erro) {
+      return tratarErroEstoque(erro, resposta);
+    }
+  });
+
+  app.patch('/variantes/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarVariante.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+      });
+    }
+    try {
+      return await atualizarVariante(prisma, parametros.data.id, entrada.data);
+    } catch (erro) {
+      return tratarErroEstoque(erro, resposta);
+    }
+  });
+
+  app.get('/variantes/:id/estoque', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    if (!parametros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: parametros.error.issues });
+    }
+    try {
+      return await obterEstoqueVariante(prisma, parametros.data.id);
+    } catch (erro) {
+      return tratarErroEstoque(erro, resposta);
+    }
+  });
+
+  /**
+   * Movimento manual de estoque: entrada de compra avulsa, perda ou ajuste
+   * de inventário. Perda e ajuste sempre exigem gerente identificado, sem
+   * alçada de quantidade — o mesmo desenho de sangria/suprimento no caixa.
+   */
+  app.post(
+    '/variantes/:id/movimentos-estoque',
+    { preHandler: exigirOperador },
+    async (requisicao, resposta) => {
+      const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+      const entrada = esquemaMovimentoEstoque.safeParse(requisicao.body);
+      if (!parametros.success || !entrada.success) {
+        return resposta.status(400).send({
+          codigo: 'ENTRADA_INVALIDA',
+          erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+        });
+      }
+      try {
+        const movimento = await registrarMovimentoEstoqueManual(
+          prisma,
+          parametros.data.id,
+          entrada.data,
+          { operadorId: requisicao.user.sub },
+        );
+        return resposta.status(201).send(movimento);
+      } catch (erro) {
+        return tratarErroEstoque(erro, resposta);
+      }
+    },
+  );
+
+  /**
+   * Importação de NF-e: só lê e casa por código de barras, não grava nada.
+   * A nota não traz preço de venda — o operador revisa antes de confirmar.
+   */
+  app.post('/produtos/importar-xml', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaImportarXml.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      return await preVisualizarImportacao(prisma, entrada.data.xml);
+    } catch (erro) {
+      return tratarErroEstoque(erro, resposta);
+    }
+  });
+
+  app.post(
+    '/produtos/confirmar-importacao-xml',
+    { preHandler: exigirOperador },
+    async (requisicao, resposta) => {
+      const entrada = esquemaConfirmarImportacaoXml.safeParse(requisicao.body);
+      if (!entrada.success) {
+        return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+      }
+      try {
+        const resultado = await confirmarImportacao(prisma, entrada.data, { operadorId: requisicao.user.sub });
+        return resposta.status(201).send(resultado);
+      } catch (erro) {
+        return tratarErroEstoque(erro, resposta);
       }
     },
   );

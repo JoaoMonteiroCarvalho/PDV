@@ -3,3 +3,4 @@ export * from './venda.js';
 export * from './caixa.js';
 export * from './devolucao.js';
 export * from './relatorio.js';
+export * from './estoque.js';

@@ -20,6 +20,7 @@
     "@fastify/jwt": "^10.2.2",
     "@pdv/shared": "*",
     "@prisma/client": "^6.1.0",
+    "fast-xml-parser": "^5.11.1",
     "fastify": "^5.2.0",
     "zod": "^3.24.1"
   },
