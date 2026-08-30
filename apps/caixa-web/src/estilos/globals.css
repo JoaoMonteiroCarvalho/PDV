@@ -20,11 +20,26 @@
     @apply h-full;
   }
 
-  /* Foco visível é inegociável numa interface 100% por teclado. O anel do
-     navegador é removido só onde um componente desenha o próprio indicador
-     equivalente (ver components/ui) — nunca globalmente. */
+  /* Foco visível é inegociável numa interface 100% por teclado. Glow suave
+     em vez de contorno reto — acompanha o raio arredondado do elemento em
+     vez de desenhar um retângulo por cima de um card redondo — mas continua
+     tão visível quanto um outline: cor forte, ~4px de espessura. Removido só
+     onde um componente desenha o próprio indicador equivalente (ver
+     components/ui) — nunca globalmente. */
   :focus-visible {
-    outline: 2px solid theme('colors.acento.DEFAULT');
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: theme('boxShadow.foco');
+  }
+}
+
+@layer components {
+  /* Toda superfície do sistema (card, modal, painel) usa `border-borda` —
+     é a classe em comum entre as ~30 telas que têm esse contorno. Empresta
+     esse seletor pra somar sombra ambiente a todas de uma vez, sem precisar
+     editar cada arquivo: profundidade passa a vir de luz, não só de linha.
+     Não redefine border-color aqui — a camada de utilities do Tailwind vem
+     depois desta e teria a palavra final sobre essa propriedade mesmo assim. */
+  .border-borda {
+    box-shadow: theme('boxShadow.suave');
   }
 }

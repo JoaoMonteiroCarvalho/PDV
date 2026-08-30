@@ -29,7 +29,7 @@ export function Cabecalho() {
   if (!operador) return null;
 
   return (
-    <header className="flex h-14 items-center justify-between gap-4 border-b border-borda bg-superficie px-5">
+    <header className="relative z-10 flex h-16 items-center justify-between gap-4 bg-superficie px-5 shadow-suave">
       <span className="shrink-0 text-corpo font-semibold">PDV</span>
 
       <div className="flex min-w-0 items-center gap-4 overflow-x-auto [&>*]:shrink-0">

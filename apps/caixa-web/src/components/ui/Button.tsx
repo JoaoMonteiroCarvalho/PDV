@@ -11,9 +11,9 @@ import { cn } from './utils.js';
  */
 
 const variantes = {
-  primaria: 'bg-acento text-acento-texto hover:bg-acento-hover',
-  secundaria: 'bg-superficie-alta text-texto border border-borda hover:bg-borda',
-  perigo: 'bg-perigo text-texto hover:bg-perigo-hover',
+  primaria: 'bg-acento text-acento-texto shadow-suave hover:bg-acento-hover hover:shadow-suave-lg',
+  secundaria: 'bg-superficie-alta text-texto border border-borda/60 hover:bg-borda',
+  perigo: 'bg-perigo text-texto shadow-suave hover:bg-perigo-hover hover:shadow-suave-lg',
   fantasma: 'bg-transparent text-texto-secundario hover:text-texto hover:bg-superficie-alta',
 } as const;
 
@@ -33,9 +33,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center gap-2 rounded font-semibold',
-          'transition-colors duration-100',
-          'disabled:cursor-not-allowed disabled:opacity-40',
+          'inline-flex items-center justify-center gap-2 rounded-full font-semibold',
+          'transition-all duration-150 ease-out active:scale-[0.97]',
+          'disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100',
           variantes[variante],
           tamanhos[tamanho],
           className,

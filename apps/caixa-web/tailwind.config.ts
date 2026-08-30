@@ -56,7 +56,21 @@ export default {
         alvo: '44px',
       },
       borderRadius: {
-        DEFAULT: '8px',
+        // Escala mais arredondada de propósito — nada de canto vivo no
+        // sistema. `lg` é o raio que praticamente todo card/modal/painel usa
+        // (`rounded-lg`), então subir esse valor sozinho já suaviza o app
+        // inteiro sem precisar tocar em cada tela.
+        DEFAULT: '14px',
+        lg: '22px',
+        xl: '28px',
+      },
+      boxShadow: {
+        // Sombra ambiente suave em vez de borda dura — a profundidade vem de
+        // luz, não de linha. Usada nos cards via globals.css (`.border-borda`)
+        // e disponível como utilitário (`shadow-suave`) pra quem precisar.
+        suave: '0 8px 24px -8px rgb(4 8 20 / 0.45), 0 2px 8px -2px rgb(4 8 20 / 0.3)',
+        'suave-lg': '0 20px 48px -12px rgb(4 8 20 / 0.55), 0 8px 20px -6px rgb(4 8 20 / 0.35)',
+        foco: '0 0 0 4px rgb(79 124 255 / 0.25)',
       },
     },
   },
