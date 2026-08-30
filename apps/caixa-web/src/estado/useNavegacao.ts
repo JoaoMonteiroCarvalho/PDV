@@ -18,7 +18,8 @@ type TelaPrincipal =
   | 'devolucao'
   | 'historico'
   | 'relatorios'
-  | 'crediario';
+  | 'crediario'
+  | 'equipe';
 
 interface EstadoNavegacao {
   readonly tela: TelaPrincipal;
@@ -29,6 +30,7 @@ interface EstadoNavegacao {
   irParaHistorico: () => void;
   irParaRelatorios: () => void;
   irParaCrediario: () => void;
+  irParaEquipe: () => void;
 }
 
 export const useNavegacao = create<EstadoNavegacao>()((set) => ({
@@ -40,4 +42,5 @@ export const useNavegacao = create<EstadoNavegacao>()((set) => ({
   irParaHistorico: () => set({ tela: 'historico' }),
   irParaRelatorios: () => set({ tela: 'relatorios' }),
   irParaCrediario: () => set({ tela: 'crediario' }),
+  irParaEquipe: () => set({ tela: 'equipe' }),
 }));

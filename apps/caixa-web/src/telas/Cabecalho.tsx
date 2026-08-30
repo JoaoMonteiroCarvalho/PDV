@@ -24,6 +24,7 @@ export function Cabecalho() {
   const irParaHistorico = useNavegacao((estado) => estado.irParaHistorico);
   const irParaRelatorios = useNavegacao((estado) => estado.irParaRelatorios);
   const irParaCrediario = useNavegacao((estado) => estado.irParaCrediario);
+  const irParaEquipe = useNavegacao((estado) => estado.irParaEquipe);
 
   if (!operador) return null;
 
@@ -56,6 +57,11 @@ export function Cabecalho() {
             <Button variante="secundaria" onClick={irParaCrediario}>
               Crediário
             </Button>
+            {(operador.papel === 'GERENTE' || operador.papel === 'ADMIN') && (
+              <Button variante="secundaria" onClick={irParaEquipe}>
+                Equipe
+              </Button>
+            )}
           </>
         )}
         {sessaoCaixa && tela !== 'venda' && (
