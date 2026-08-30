@@ -12,8 +12,14 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { z } from 'zod';
 import { type TokenOperador, verificarSenha } from './autenticacao.js';
 import { carregarConfiguracao, type Configuracao } from './config.js';
-import { ErroCaixa, ErroDevolucao, ErroEstoque, ErroVenda } from '@pdv/shared';
+import { ErroCaixa, ErroCliente, ErroDevolucao, ErroEstoque, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
+import {
+  esquemaAtualizarCliente,
+  esquemaCriarCliente,
+  esquemaListarClientes,
+  esquemaReceberParcela,
+} from './esquemas/cliente.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
 import { esquemaListarVendas } from './esquemas/historico.js';
 import {
@@ -28,6 +34,13 @@ import {
 } from './esquemas/produto.js';
 import { esquemaRelatorioResumo } from './esquemas/relatorios.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
+import {
+  atualizarCliente,
+  criarCliente,
+  listarClientes,
+  obterCrediarioCliente,
+  receberParcela,
+} from './servicos/cliente.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import { listarHistoricoVendas, obterDetalheVenda } from './servicos/historico.js';
 import { confirmarImportacao, preVisualizarImportacao } from './servicos/importacao-xml.js';
@@ -86,6 +99,9 @@ const STATUS_POR_CODIGO: Readonly<Record<string, number>> = {
   PRODUTO_INEXISTENTE: 404,
   XML_INVALIDO: 400,
   ITEM_SEM_DESTINO: 422,
+  // Cliente / crediário
+  PARCELA_INEXISTENTE: 404,
+  PARCELA_JA_QUITADA: 409,
 };
 
 export async function construirServidor(
@@ -696,6 +712,92 @@ export async function construirServidor(
         return resposta.status(201).send(resultado);
       } catch (erro) {
         return tratarErroEstoque(erro, resposta);
+      }
+    },
+  );
+
+  // --- Clientes e crediário ---------------------------------------------------
+
+  function tratarErroCliente(erro: unknown, resposta: FastifyReply): FastifyReply | never {
+    if (erro instanceof ErroCliente) {
+      const status = STATUS_POR_CODIGO[erro.codigo] ?? 422;
+      return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  app.get('/clientes', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaListarClientes.safeParse(requisicao.query);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    return listarClientes(prisma, entrada.data);
+  });
+
+  app.post('/clientes', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarCliente.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      const cliente = await criarCliente(prisma, entrada.data);
+      return resposta.status(201).send(cliente);
+    } catch (erro) {
+      return tratarErroCliente(erro, resposta);
+    }
+  });
+
+  app.patch('/clientes/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarCliente.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+      });
+    }
+    try {
+      return await atualizarCliente(prisma, parametros.data.id, entrada.data);
+    } catch (erro) {
+      return tratarErroCliente(erro, resposta);
+    }
+  });
+
+  /** Parcelas em aberto do cliente + limite disponível — usado pelo F6 da venda e pela tela de crediário. */
+  app.get('/clientes/:id/crediario', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    if (!parametros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: parametros.error.issues });
+    }
+    const crediario = await obterCrediarioCliente(prisma, parametros.data.id);
+    if (!crediario) return resposta.status(404).send({ codigo: 'CLIENTE_INEXISTENTE' });
+    return crediario;
+  });
+
+  /**
+   * Recebe pagamento de uma parcela de crediário. Exige o valor exato da
+   * parcela (sem quitação parcial) e sessão de caixa aberta — o dinheiro
+   * entra na gaveta do turno atual.
+   */
+  app.post(
+    '/parcelas/:id/receber',
+    { preHandler: exigirOperador },
+    async (requisicao, resposta) => {
+      const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+      const entrada = esquemaReceberParcela.safeParse(requisicao.body);
+      if (!parametros.success || !entrada.success) {
+        return resposta.status(400).send({
+          codigo: 'ENTRADA_INVALIDA',
+          erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+        });
+      }
+      try {
+        const recebimento = await receberParcela(prisma, parametros.data.id, entrada.data, {
+          operadorId: requisicao.user.sub,
+        });
+        return resposta.status(201).send(recebimento);
+      } catch (erro) {
+        return tratarErroCliente(erro, resposta);
       }
     },
   );
