@@ -12,7 +12,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { z } from 'zod';
 import { type TokenOperador, verificarSenha } from './autenticacao.js';
 import { carregarConfiguracao, type Configuracao } from './config.js';
-import { ErroCaixa, ErroCliente, ErroDevolucao, ErroEstoque, ErroVenda } from '@pdv/shared';
+import { ErroCaixa, ErroCliente, ErroDevolucao, ErroEstoque, ErroOperador, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import {
   esquemaAtualizarCliente,
@@ -20,6 +20,7 @@ import {
   esquemaListarClientes,
   esquemaReceberParcela,
 } from './esquemas/cliente.js';
+import { esquemaAtualizarOperador, esquemaCriarOperador } from './esquemas/operador.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
 import { esquemaListarVendas } from './esquemas/historico.js';
 import {
@@ -42,6 +43,7 @@ import {
   receberParcela,
 } from './servicos/cliente.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
+import { atualizarOperador, criarOperador, listarOperadores } from './servicos/operador.js';
 import { listarHistoricoVendas, obterDetalheVenda } from './servicos/historico.js';
 import { confirmarImportacao, preVisualizarImportacao } from './servicos/importacao-xml.js';
 import {
@@ -102,6 +104,10 @@ const STATUS_POR_CODIGO: Readonly<Record<string, number>> = {
   // Cliente / crediário
   PARCELA_INEXISTENTE: 404,
   PARCELA_JA_QUITADA: 409,
+  // Operador / equipe
+  SEM_PERMISSAO: 403,
+  OPERADOR_INEXISTENTE: 404,
+  LOGIN_EM_USO: 409,
 };
 
 export async function construirServidor(
@@ -358,14 +364,55 @@ export async function construirServidor(
     return { periodo: { desde: entrada.data.desde, ate: entrada.data.ate }, ...relatorio };
   });
 
-  /** Lista operadores ativos, para o filtro do relatório. */
-  app.get('/operadores', { preHandler: exigirOperador }, async () => {
-    const operadores = await prisma.usuario.findMany({
-      where: { ativo: true },
-      select: { id: true, nome: true },
-      orderBy: { nome: 'asc' },
-    });
+  function tratarErroOperador(erro: unknown, resposta: FastifyReply): FastifyReply | never {
+    if (erro instanceof ErroOperador) {
+      const status = STATUS_POR_CODIGO[erro.codigo] ?? 422;
+      return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  /**
+   * Lista operadores — por padrão só ativos (usado pelo filtro de relatório
+   * e histórico); `?todos=true` traz também os inativos, para a tela de
+   * gestão de equipe.
+   */
+  app.get('/operadores', { preHandler: exigirOperador }, async (requisicao) => {
+    const entrada = z.object({ todos: z.coerce.boolean().default(false) }).parse(requisicao.query);
+    const operadores = await listarOperadores(prisma, { somenteAtivos: !entrada.todos });
     return { operadores };
+  });
+
+  /** Criar operador é permissão permanente de gerente/admin — sem overlay de autorização pontual. */
+  app.post('/operadores', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarOperador.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      const operador = await criarOperador(prisma, entrada.data, { papelDeQuemPede: requisicao.user.papel });
+      return resposta.status(201).send(operador);
+    } catch (erro) {
+      return tratarErroOperador(erro, resposta);
+    }
+  });
+
+  app.patch('/operadores/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarOperador.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
+      });
+    }
+    try {
+      return await atualizarOperador(prisma, parametros.data.id, entrada.data, {
+        papelDeQuemPede: requisicao.user.papel,
+      });
+    } catch (erro) {
+      return tratarErroOperador(erro, resposta);
+    }
   });
 
   // --- Catálogo ------------------------------------------------------------
