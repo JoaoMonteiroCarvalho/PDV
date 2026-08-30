@@ -3,20 +3,28 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
 import { interpretarEntradaCodigo } from '@/dominio/codigoBarras.js';
+import { useSessao } from '@/estado/useSessao.js';
 import { totalCarrinhoCentavos, totalDePecas, useCarrinho } from '@/estado/useCarrinho.js';
 import { useCatalogo, type ItemCatalogo } from '@/servicos/catalogo.js';
+import { useSessaoCaixaAberta } from '@/servicos/caixa.js';
+import type { DadosComprovante } from '@/servicos/impressao.js';
+import { ModalFinalizarVenda, type ResultadoFinalizacao } from './ModalFinalizarVenda.js';
 import { PainelBuscaPorNome } from './PainelBuscaPorNome.js';
+import { TelaVendaConcluida } from './TelaVendaConcluida.js';
 
 /**
- * Tela de venda — Fase 2: layout e navegação por teclado. Pagamento
- * (finalização, F9) chega na Fase 3; aqui F9 só sinaliza que a venda está
- * pronta pra fechar, sem processar nada ainda.
+ * Tela de venda. Da Fase 3 em diante, F9 abre o pagamento múltiplo de
+ * verdade e a venda é registrada contra a API real.
  *
  * O campo de código NUNCA perde o foco por conta própria: toda ação
  * (adicionar item, fechar busca, cancelar) devolve o foco pra ele — é o
  * que permite o operador trabalhar com scanner USB sem tocar em nada.
  */
 export function TelaVenda() {
+  const operador = useSessao((estado) => estado.operador);
+  const terminalId = useSessao((estado) => estado.terminalId);
+  const { data: sessaoCaixa } = useSessaoCaixaAberta(terminalId);
+
   const { data: catalogo = [] } = useCatalogo();
   const itens = useCarrinho((estado) => estado.itens);
   const adicionar = useCarrinho((estado) => estado.adicionar);
@@ -30,6 +38,8 @@ export function TelaVenda() {
   const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false);
   const [editandoQuantidade, setEditandoQuantidade] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [finalizando, setFinalizando] = useState(false);
+  const [vendaConcluida, setVendaConcluida] = useState<DadosComprovante | null>(null);
 
   const refCampoCodigo = useRef<HTMLInputElement>(null);
   const refCampoQuantidade = useRef<HTMLInputElement>(null);
@@ -96,7 +106,10 @@ export function TelaVenda() {
   // (que é o estado normal da tela o tempo todo).
   useEffect(() => {
     function aoTeclar(e: KeyboardEvent) {
-      if (buscaAberta) return; // o painel de busca cuida das próprias teclas
+      // Painel de busca, modal de pagamento e tela de conclusão cuidam das
+      // próprias teclas — sem essa guarda, F9 dentro do modal reabriria o
+      // próprio modal, ou Esc cancelaria a venda por baixo dele.
+      if (buscaAberta || finalizando || vendaConcluida) return;
 
       if (e.key === 'F2') {
         e.preventDefault();
@@ -114,8 +127,10 @@ export function TelaVenda() {
         e.preventDefault();
         if (itens.length === 0) {
           setAviso('Adicione ao menos um item antes de finalizar.');
+        } else if (!sessaoCaixa) {
+          setAviso('Sessão de caixa não encontrada — recarregue a página.');
         } else {
-          setAviso('Finalização com pagamento entra na Fase 3.');
+          setFinalizando(true);
         }
       } else if (e.key === 'F10') {
         e.preventDefault();
@@ -128,7 +143,7 @@ export function TelaVenda() {
 
     window.addEventListener('keydown', aoTeclar);
     return () => window.removeEventListener('keydown', aoTeclar);
-  }, [buscaAberta, itens.length, removerUltimo]);
+  }, [buscaAberta, finalizando, vendaConcluida, itens.length, removerUltimo, sessaoCaixa]);
 
   useEffect(() => {
     if (!aviso) return;
@@ -139,8 +154,53 @@ export function TelaVenda() {
   const ultimoItem = itens.at(-1);
   const total = totalCarrinhoCentavos(itens);
 
+  function aoConcluirVenda(resultado: ResultadoFinalizacao) {
+    setVendaConcluida({
+      numero: resultado.numero,
+      vendaId: resultado.vendaId,
+      momento: new Date(),
+      operador: operador?.nome ?? '',
+      itens: itens.map((item) => ({
+        nome: item.nome,
+        tamanho: item.tamanho,
+        cor: item.cor,
+        quantidade: item.quantidade,
+        precoUnitarioCentavos: item.precoCentavos,
+        totalCentavos: item.precoCentavos * item.quantidade,
+      })),
+      totalCentavos: resultado.totalCentavos,
+      pagamentos: resultado.pagamentos,
+    });
+    setFinalizando(false);
+    limpar();
+  }
+
+  if (vendaConcluida) {
+    return (
+      <TelaVendaConcluida
+        dados={vendaConcluida}
+        aoContinuar={() => {
+          setVendaConcluida(null);
+          focarCampoCodigo();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="relative flex h-full flex-col">
+      {finalizando && sessaoCaixa && (
+        <ModalFinalizarVenda
+          itens={itens}
+          sessaoCaixaId={sessaoCaixa.id}
+          aoConcluir={aoConcluirVenda}
+          aoFechar={() => {
+            setFinalizando(false);
+            focarCampoCodigo();
+          }}
+        />
+      )}
+
       {buscaAberta && (
         <PainelBuscaPorNome
           catalogo={catalogo}
