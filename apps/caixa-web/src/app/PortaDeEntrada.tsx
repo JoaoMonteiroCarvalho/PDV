@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavegacao } from '@/estado/useNavegacao.js';
 import { useSessao } from '@/estado/useSessao.js';
 import { useSessaoCaixaAberta } from '@/servicos/caixa.js';
 import { Cabecalho } from '@/telas/Cabecalho.js';
 import { TelaAberturaCaixa } from '@/telas/TelaAberturaCaixa.js';
+import { TelaApresentacao } from '@/telas/apresentacao/TelaApresentacao.js';
 import { TelaConfigurarTerminal } from '@/telas/TelaConfigurarTerminal.js';
 import { TelaLogin } from '@/telas/TelaLogin.js';
 import { TelaGestaoCaixa } from '@/telas/caixa/TelaGestaoCaixa.js';
@@ -18,19 +19,29 @@ import { TelaVenda } from '@/telas/venda/TelaVenda.js';
 /**
  * Decide qual tela mostrar, na ordem que faz sentido operacionalmente:
  *
- *   1. sem login          -> TelaLogin
+ *   0. sem login, primeira vez no navegador -> TelaApresentacao (vitrine)
+ *   1. sem login                            -> TelaLogin
  *   2. sem terminal        -> TelaConfigurarTerminal (uma vez por computador)
  *   3. sem caixa aberto    -> TelaAberturaCaixa
- *   4. tudo certo          -> tela de venda (placeholder até a Fase 2)
+ *   4. tudo certo          -> tela de venda
  *
  * É condicional, não rota separada por passo: o operador não precisa
  * "navegar" por essas etapas, elas são pré-requisito pra chegar na venda.
+ *
+ * A apresentação é a ÚNICA tela do sistema com identidade visual diferente
+ * (fundo claro, objeto 3D) — existe só pra quem ainda não usa o sistema.
+ * Não é persistida: cada carga da página mostra de novo, como qualquer
+ * página de entrada de um site.
  */
 export function PortaDeEntrada() {
   const token = useSessao((estado) => estado.token);
   const terminalId = useSessao((estado) => estado.terminalId);
+  const [apresentacaoVista, setApresentacaoVista] = useState(false);
 
-  if (!token) return <TelaLogin />;
+  if (!token) {
+    if (!apresentacaoVista) return <TelaApresentacao aoEntrar={() => setApresentacaoVista(true)} />;
+    return <TelaLogin />;
+  }
   if (!terminalId) return <ConteudoAutenticado><TelaConfigurarTerminal /></ConteudoAutenticado>;
 
   return (
