@@ -156,13 +156,22 @@ export function TelaApresentacao({ aoEntrar }: Props) {
           </button>
         </div>
 
-        {/* Objeto 3D herói */}
-        <div data-parallax className="relative mt-6 h-[240px] w-full max-w-xl sm:mt-16 sm:h-[420px]">
+        {/* Objeto 3D herói — arrastável (OrbitControls só de rotação, dentro do Canvas) */}
+        <div
+          data-parallax
+          className="relative mt-6 h-[240px] w-full max-w-xl cursor-grab touch-none active:cursor-grabbing sm:mt-16 sm:h-[420px]"
+        >
           {mostrar3d ? (
             <Suspense
               fallback={<div className="h-full w-full animate-pulse rounded-[40%] bg-black/5" aria-hidden />}
             >
               <CenaHero corAcento={COR_ACENTO} />
+              <p
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 -bottom-2 text-center text-xs font-medium text-black/35"
+              >
+                arraste pra girar
+              </p>
             </Suspense>
           ) : (
             // Sem WebGL ou com "reduzir movimento" ligado: forma estática no
