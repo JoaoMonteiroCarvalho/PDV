@@ -135,7 +135,7 @@ export function TelaApresentacao({ aoEntrar }: Props) {
       </nav>
 
       {/* Hero */}
-      <section className="relative mx-auto flex max-w-6xl flex-col items-center px-6 pb-16 pt-16 text-center sm:pt-24">
+      <section className="relative mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-10 text-center sm:pb-16 sm:pt-24">
         <div ref={refHeadline}>
           <h1 className="mx-auto max-w-4xl text-[clamp(2.5rem,8vw,5.5rem)] font-black leading-[0.98] tracking-tight">
             Seu caixa.
@@ -157,7 +157,7 @@ export function TelaApresentacao({ aoEntrar }: Props) {
         </div>
 
         {/* Objeto 3D herói */}
-        <div data-parallax className="relative mt-16 h-[320px] w-full max-w-xl sm:h-[420px]">
+        <div data-parallax className="relative mt-6 h-[240px] w-full max-w-xl sm:mt-16 sm:h-[420px]">
           {mostrar3d ? (
             <Suspense
               fallback={<div className="h-full w-full animate-pulse rounded-[40%] bg-black/5" aria-hidden />}
