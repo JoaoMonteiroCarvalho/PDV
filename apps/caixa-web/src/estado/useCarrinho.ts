@@ -19,18 +19,28 @@ export interface ItemCarrinho {
   readonly quantidade: number;
 }
 
+export interface ClienteVinculado {
+  readonly id: string;
+  readonly nome: string;
+}
+
 interface EstadoCarrinho {
   readonly itens: readonly ItemCarrinho[];
+  /** Cliente vinculado via F6 — obrigatório só quando algum pagamento é CREDIARIO. */
+  readonly cliente: ClienteVinculado | null;
 
   adicionar: (produto: ItemCatalogoLocal, quantidade: number) => void;
   alterarQuantidade: (varianteId: string, quantidade: number) => void;
   removerUltimo: () => void;
   removerVariante: (varianteId: string) => void;
+  vincularCliente: (cliente: ClienteVinculado) => void;
+  desvincularCliente: () => void;
   limpar: () => void;
 }
 
 export const useCarrinho = create<EstadoCarrinho>()((set) => ({
   itens: [],
+  cliente: null,
 
   adicionar: (produto, quantidade) =>
     set((estado) => {
@@ -76,7 +86,10 @@ export const useCarrinho = create<EstadoCarrinho>()((set) => ({
   removerVariante: (varianteId) =>
     set((estado) => ({ itens: estado.itens.filter((item) => item.varianteId !== varianteId) })),
 
-  limpar: () => set({ itens: [] }),
+  vincularCliente: (cliente) => set({ cliente }),
+  desvincularCliente: () => set({ cliente: null }),
+
+  limpar: () => set({ itens: [], cliente: null }),
 }));
 
 /** Total simples, só para exibição em tempo real — soma preço × quantidade. */

@@ -23,6 +23,7 @@ export function Cabecalho() {
   const irParaDevolucao = useNavegacao((estado) => estado.irParaDevolucao);
   const irParaHistorico = useNavegacao((estado) => estado.irParaHistorico);
   const irParaRelatorios = useNavegacao((estado) => estado.irParaRelatorios);
+  const irParaCrediario = useNavegacao((estado) => estado.irParaCrediario);
 
   if (!operador) return null;
 
@@ -51,6 +52,9 @@ export function Cabecalho() {
             </Button>
             <Button variante="secundaria" onClick={irParaRelatorios}>
               Relatórios
+            </Button>
+            <Button variante="secundaria" onClick={irParaCrediario}>
+              Crediário
             </Button>
           </>
         )}

@@ -24,7 +24,13 @@ function renderizar(itens: ItemCarrinho[] = itensDeTeste) {
   const aoFechar = vi.fn();
   render(
     <QueryClientProvider client={cliente}>
-      <ModalFinalizarVenda itens={itens} sessaoCaixaId="sessao-1" aoConcluir={aoConcluir} aoFechar={aoFechar} />
+      <ModalFinalizarVenda
+        itens={itens}
+        sessaoCaixaId="sessao-1"
+        cliente={null}
+        aoConcluir={aoConcluir}
+        aoFechar={aoFechar}
+      />
     </QueryClientProvider>,
   );
   return { aoConcluir, aoFechar };

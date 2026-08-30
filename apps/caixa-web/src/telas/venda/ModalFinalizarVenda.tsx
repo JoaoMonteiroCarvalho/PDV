@@ -4,15 +4,23 @@ import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
 import { enfileirarVenda } from '@/banco-local/motorSincronizacao.js';
-import type { ItemCarrinho } from '@/estado/useCarrinho.js';
-import type { PagamentoVendaEntrada } from '@/servicos/vendas.js';
+import type { ClienteVinculado, ItemCarrinho } from '@/estado/useCarrinho.js';
+import { useCrediarioCliente } from '@/servicos/clientes.js';
+import type { CrediarioEntrada, PagamentoVendaEntrada } from '@/servicos/vendas.js';
 
 const FORMAS: ReadonlyArray<{ forma: FormaPagamento; rotulo: string }> = [
   { forma: 'DINHEIRO', rotulo: 'Dinheiro' },
   { forma: 'PIX', rotulo: 'PIX' },
   { forma: 'DEBITO', rotulo: 'Débito' },
   { forma: 'CREDITO', rotulo: 'Crédito' },
+  { forma: 'CREDIARIO', rotulo: 'Crediário' },
 ];
+
+function dataDaquiA(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
 
 function paraCentavos(texto: string): number | null {
   const limpo = texto.trim().replace(',', '.');
@@ -29,11 +37,12 @@ export interface ResultadoFinalizacao {
 interface Props {
   readonly itens: readonly ItemCarrinho[];
   readonly sessaoCaixaId: string;
+  readonly cliente: ClienteVinculado | null;
   readonly aoConcluir: (resultado: ResultadoFinalizacao) => void;
   readonly aoFechar: () => void;
 }
 
-export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar }: Props) {
+export function ModalFinalizarVenda({ itens, sessaoCaixaId, cliente, aoConcluir, aoFechar }: Props) {
   // `itens` pode ficar vazio por um instante entre a venda ser concluída (o
   // carrinho é limpo) e este modal desmontar — calcularVenda([]) lança
   // ErroVenda de propósito (uma venda sem item não existe), então aqui isso
@@ -53,9 +62,15 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
   const [pagamentos, setPagamentos] = useState<PagamentoVendaEntrada[]>([]);
   const [formaEmEdicao, setFormaEmEdicao] = useState<FormaPagamento | null>(null);
   const [valorDigitado, setValorDigitado] = useState('');
+  const [quantidadeParcelas, setQuantidadeParcelas] = useState('3');
+  const [primeiroVencimento, setPrimeiroVencimento] = useState(() => dataDaquiA(30));
+  const [crediario, setCrediario] = useState<CrediarioEntrada | null>(null);
   const [enfileirando, setEnfileirando] = useState(false);
   const [erroAoEnfileirar, setErroAoEnfileirar] = useState<string | null>(null);
   const refValor = useRef<HTMLInputElement>(null);
+
+  const { data: dadosCrediario } = useCrediarioCliente(cliente?.id ?? null);
+  const jaTemCrediario = pagamentos.some((p) => p.forma === 'CREDIARIO');
 
   const recebidoLiquido = pagamentos.length
     ? subtrair(
@@ -79,6 +94,18 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
     const valor = paraCentavos(valorDigitado);
     if (valor === null || valor <= 0) return;
 
+    if (formaEmEdicao === 'CREDIARIO') {
+      const parcelas = Number(quantidadeParcelas);
+      if (!Number.isInteger(parcelas) || parcelas < 1 || !primeiroVencimento) return;
+      if (dadosCrediario && valor > dadosCrediario.limiteDisponivelCentavos) return;
+      const valorFinal = Math.min(valor, saldoRestante);
+      setPagamentos((atual) => [...atual, { forma: 'CREDIARIO', valorCentavos: valorFinal, trocoCentavos: 0 }]);
+      setCrediario({ quantidadeParcelas: parcelas, primeiroVencimento });
+      setFormaEmEdicao(null);
+      setValorDigitado('');
+      return;
+    }
+
     const troco = formaEmEdicao === 'DINHEIRO' ? Math.max(0, valor - saldoRestante) : 0;
     // Formas sem troco não podem passar do que falta — a maquininha não
     // devolve dinheiro, então limito ao saldo em vez de deixar sobrar.
@@ -90,7 +117,11 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
   }
 
   function removerPagamento(indice: number) {
-    setPagamentos((atual) => atual.filter((_, i) => i !== indice));
+    setPagamentos((atual) => {
+      const removido = atual[indice];
+      if (removido?.forma === 'CREDIARIO') setCrediario(null);
+      return atual.filter((_, i) => i !== indice);
+    });
   }
 
   async function finalizar() {
@@ -107,6 +138,7 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
       await enfileirarVenda({
         id,
         sessaoCaixaId,
+        ...(cliente && { clienteId: cliente.id }),
         criadaEmCliente: new Date().toISOString(),
         itens: itens.map((item) => ({
           varianteId: item.varianteId,
@@ -116,6 +148,7 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
         })),
         descontoSobreTotalCentavos: 0,
         pagamentos,
+        ...(crediario && { crediario }),
       });
       aoConcluir({ vendaId: id, totalCentavos: totalVenda, pagamentos });
     } catch {
@@ -197,42 +230,93 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
           )}
 
           {formaEmEdicao ? (
-            <div className="flex items-center gap-3 rounded border border-acento bg-superficie-alta p-3">
-              <span className="text-corpo">{FORMAS.find((f) => f.forma === formaEmEdicao)?.rotulo}:</span>
-              <Input
-                ref={refValor}
-                value={valorDigitado}
-                onChange={(e) => setValorDigitado(e.target.value)}
-                inputMode="decimal"
-                placeholder="0,00"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    confirmarValor();
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setFormaEmEdicao(null);
-                  }
-                }}
-              />
-              {formaEmEdicao === 'DINHEIRO' && (() => {
-                const valor = paraCentavos(valorDigitado);
-                const trocoPrevisto = valor !== null ? Math.max(0, valor - saldoRestante) : 0;
-                return trocoPrevisto > 0 ? (
-                  <span className="text-rotulo text-texto-secundario">
-                    Troco: {formatarBRL(centavos(trocoPrevisto))}
-                  </span>
-                ) : null;
-              })()}
+            <div className="space-y-3 rounded border border-acento bg-superficie-alta p-3">
+              <div className="flex items-center gap-3">
+                <span className="text-corpo">{FORMAS.find((f) => f.forma === formaEmEdicao)?.rotulo}:</span>
+                <Input
+                  ref={refValor}
+                  value={valorDigitado}
+                  onChange={(e) => setValorDigitado(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      confirmarValor();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setFormaEmEdicao(null);
+                    }
+                  }}
+                />
+                {formaEmEdicao === 'DINHEIRO' && (() => {
+                  const valor = paraCentavos(valorDigitado);
+                  const trocoPrevisto = valor !== null ? Math.max(0, valor - saldoRestante) : 0;
+                  return trocoPrevisto > 0 ? (
+                    <span className="text-rotulo text-texto-secundario">
+                      Troco: {formatarBRL(centavos(trocoPrevisto))}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+
+              {formaEmEdicao === 'CREDIARIO' && (
+                <>
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="crediario-parcelas" className="text-rotulo text-texto-secundario">
+                      Parcelas
+                    </label>
+                    <Input
+                      id="crediario-parcelas"
+                      type="number"
+                      min={1}
+                      max={24}
+                      className="w-20"
+                      value={quantidadeParcelas}
+                      onChange={(e) => setQuantidadeParcelas(e.target.value)}
+                    />
+                    <label htmlFor="crediario-vencimento" className="text-rotulo text-texto-secundario">
+                      1º vencimento
+                    </label>
+                    <Input
+                      id="crediario-vencimento"
+                      type="date"
+                      value={primeiroVencimento}
+                      onChange={(e) => setPrimeiroVencimento(e.target.value)}
+                    />
+                  </div>
+                  {dadosCrediario && (
+                    <p className="text-rotulo text-texto-secundario">
+                      Limite disponível: {formatarBRL(centavos(dadosCrediario.limiteDisponivelCentavos))}
+                    </p>
+                  )}
+                  {dadosCrediario &&
+                    (paraCentavos(valorDigitado) ?? 0) > dadosCrediario.limiteDisponivelCentavos && (
+                      <p role="alert" className="text-rotulo text-perigo">
+                        Valor acima do limite disponível para este cliente.
+                      </p>
+                    )}
+                </>
+              )}
             </div>
           ) : (
             !pagamentoCompleto && (
               <div className="grid grid-cols-4 gap-2">
-                {FORMAS.map(({ forma, rotulo }) => (
-                  <Button key={forma} variante="secundaria" onClick={() => abrirValorPara(forma)}>
-                    {rotulo}
-                  </Button>
-                ))}
+                {FORMAS.map(({ forma, rotulo }) => {
+                  const desabilitada =
+                    forma === 'CREDIARIO' && (!cliente || jaTemCrediario || !dadosCrediario || dadosCrediario.limiteDisponivelCentavos <= 0);
+                  return (
+                    <Button
+                      key={forma}
+                      variante="secundaria"
+                      disabled={desabilitada}
+                      title={forma === 'CREDIARIO' && !cliente ? 'Vincule um cliente (F6) para usar crediário' : undefined}
+                      onClick={() => abrirValorPara(forma)}
+                    >
+                      {rotulo}
+                    </Button>
+                  );
+                })}
               </div>
             )
           )}

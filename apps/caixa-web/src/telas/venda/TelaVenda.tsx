@@ -9,6 +9,7 @@ import { useSessao } from '@/estado/useSessao.js';
 import { totalCarrinhoCentavos, totalDePecas, useCarrinho } from '@/estado/useCarrinho.js';
 import { useSessaoCaixaAberta } from '@/servicos/caixa.js';
 import type { DadosComprovante } from '@/servicos/impressao.js';
+import { ModalCliente } from './ModalCliente.js';
 import { ModalFinalizarVenda, type ResultadoFinalizacao } from './ModalFinalizarVenda.js';
 import { PainelBuscaPorNome } from './PainelBuscaPorNome.js';
 import { TelaVendaConcluida } from './TelaVendaConcluida.js';
@@ -36,10 +37,14 @@ export function TelaVenda() {
   const removerUltimo = useCarrinho((estado) => estado.removerUltimo);
   const limpar = useCarrinho((estado) => estado.limpar);
   const alterarQuantidade = useCarrinho((estado) => estado.alterarQuantidade);
+  const cliente = useCarrinho((estado) => estado.cliente);
+  const desvincularCliente = useCarrinho((estado) => estado.desvincularCliente);
+  const vincularCliente = useCarrinho((estado) => estado.vincularCliente);
 
   const [textoCodigo, setTextoCodigo] = useState('');
   const [erroCodigo, setErroCodigo] = useState<string | null>(null);
   const [buscaAberta, setBuscaAberta] = useState(false);
+  const [vinculandoCliente, setVinculandoCliente] = useState(false);
   const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false);
   const [editandoQuantidade, setEditandoQuantidade] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -114,7 +119,7 @@ export function TelaVenda() {
       // Painel de busca, modal de pagamento e tela de conclusão cuidam das
       // próprias teclas — sem essa guarda, F9 dentro do modal reabriria o
       // próprio modal, ou Esc cancelaria a venda por baixo dele.
-      if (buscaAberta || finalizando || vendaConcluida) return;
+      if (buscaAberta || finalizando || vendaConcluida || vinculandoCliente) return;
 
       if (e.key === 'F2') {
         e.preventDefault();
@@ -127,7 +132,7 @@ export function TelaVenda() {
         setAviso('Desconto entra numa fase futura, com autorização por alçada.');
       } else if (e.key === 'F6') {
         e.preventDefault();
-        setAviso('Vincular cliente entra na Fase 6 (clientes e fiado).');
+        setVinculandoCliente(true);
       } else if (e.key === 'F9') {
         e.preventDefault();
         if (itens.length === 0) {
@@ -148,7 +153,7 @@ export function TelaVenda() {
 
     window.addEventListener('keydown', aoTeclar);
     return () => window.removeEventListener('keydown', aoTeclar);
-  }, [buscaAberta, finalizando, vendaConcluida, itens.length, removerUltimo, sessaoCaixa]);
+  }, [buscaAberta, finalizando, vendaConcluida, vinculandoCliente, itens.length, removerUltimo, sessaoCaixa]);
 
   useEffect(() => {
     if (!aviso) return;
@@ -201,9 +206,24 @@ export function TelaVenda() {
         <ModalFinalizarVenda
           itens={itens}
           sessaoCaixaId={sessaoCaixa.id}
+          cliente={cliente}
           aoConcluir={aoConcluirVenda}
           aoFechar={() => {
             setFinalizando(false);
+            focarCampoCodigo();
+          }}
+        />
+      )}
+
+      {vinculandoCliente && (
+        <ModalCliente
+          aoVincular={(clienteEscolhido) => {
+            vincularCliente({ id: clienteEscolhido.id, nome: clienteEscolhido.nome });
+            setVinculandoCliente(false);
+            focarCampoCodigo();
+          }}
+          aoFechar={() => {
+            setVinculandoCliente(false);
             focarCampoCodigo();
           }}
         />
@@ -308,7 +328,21 @@ export function TelaVenda() {
 
         {/* Coluna lateral: total em destaque */}
         <div className="flex flex-col justify-between border-l border-borda bg-superficie p-6">
-          <div />
+          {cliente ? (
+            <div className="flex items-center justify-between rounded border border-acento bg-superficie-alta px-3 py-2">
+              <span className="truncate text-corpo">{cliente.nome}</span>
+              <button
+                type="button"
+                onClick={desvincularCliente}
+                aria-label={`Desvincular cliente ${cliente.nome}`}
+                className="text-texto-secundario hover:text-perigo"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <div />
+          )}
           <div>
             <p className="text-rotulo text-texto-secundario">Total</p>
             <p className="text-total">{formatarBRL(centavos(total))}</p>
