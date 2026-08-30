@@ -12,7 +12,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "npm run test --workspaces --if-present --workspace=packages/shared --workspace=apps/api --workspace=apps/pdv",
+    "test": "npm run test --workspaces --if-present --workspace=packages/shared --workspace=apps/api --workspace=apps/pdv --workspace=apps/caixa-web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",

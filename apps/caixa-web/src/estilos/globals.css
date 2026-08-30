@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* O app roda em janela dedicada de notebook, não rola de propósito:
+       cada tela controla sua própria rolagem interna quando precisa. */
+    height: 100%;
+  }
+
+  body {
+    @apply h-full bg-fundo text-texto antialiased;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    /* Não é site: nada de seleção de texto acidental durante a operação. */
+    user-select: none;
+  }
+
+  #raiz {
+    @apply h-full;
+  }
+
+  /* Foco visível é inegociável numa interface 100% por teclado. O anel do
+     navegador é removido só onde um componente desenha o próprio indicador
+     equivalente (ver components/ui) — nunca globalmente. */
+  :focus-visible {
+    outline: 2px solid theme('colors.acento.DEFAULT');
+    outline-offset: 2px;
+  }
+}
