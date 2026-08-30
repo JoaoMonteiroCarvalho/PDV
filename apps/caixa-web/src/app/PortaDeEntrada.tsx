@@ -10,6 +10,7 @@ import { TelaGestaoCaixa } from '@/telas/caixa/TelaGestaoCaixa.js';
 import { TelaDevolucao } from '@/telas/devolucao/TelaDevolucao.js';
 import { TelaHistorico } from '@/telas/historico/TelaHistorico.js';
 import { TelaProdutos } from '@/telas/produtos/TelaProdutos.js';
+import { TelaRelatorios } from '@/telas/relatorios/TelaRelatorios.js';
 import { TelaVenda } from '@/telas/venda/TelaVenda.js';
 
 /**
@@ -73,5 +74,6 @@ function ConteudoComTerminal({ terminalId }: { terminalId: string }) {
   if (tela === 'produtos') return <TelaProdutos />;
   if (tela === 'devolucao') return <TelaDevolucao />;
   if (tela === 'historico') return <TelaHistorico />;
+  if (tela === 'relatorios') return <TelaRelatorios />;
   return <TelaVenda />;
 }

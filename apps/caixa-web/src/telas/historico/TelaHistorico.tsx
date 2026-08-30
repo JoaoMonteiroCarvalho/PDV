@@ -5,19 +5,23 @@ import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
 import { useNavegacao } from '@/estado/useNavegacao.js';
 import { useHistoricoVendas, type LinhaHistoricoVenda } from '@/servicos/historico.js';
+import { useOperadores } from '@/servicos/relatorios.js';
 import { ModalDetalheVenda } from './ModalDetalheVenda.js';
 
 export function TelaHistorico() {
   const irParaVenda = useNavegacao((estado) => estado.irParaVenda);
   const [desde, setDesde] = useState('');
   const [ate, setAte] = useState('');
+  const [operadorId, setOperadorId] = useState('');
   const [paginas, setPaginas] = useState<readonly (readonly LinhaHistoricoVenda[])[]>([]);
   const [cursor, setCursor] = useState<{ antesDe?: string; ultimoId?: string }>({});
   const [vendaSelecionada, setVendaSelecionada] = useState<string | null>(null);
 
+  const { data: operadoresData } = useOperadores();
   const filtro = {
     ...(desde && { desde: new Date(desde).toISOString() }),
     ...(ate && { ate: new Date(ate).toISOString() }),
+    ...(operadorId && { operadorId }),
     ...cursor,
   };
   const { data, isLoading, isError } = useHistoricoVendas(filtro);
@@ -56,6 +60,24 @@ export function TelaHistorico() {
             Até
           </label>
           <Input id="historico-ate" type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="historico-operador" className="text-rotulo text-texto-secundario">
+            Operador
+          </label>
+          <select
+            id="historico-operador"
+            value={operadorId}
+            onChange={(e) => setOperadorId(e.target.value)}
+            className="h-alvo rounded border border-borda bg-fundo px-3 text-corpo text-texto"
+          >
+            <option value="">Todos</option>
+            {operadoresData?.operadores.map((operador) => (
+              <option key={operador.id} value={operador.id}>
+                {operador.nome}
+              </option>
+            ))}
+          </select>
         </div>
         <Button variante="secundaria" onClick={aplicarFiltroPeriodo}>
           Filtrar

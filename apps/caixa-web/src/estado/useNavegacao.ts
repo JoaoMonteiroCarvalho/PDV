@@ -11,7 +11,7 @@ import { create } from 'zustand';
  * existirem destinos que precisam disso de verdade (clientes, relatórios —
  * fases seguintes), aí sim entra o React Router.
  */
-type TelaPrincipal = 'venda' | 'gestao-caixa' | 'produtos' | 'devolucao' | 'historico';
+type TelaPrincipal = 'venda' | 'gestao-caixa' | 'produtos' | 'devolucao' | 'historico' | 'relatorios';
 
 interface EstadoNavegacao {
   readonly tela: TelaPrincipal;
@@ -20,6 +20,7 @@ interface EstadoNavegacao {
   irParaProdutos: () => void;
   irParaDevolucao: () => void;
   irParaHistorico: () => void;
+  irParaRelatorios: () => void;
 }
 
 export const useNavegacao = create<EstadoNavegacao>()((set) => ({
@@ -29,4 +30,5 @@ export const useNavegacao = create<EstadoNavegacao>()((set) => ({
   irParaProdutos: () => set({ tela: 'produtos' }),
   irParaDevolucao: () => set({ tela: 'devolucao' }),
   irParaHistorico: () => set({ tela: 'historico' }),
+  irParaRelatorios: () => set({ tela: 'relatorios' }),
 }));
