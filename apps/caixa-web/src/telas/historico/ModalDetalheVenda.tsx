@@ -23,7 +23,7 @@ export function ModalDetalheVenda({ vendaId, aoFechar }: Props) {
     <Dialog.Root open onOpenChange={(aberto) => !aberto && aoFechar()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 space-y-5 overflow-auto rounded-lg border border-borda bg-superficie p-8">
+        <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 space-y-5 overflow-auto rounded-lg border border-borda bg-superficie p-8">
           {isLoading && <p className="text-corpo text-texto-secundario">Carregando…</p>}
           {isError && (
             <p role="alert" className="text-corpo text-perigo">

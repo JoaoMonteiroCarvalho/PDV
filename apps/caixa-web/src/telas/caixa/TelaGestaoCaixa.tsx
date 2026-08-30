@@ -36,7 +36,7 @@ export function TelaGestaoCaixa({ sessao }: Props) {
 
   return (
     <div className="grid min-h-full place-items-center">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-borda bg-superficie p-8">
+      <div className="w-[calc(100%-2rem)] max-w-sm space-y-6 rounded-lg border border-borda bg-superficie p-8">
         <header className="space-y-1">
           <h1 className="text-valor">Caixa</h1>
           <p className="text-rotulo text-texto-secundario">

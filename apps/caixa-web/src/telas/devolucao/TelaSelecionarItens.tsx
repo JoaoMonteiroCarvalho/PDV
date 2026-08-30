@@ -216,7 +216,7 @@ function TelaResultado({
       <div
         role="status"
         aria-live="polite"
-        className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
+        className="w-[calc(100%-2rem)] max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
       >
         <h1 className="text-valor">Devolução registrada</h1>
         <p className="text-valor text-sucesso">{formatarBRL(centavos(resultado.totalCentavos))} estornado</p>

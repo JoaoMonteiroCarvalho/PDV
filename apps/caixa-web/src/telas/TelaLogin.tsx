@@ -49,7 +49,7 @@ export function TelaLogin() {
     <div className="grid min-h-full place-items-center">
       <form
         onSubmit={(e) => void handleSubmit(enviar)(e)}
-        className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8"
+        className="w-[calc(100%-2rem)] max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8"
       >
         <header className="space-y-1">
           <h1 className="text-valor">PDV — Caixa</h1>

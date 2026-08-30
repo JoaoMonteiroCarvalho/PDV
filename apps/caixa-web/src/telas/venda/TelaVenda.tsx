@@ -240,9 +240,9 @@ export function TelaVenda() {
         />
       )}
 
-      <div className="grid flex-1 grid-cols-[1fr_360px] overflow-hidden">
+      <div className="grid flex-1 grid-cols-1 overflow-auto lg:grid-cols-[1fr_360px] lg:overflow-hidden">
         {/* Coluna principal: código + lista de itens */}
-        <div className="flex flex-col overflow-hidden p-6">
+        <div className="flex flex-col p-6 lg:overflow-hidden">
           <Input
             ref={refCampoCodigo}
             value={textoCodigo}
@@ -327,7 +327,7 @@ export function TelaVenda() {
         </div>
 
         {/* Coluna lateral: total em destaque */}
-        <div className="flex flex-col justify-between border-l border-borda bg-superficie p-6">
+        <div className="flex flex-col justify-between gap-6 border-t border-borda bg-superficie p-6 lg:border-l lg:border-t-0">
           {cliente ? (
             <div
               role="status"
@@ -395,7 +395,7 @@ export function TelaVenda() {
         </div>
       )}
 
-      <footer className="flex justify-center gap-6 border-t border-borda bg-fundo px-6 py-2 text-rotulo text-texto-secundario">
+      <footer className="flex flex-wrap justify-center gap-x-6 gap-y-1 border-t border-borda bg-fundo px-6 py-2 text-rotulo text-texto-secundario">
         <span>F2 buscar</span>
         <span>F3 quantidade</span>
         <span>F4 desconto</span>

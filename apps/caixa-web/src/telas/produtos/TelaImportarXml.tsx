@@ -141,7 +141,7 @@ export function TelaImportarXml({ aoVoltar }: Props) {
                     Casado com <strong>{item.nomeExistente}</strong> ({item.skuExistente})
                   </p>
                 ) : (
-                  <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
                       <label htmlFor={`nome-${indice}`} className="text-rotulo text-texto-secundario">
                         Nome do produto novo

@@ -92,7 +92,7 @@ function FormularioCriacao({ aoConcluir, aoFechar }: { aoConcluir: () => void; a
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
+          className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             document.getElementById('operador-nome')?.focus();
@@ -213,7 +213,7 @@ function FormularioEdicao({
     <Dialog.Root open onOpenChange={(aberto) => !aberto && aoFechar()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8">
+        <Dialog.Content className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8">
           <Dialog.Title className="text-valor">Editar operador</Dialog.Title>
           <Dialog.Description className="text-rotulo text-texto-secundario">
             Login: {operador.login} (não pode ser alterado)

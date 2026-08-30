@@ -67,7 +67,7 @@ export function TelaFecharCaixa({ sessaoCaixaId, aoConcluir, aoVoltar }: Props) 
   if (confirmando) {
     return (
       <div className="grid min-h-full place-items-center">
-        <div className="w-full max-w-sm space-y-5 rounded-lg border border-alerta bg-superficie p-8 text-center">
+        <div className="w-[calc(100%-2rem)] max-w-sm space-y-5 rounded-lg border border-alerta bg-superficie p-8 text-center">
           <p className="text-corpo">Fechar o caixa contando</p>
           <p className="text-total">{formatarBRL(centavos(confirmando.valorContadoCentavos))}</p>
           <p className="text-rotulo text-texto-secundario">
@@ -101,7 +101,7 @@ export function TelaFecharCaixa({ sessaoCaixaId, aoConcluir, aoVoltar }: Props) 
             e,
           )
         }
-        className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8"
+        className="w-[calc(100%-2rem)] max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8"
       >
         <header className="space-y-1">
           <h1 className="text-valor">Fechar caixa</h1>
@@ -154,7 +154,7 @@ function ResultadoFechamentoView({
       <div
         role="status"
         aria-live="polite"
-        className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
+        className="w-[calc(100%-2rem)] max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
       >
         <h1 className="text-valor">Caixa fechado</h1>
 

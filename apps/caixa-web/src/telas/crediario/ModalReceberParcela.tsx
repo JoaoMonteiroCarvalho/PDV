@@ -36,7 +36,7 @@ export function ModalReceberParcela({ parcelaId, sessaoCaixaId, valorCentavos, a
           <Dialog.Content
             role="status"
             aria-live="polite"
-            className="fixed left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
+            className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
           >
             <Dialog.Title className="text-valor text-sucesso">Parcela recebida</Dialog.Title>
             <p className="text-corpo">{formatarBRL(centavos(valorCentavos))}</p>
@@ -53,7 +53,7 @@ export function ModalReceberParcela({ parcelaId, sessaoCaixaId, valorCentavos, a
     <Dialog.Root open onOpenChange={(aberto) => !aberto && aoFechar()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8">
+        <Dialog.Content className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8">
           <Dialog.Title className="text-valor">Receber parcela</Dialog.Title>
           <Dialog.Description className="text-corpo text-texto-secundario">
             {formatarBRL(centavos(valorCentavos))}

@@ -2,6 +2,7 @@ import { formatarBRL, centavos } from '@pdv/shared';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
+import { Select } from '@/components/ui/Select.js';
 import { useNavegacao } from '@/estado/useNavegacao.js';
 import { useOperadores, useRelatorioResumo } from '@/servicos/relatorios.js';
 
@@ -63,19 +64,14 @@ export function TelaRelatorios() {
           <label htmlFor="relatorio-operador" className="text-rotulo text-texto-secundario">
             Operador
           </label>
-          <select
-            id="relatorio-operador"
-            value={operadorId}
-            onChange={(e) => setOperadorId(e.target.value)}
-            className="h-alvo rounded border border-borda bg-fundo px-3 text-corpo text-texto"
-          >
+          <Select id="relatorio-operador" value={operadorId} onChange={(e) => setOperadorId(e.target.value)}>
             <option value="">Todos</option>
             {operadoresData?.operadores.map((operador) => (
               <option key={operador.id} value={operador.id}>
                 {operador.nome}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 

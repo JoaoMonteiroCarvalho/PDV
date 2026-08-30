@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge.js';
 import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
+import { Select } from '@/components/ui/Select.js';
 import { useNavegacao } from '@/estado/useNavegacao.js';
 import { useHistoricoVendas, type LinhaHistoricoVenda } from '@/servicos/historico.js';
 import { useOperadores } from '@/servicos/relatorios.js';
@@ -65,19 +66,14 @@ export function TelaHistorico() {
           <label htmlFor="historico-operador" className="text-rotulo text-texto-secundario">
             Operador
           </label>
-          <select
-            id="historico-operador"
-            value={operadorId}
-            onChange={(e) => setOperadorId(e.target.value)}
-            className="h-alvo rounded border border-borda bg-fundo px-3 text-corpo text-texto"
-          >
+          <Select id="historico-operador" value={operadorId} onChange={(e) => setOperadorId(e.target.value)}>
             <option value="">Todos</option>
             {operadoresData?.operadores.map((operador) => (
               <option key={operador.id} value={operador.id}>
                 {operador.nome}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <Button variante="secundaria" onClick={aplicarFiltroPeriodo}>
           Filtrar

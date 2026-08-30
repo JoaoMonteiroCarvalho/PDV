@@ -66,7 +66,7 @@ export function ModalTrocarOperador({ aberto, aoFechar }: Props) {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
+          className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
           onOpenAutoFocus={(e) => {
             // Radix focaria o botão de fechar por padrão; o operador quer
             // digitar o código, não navegar até o X.

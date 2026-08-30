@@ -29,10 +29,10 @@ export function Cabecalho() {
   if (!operador) return null;
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-borda bg-superficie px-5">
-      <span className="text-corpo font-semibold">PDV</span>
+    <header className="flex h-14 items-center justify-between gap-4 border-b border-borda bg-superficie px-5">
+      <span className="shrink-0 text-corpo font-semibold">PDV</span>
 
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-4 overflow-x-auto [&>*]:shrink-0">
         <IndicadorConexao />
         <span className="text-rotulo text-texto-secundario">
           {operador.nome} <span className="text-texto-secundario/70">· {operador.papel}</span>

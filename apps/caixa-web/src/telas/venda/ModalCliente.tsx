@@ -68,7 +68,7 @@ export function ModalCliente({ aoVincular, aoFechar }: Props) {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
+          className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             document.getElementById('cliente-busca')?.focus();

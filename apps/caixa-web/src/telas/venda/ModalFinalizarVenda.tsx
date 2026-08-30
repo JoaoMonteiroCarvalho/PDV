@@ -175,7 +175,7 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, cliente, aoConcluir,
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
+          className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-lg border border-borda bg-superficie p-8"
           onEscapeKeyDown={(e) => {
             if (formaEmEdicao) {
               e.preventDefault();
@@ -301,7 +301,7 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, cliente, aoConcluir,
             </div>
           ) : (
             !pagamentoCompleto && (
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {FORMAS.map(({ forma, rotulo }) => {
                   const desabilitada =
                     forma === 'CREDIARIO' && (!cliente || jaTemCrediario || !dadosCrediario || dadosCrediario.limiteDisponivelCentavos <= 0);
