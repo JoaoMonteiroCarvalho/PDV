@@ -156,8 +156,8 @@ export function TelaSelecionarItens({ venda, aoConcluir, aoVoltar }: Props) {
         })}
       </div>
 
-      <div className="space-y-1.5">
-        <span className="text-rotulo text-texto-secundario">Estorno via</span>
+      <fieldset className="space-y-1.5">
+        <legend className="text-rotulo text-texto-secundario">Estorno via</legend>
         <div className="flex gap-4">
           {(Object.keys(NOME_ESTORNO) as FormaEstorno[]).map((opcao) => (
             <label key={opcao} className="flex items-center gap-2 text-corpo">
@@ -172,7 +172,7 @@ export function TelaSelecionarItens({ venda, aoConcluir, aoVoltar }: Props) {
             </label>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       <div className="space-y-1.5">
         <label htmlFor="motivo-devolucao" className="text-rotulo text-texto-secundario">
@@ -213,7 +213,11 @@ function TelaResultado({
 }) {
   return (
     <div className="grid min-h-full place-items-center">
-      <div className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center">
+      <div
+        role="status"
+        aria-live="polite"
+        className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
+      >
         <h1 className="text-valor">Devolução registrada</h1>
         <p className="text-valor text-sucesso">{formatarBRL(centavos(resultado.totalCentavos))} estornado</p>
         <Button variante="primaria" tamanho="grande" className="w-full" onClick={aoConcluir} autoFocus>

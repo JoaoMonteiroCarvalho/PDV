@@ -101,7 +101,7 @@ export function TelaImportarXml({ aoVoltar }: Props) {
 
   if (confirmar.isSuccess) {
     return (
-      <div className="mx-auto max-w-md space-y-5 p-6 text-center">
+      <div role="status" aria-live="polite" className="mx-auto max-w-md space-y-5 p-6 text-center">
         <h1 className="text-valor">Importação concluída</h1>
         <p className="text-corpo">{confirmar.data.movimentosCriados} movimentos de estoque criados.</p>
         <Button variante="primaria" tamanho="grande" className="w-full" onClick={aoVoltar} autoFocus>

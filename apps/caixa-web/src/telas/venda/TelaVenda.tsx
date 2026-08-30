@@ -329,7 +329,12 @@ export function TelaVenda() {
         {/* Coluna lateral: total em destaque */}
         <div className="flex flex-col justify-between border-l border-borda bg-superficie p-6">
           {cliente ? (
-            <div className="flex items-center justify-between rounded border border-acento bg-superficie-alta px-3 py-2">
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center justify-between rounded border border-acento bg-superficie-alta px-3 py-2"
+            >
+              <span className="sr-only">Cliente vinculado:</span>
               <span className="truncate text-corpo">{cliente.nome}</span>
               <button
                 type="button"

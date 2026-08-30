@@ -43,7 +43,7 @@ export function TelaVendaConcluida({ dados, aoContinuar }: Props) {
 
   return (
     <div className="grid h-full place-items-center">
-      <div className="max-w-sm space-y-5 text-center">
+      <div role="status" aria-live="polite" className="max-w-sm space-y-5 text-center">
         <p className="text-total text-sucesso">Venda concluída ✓</p>
         <p className="text-corpo text-texto-secundario">
           {dados.numero !== null ? `Venda #${dados.numero}` : 'Venda registrada'} ·{' '}

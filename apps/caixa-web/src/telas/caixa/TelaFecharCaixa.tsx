@@ -151,7 +151,11 @@ function ResultadoFechamentoView({
 
   return (
     <div className="grid min-h-full place-items-center">
-      <div className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center">
+      <div
+        role="status"
+        aria-live="polite"
+        className="w-full max-w-sm space-y-5 rounded-lg border border-borda bg-superficie p-8 text-center"
+      >
         <h1 className="text-valor">Caixa fechado</h1>
 
         <dl className="space-y-2 text-left">

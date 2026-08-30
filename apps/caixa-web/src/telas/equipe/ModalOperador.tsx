@@ -128,8 +128,8 @@ function FormularioCriacao({ aoConcluir, aoFechar }: { aoConcluir: () => void; a
               {errors.senha && <p className="text-rotulo text-perigo">{errors.senha.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <span className="text-rotulo text-texto-secundario">Papel</span>
+            <fieldset className="space-y-1.5">
+              <legend className="text-rotulo text-texto-secundario">Papel</legend>
               <div className="flex gap-4">
                 {PAPEIS.map(({ valor, rotulo }) => (
                   <label key={valor} className="flex items-center gap-2 text-corpo">
@@ -138,7 +138,7 @@ function FormularioCriacao({ aoConcluir, aoFechar }: { aoConcluir: () => void; a
                   </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             <div className="space-y-1.5">
               <label htmlFor="operador-limite" className="text-rotulo text-texto-secundario">
@@ -228,8 +228,8 @@ function FormularioEdicao({
               {errors.nome && <p className="text-rotulo text-perigo">{errors.nome.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <span className="text-rotulo text-texto-secundario">Papel</span>
+            <fieldset className="space-y-1.5">
+              <legend className="text-rotulo text-texto-secundario">Papel</legend>
               <div className="flex gap-4">
                 {PAPEIS.map(({ valor, rotulo }) => (
                   <label key={valor} className="flex items-center gap-2 text-corpo">
@@ -238,7 +238,7 @@ function FormularioEdicao({
                   </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             <div className="space-y-1.5">
               <label htmlFor="operador-limite-editar" className="text-rotulo text-texto-secundario">

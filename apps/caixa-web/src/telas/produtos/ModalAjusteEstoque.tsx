@@ -112,8 +112,8 @@ export function ModalAjusteEstoque({ varianteId, descricaoVariante, aoConcluir, 
           <Dialog.Description className="text-corpo text-texto-secundario">{descricaoVariante}</Dialog.Description>
 
           <form onSubmit={(e) => void handleSubmit(confirmarFormulario)(e)} className="space-y-5">
-            <div className="space-y-1.5">
-              <span className="text-rotulo text-texto-secundario">Tipo</span>
+            <fieldset className="space-y-1.5">
+              <legend className="text-rotulo text-texto-secundario">Tipo</legend>
               <div className="flex flex-col gap-2">
                 {(Object.keys(NOME_DO_TIPO) as TipoMovimentoEstoque[]).map((opcao) => (
                   <label key={opcao} className="flex items-center gap-2 text-corpo">
@@ -131,7 +131,7 @@ export function ModalAjusteEstoque({ varianteId, descricaoVariante, aoConcluir, 
                   </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             <div className="space-y-1.5">
               <label htmlFor="ajuste-quantidade" className="text-rotulo text-texto-secundario">
