@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button.js';
 import { useSessao } from '@/estado/useSessao.js';
+import { IndicadorConexao } from './IndicadorConexao.js';
 import { ModalTrocarOperador } from './ModalTrocarOperador.js';
 
 /** Barra fixa no topo, sempre visível depois do login. */
@@ -16,6 +17,7 @@ export function Cabecalho() {
       <span className="text-corpo font-semibold">PDV</span>
 
       <div className="flex items-center gap-4">
+        <IndicadorConexao />
         <span className="text-rotulo text-texto-secundario">
           {operador.nome} <span className="text-texto-secundario/70">· {operador.papel}</span>
         </span>

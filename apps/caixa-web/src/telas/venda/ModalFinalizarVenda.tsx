@@ -3,9 +3,9 @@ import { calcularVenda, centavos, formatarBRL, somar, subtrair, type FormaPagame
 import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
+import { enfileirarVenda } from '@/banco-local/motorSincronizacao.js';
 import type { ItemCarrinho } from '@/estado/useCarrinho.js';
-import { ErroApi } from '@/servicos/api.js';
-import { useRegistrarVenda, type PagamentoVendaEntrada } from '@/servicos/vendas.js';
+import type { PagamentoVendaEntrada } from '@/servicos/vendas.js';
 
 const FORMAS: ReadonlyArray<{ forma: FormaPagamento; rotulo: string }> = [
   { forma: 'DINHEIRO', rotulo: 'Dinheiro' },
@@ -22,7 +22,6 @@ function paraCentavos(texto: string): number | null {
 
 export interface ResultadoFinalizacao {
   readonly vendaId: string;
-  readonly numero: number;
   readonly totalCentavos: number;
   readonly pagamentos: readonly PagamentoVendaEntrada[];
 }
@@ -54,9 +53,9 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
   const [pagamentos, setPagamentos] = useState<PagamentoVendaEntrada[]>([]);
   const [formaEmEdicao, setFormaEmEdicao] = useState<FormaPagamento | null>(null);
   const [valorDigitado, setValorDigitado] = useState('');
+  const [enfileirando, setEnfileirando] = useState(false);
+  const [erroAoEnfileirar, setErroAoEnfileirar] = useState<string | null>(null);
   const refValor = useRef<HTMLInputElement>(null);
-
-  const registrar = useRegistrarVenda();
 
   const recebidoLiquido = pagamentos.length
     ? subtrair(
@@ -95,25 +94,38 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
   }
 
   async function finalizar() {
-    const resultado = await registrar.mutateAsync({
-      id: crypto.randomUUID(),
-      sessaoCaixaId,
-      criadaEmCliente: new Date().toISOString(),
-      itens: itens.map((item) => ({
-        varianteId: item.varianteId,
-        quantidade: item.quantidade,
-        precoUnitarioCentavos: item.precoCentavos,
-        descontoCentavos: 0,
-      })),
-      descontoSobreTotalCentavos: 0,
-      pagamentos,
-    });
-    aoConcluir({
-      vendaId: resultado.vendaId,
-      numero: resultado.numero,
-      totalCentavos: resultado.totalCentavos,
-      pagamentos,
-    });
+    setErroAoEnfileirar(null);
+    setEnfileirando(true);
+    // Gerado ANTES de qualquer coisa: é este id, gerado no cliente, que faz a
+    // sincronização ser idempotente — reenviar a mesma venda nunca cria duas.
+    const id = crypto.randomUUID();
+    try {
+      // Grava no Dexie e devolve na hora — o envio pro servidor acontece em
+      // segundo plano (banco-local/motorSincronizacao.ts). A venda já
+      // aconteceu no mundo real; a tela não pode ficar esperando a rede pra
+      // confirmar isso ao operador.
+      await enfileirarVenda({
+        id,
+        sessaoCaixaId,
+        criadaEmCliente: new Date().toISOString(),
+        itens: itens.map((item) => ({
+          varianteId: item.varianteId,
+          quantidade: item.quantidade,
+          precoUnitarioCentavos: item.precoCentavos,
+          descontoCentavos: 0,
+        })),
+        descontoSobreTotalCentavos: 0,
+        pagamentos,
+      });
+      aoConcluir({ vendaId: id, totalCentavos: totalVenda, pagamentos });
+    } catch {
+      // Isto só falha se o próprio IndexedDB recusar a escrita (quota
+      // cheia, navegador em modo privado sem suporte) — não é erro de rede,
+      // que o motor de sincronização já absorve sozinho.
+      setErroAoEnfileirar('Não foi possível gravar a venda neste dispositivo. Tente novamente.');
+    } finally {
+      setEnfileirando(false);
+    }
   }
 
   // Estado transitório entre "venda concluída" e este modal desmontar — ver
@@ -225,9 +237,9 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
             )
           )}
 
-          {registrar.isError && (
+          {erroAoEnfileirar && (
             <p role="alert" className="text-rotulo text-perigo">
-              {registrar.error instanceof ErroApi ? registrar.error.message : 'Não foi possível registrar a venda.'}
+              {erroAoEnfileirar}
             </p>
           )}
 
@@ -240,10 +252,10 @@ export function ModalFinalizarVenda({ itens, sessaoCaixaId, aoConcluir, aoFechar
             <Button
               variante="primaria"
               tamanho="grande"
-              disabled={!pagamentoCompleto || registrar.isPending}
+              disabled={!pagamentoCompleto || enfileirando}
               onClick={() => void finalizar()}
             >
-              {registrar.isPending ? 'Registrando…' : 'Finalizar (F9)'}
+              {enfileirando ? 'Registrando…' : 'Finalizar (F9)'}
             </Button>
           </div>
         </Dialog.Content>

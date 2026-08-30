@@ -2,10 +2,11 @@ import { formatarBRL, centavos } from '@pdv/shared';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button.js';
 import { Input } from '@/components/ui/Input.js';
+import { useCatalogoLocal, useSincronizacaoCatalogo } from '@/banco-local/sincronizacaoCatalogo.js';
+import type { ItemCatalogoLocal } from '@/banco-local/db.js';
 import { interpretarEntradaCodigo } from '@/dominio/codigoBarras.js';
 import { useSessao } from '@/estado/useSessao.js';
 import { totalCarrinhoCentavos, totalDePecas, useCarrinho } from '@/estado/useCarrinho.js';
-import { useCatalogo, type ItemCatalogo } from '@/servicos/catalogo.js';
 import { useSessaoCaixaAberta } from '@/servicos/caixa.js';
 import type { DadosComprovante } from '@/servicos/impressao.js';
 import { ModalFinalizarVenda, type ResultadoFinalizacao } from './ModalFinalizarVenda.js';
@@ -25,7 +26,11 @@ export function TelaVenda() {
   const terminalId = useSessao((estado) => estado.terminalId);
   const { data: sessaoCaixa } = useSessaoCaixaAberta(terminalId);
 
-  const { data: catalogo = [] } = useCatalogo();
+  // Sincroniza o catálogo do servidor pro Dexie enquanto o caixa está
+  // aberto; a busca/leitura abaixo é sempre do IndexedDB, nunca da API
+  // diretamente — é isso que permite continuar vendendo sem rede.
+  useSincronizacaoCatalogo(!!sessaoCaixa);
+  const catalogo: ItemCatalogoLocal[] = useCatalogoLocal();
   const itens = useCarrinho((estado) => estado.itens);
   const adicionar = useCarrinho((estado) => estado.adicionar);
   const removerUltimo = useCarrinho((estado) => estado.removerUltimo);
@@ -54,7 +59,7 @@ export function TelaVenda() {
     focarCampoCodigo();
   }, []);
 
-  function localizarPorCodigo(codigo: string): ItemCatalogo | undefined {
+  function localizarPorCodigo(codigo: string): ItemCatalogoLocal | undefined {
     return catalogo.find((item) => item.codigoBarras === codigo || item.sku === codigo);
   }
 
@@ -90,7 +95,7 @@ export function TelaVenda() {
     focarCampoCodigo();
   }
 
-  function escolherDaBusca(produto: ItemCatalogo) {
+  function escolherDaBusca(produto: ItemCatalogoLocal) {
     adicionar(produto, 1);
     setBuscaAberta(false);
     focarCampoCodigo();
@@ -156,7 +161,10 @@ export function TelaVenda() {
 
   function aoConcluirVenda(resultado: ResultadoFinalizacao) {
     setVendaConcluida({
-      numero: resultado.numero,
+      // O número sequencial só existe quando o servidor confirma — a venda
+      // acabou de ser gravada localmente, ainda não foi sincronizada. O
+      // comprovante mostra "pendente" com o código curto do id enquanto isso.
+      numero: null,
       vendaId: resultado.vendaId,
       momento: new Date(),
       operador: operador?.nome ?? '',

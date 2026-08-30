@@ -18,6 +18,15 @@ interface OpcoesRequisicao {
   corpo?: unknown;
   /** Chamadas de login não têm token ainda — todas as outras têm. */
   semAutenticacao?: boolean;
+  /**
+   * Sem isto, uma conexão que trava (não erra, só nunca responde) prende o
+   * `await` para sempre. Pouco importa numa chamada que o operador está
+   * olhando e pode cancelar clicando em outro lugar — mas o motor de
+   * sincronização (banco-local/motorSincronizacao.ts) roda sozinho, sem
+   * ninguém olhando, e uma trava presa ali para a fila inteira até a
+   * página ser recarregada. Todo chamador de fundo deve informar isto.
+   */
+  timeoutMs?: number;
 }
 
 /**
@@ -28,7 +37,7 @@ interface OpcoesRequisicao {
  * decidir a mensagem exata a mostrar, nunca "erro genérico".
  */
 export async function api<T>(caminho: string, opcoes: OpcoesRequisicao = {}): Promise<T> {
-  const { metodo = 'GET', corpo, semAutenticacao = false } = opcoes;
+  const { metodo = 'GET', corpo, semAutenticacao = false, timeoutMs } = opcoes;
 
   const cabecalhos: Record<string, string> = { 'Content-Type': 'application/json' };
   if (!semAutenticacao) {
@@ -40,6 +49,7 @@ export async function api<T>(caminho: string, opcoes: OpcoesRequisicao = {}): Pr
     method: metodo,
     headers: cabecalhos,
     body: corpo !== undefined ? JSON.stringify(corpo) : null,
+    signal: timeoutMs !== undefined ? AbortSignal.timeout(timeoutMs) : null,
   });
 
   const dados = await resposta.json().catch(() => ({}));

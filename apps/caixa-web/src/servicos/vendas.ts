@@ -1,6 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { FormaPagamento } from '@pdv/shared';
-import { api } from './api.js';
+
+/**
+ * Contrato de venda com o backend. Só tipos aqui — desde a Fase 4, ninguém
+ * chama `POST /vendas` diretamente: toda venda passa por
+ * `banco-local/motorSincronizacao.ts` (`enfileirarVenda`), que grava no
+ * Dexie primeiro e só então tenta a rede.
+ */
 
 export interface ItemVendaEntrada {
   readonly varianteId: string;
@@ -29,21 +34,4 @@ export interface RespostaVenda {
   readonly numero: number;
   readonly totalCentavos: number;
   readonly jaEstavaRegistrada: boolean;
-}
-
-/**
- * Registra a venda já fechada. Idempotente pelo `id` gerado no cliente: um
- * reenvio (retry de rede, duplo clique) devolve a MESMA venda em vez de
- * criar outra — a Fase 4 depende exatamente disso pra fila offline funcionar.
- */
-export function useRegistrarVenda() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (entrada: RegistrarVendaEntrada) =>
-      api<RespostaVenda>('/vendas', { metodo: 'POST', corpo: entrada }),
-    onSuccess: () => {
-      // O saldo esperado do caixa muda a cada venda em dinheiro.
-      void queryClient.invalidateQueries({ queryKey: ['sessao-caixa-aberta'] });
-    },
-  });
 }

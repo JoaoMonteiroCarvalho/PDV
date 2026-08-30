@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ItemCatalogo } from '@/servicos/catalogo.js';
+import type { ItemCatalogoLocal } from '@/banco-local/db.js';
 
 /**
  * Carrinho em andamento — estado do CLIENTE, não persistido entre recargas
@@ -22,7 +22,7 @@ export interface ItemCarrinho {
 interface EstadoCarrinho {
   readonly itens: readonly ItemCarrinho[];
 
-  adicionar: (produto: ItemCatalogo, quantidade: number) => void;
+  adicionar: (produto: ItemCatalogoLocal, quantidade: number) => void;
   alterarQuantidade: (varianteId: string, quantidade: number) => void;
   removerUltimo: () => void;
   removerVariante: (varianteId: string) => void;

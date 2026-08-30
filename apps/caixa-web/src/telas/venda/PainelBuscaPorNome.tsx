@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatarBRL, centavos } from '@pdv/shared';
 import { Input } from '@/components/ui/Input.js';
-import type { ItemCatalogo } from '@/servicos/catalogo.js';
+import type { ItemCatalogoLocal } from '@/banco-local/db.js';
 
 /**
  * Busca por nome (F2), navegável só pelo teclado: setas movem a seleção,
@@ -9,8 +9,8 @@ import type { ItemCatalogo } from '@/servicos/catalogo.js';
  * instantâneo, mas sem refiltrar a cada tecla numa lista grande.
  */
 interface Props {
-  readonly catalogo: readonly ItemCatalogo[];
-  readonly aoEscolher: (produto: ItemCatalogo) => void;
+  readonly catalogo: readonly ItemCatalogoLocal[];
+  readonly aoEscolher: (produto: ItemCatalogoLocal) => void;
   readonly aoFechar: () => void;
 }
 
