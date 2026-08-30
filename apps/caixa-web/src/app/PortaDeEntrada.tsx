@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
+import { useNavegacao } from '@/estado/useNavegacao.js';
 import { useSessao } from '@/estado/useSessao.js';
 import { useSessaoCaixaAberta } from '@/servicos/caixa.js';
 import { Cabecalho } from '@/telas/Cabecalho.js';
 import { TelaAberturaCaixa } from '@/telas/TelaAberturaCaixa.js';
 import { TelaConfigurarTerminal } from '@/telas/TelaConfigurarTerminal.js';
 import { TelaLogin } from '@/telas/TelaLogin.js';
+import { TelaGestaoCaixa } from '@/telas/caixa/TelaGestaoCaixa.js';
 import { TelaVenda } from '@/telas/venda/TelaVenda.js';
 
 /**
@@ -43,6 +45,7 @@ function ConteudoAutenticado({ children }: { children: ReactNode }) {
 
 function ConteudoComTerminal({ terminalId }: { terminalId: string }) {
   const { data: sessao, isLoading, isError } = useSessaoCaixaAberta(terminalId);
+  const tela = useNavegacao((estado) => estado.tela);
 
   if (isLoading) {
     return (
@@ -63,5 +66,6 @@ function ConteudoComTerminal({ terminalId }: { terminalId: string }) {
   }
 
   if (!sessao) return <TelaAberturaCaixa />;
+  if (tela === 'gestao-caixa') return <TelaGestaoCaixa sessao={sessao} />;
   return <TelaVenda />;
 }
