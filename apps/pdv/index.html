@@ -1,9 +1,19 @@
 <!doctype html>
-<html lang="pt-BR">
+<!--
+  data-theme="light" fica AQUI, no HTML servido, e não é definido por
+  JavaScript depois da montagem. Dois motivos:
+
+  1. Sem isso haveria um flash de tema errado antes do React montar.
+  2. O tema NUNCA é herdado do sistema operacional. A tela do balcão abria
+     escura sozinha quando o Windows estava em modo escuro, sem ninguém ter
+     pedido. Claro é o padrão fixo; escuro só por escolha manual em
+     Configurações, que reescreve este atributo.
+-->
+<html lang="pt-BR" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#1e1b4b" />
+    <meta name="theme-color" content="#FBFBFD" />
     <title>PDV — Caixa</title>
   </head>
   <body>

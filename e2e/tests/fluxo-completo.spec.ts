@@ -13,10 +13,21 @@
  * aparece ao voltar da venda pelo botão "Caixa".
  */
 
+/*
+ * PENDENTE — aguardando reconstrucao da interface.
+ *
+ * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
+ * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
+ * por teste de integracao no backend. O que sumiu foi a tela.
+ *
+ * Volta a rodar quando Fase 2, 3 e 6 entregar: abertura de caixa, tela de venda, sangria e fechamento.
+ * Deixar como skip e registro de divida, nao conserto.
+ */
+
 import { expect, test } from '@playwright/test';
 import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
 
-test.describe('fluxo completo de venda', () => {
+test.describe.skip('fluxo completo de venda', () => {
   test.beforeEach(async () => {
     await garantirTerminalFechado();
   });

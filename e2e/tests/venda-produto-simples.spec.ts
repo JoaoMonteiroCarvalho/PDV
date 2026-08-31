@@ -4,6 +4,17 @@
  * testes unitários do carrinho.
  */
 
+/*
+ * PENDENTE — aguardando reconstrucao da interface.
+ *
+ * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
+ * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
+ * por teste de integracao no backend. O que sumiu foi a tela.
+ *
+ * Volta a rodar quando Fase 3 entregar: tela de venda.
+ * Deixar como skip e registro de divida, nao conserto.
+ */
+
 import { expect, test } from '@playwright/test';
 import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
 
@@ -11,7 +22,7 @@ test.beforeEach(async () => {
   await garantirTerminalFechado();
 });
 
-test('vende produto sem tamanho/cor e paga com débito', async ({ page }) => {
+test.skip('vende produto sem tamanho/cor e paga com débito', async ({ page }) => {
   await irParaTelaCaixa(page);
 
   await page.getByPlaceholder('0,00').fill('100,00');
@@ -32,7 +43,7 @@ test('vende produto sem tamanho/cor e paga com débito', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Finalizar e imprimir' })).toBeEnabled();
 });
 
-test('bipar o mesmo produto duas vezes soma a quantidade', async ({ page }) => {
+test.skip('bipar o mesmo produto duas vezes soma a quantidade', async ({ page }) => {
   await irParaTelaCaixa(page);
 
   await page.getByPlaceholder('0,00').fill('100,00');

@@ -1,700 +1,176 @@
-/*
- * Estilo do caixa.
+@import 'tailwindcss';
+
+/* ===========================================================================
+ * DESIGN SYSTEM — PDV moda íntima
  *
- * Decisões de uso, não de gosto:
- *   - alto contraste: a loja tem vitrine e o balcão pega sol;
- *   - alvos grandes: a operadora usa com pressa, às vezes com a mão ocupada;
- *   - o total é o maior elemento da tela — é o número que ela confere em voz
- *     alta com a cliente.
- */
+ * DOIS SISTEMAS DE COR PARALELOS, e eles nunca se cruzam:
+ *
+ *   1. PALETA DE INTERFACE (`--bg`, `--ink`, `--accent`...)
+ *      Neutra + um único azul de destaque. Muda com o tema.
+ *
+ *   2. PALETA DE CATÁLOGO (`--produto-*`)
+ *      As cores reais das peças. NÃO muda com o tema, nunca deriva de
+ *      `--accent`. Um sutiã vinho é vinho no tema claro e no escuro.
+ *
+ * Misturar os dois é o erro que faz um produto "mudar de cor" quando alguém
+ * troca o tema da interface. Ficam separados até no nome do token.
+ * =========================================================================== */
+
+/* --- 1. Paleta de interface — tema claro (padrão e único ativo) ----------- */
 
 :root {
-  --fundo: #0f172a;
-  --superficie: #1e293b;
-  --superficie-clara: #334155;
-  --borda: #475569;
-  --texto: #f1f5f9;
-  --texto-fraco: #94a3b8;
-  --destaque: #6366f1;
-  --sucesso: #22c55e;
-  --alerta: #f59e0b;
-  --perigo: #ef4444;
-  --raio: 10px;
+  --bg: #fbfbfd;
+  --surface: #ffffff;
+  --surface-sunken: #f5f5f7;
+  --line: #e3e3e7;
+  --ink: #1d1d1f;
+  --ink-soft: #6e6e73;
+  --ink-faint: #a1a1a6;
+  --accent: #0071e3;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8f1fd;
+  --ok: #1e8e5a;
+  --alerta: #b25000;
+  --perigo: #c4341f;
+  --raio: 18px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-* {
-  box-sizing: border-box;
+/*
+ * Tema escuro APENAS por escolha manual em Configurações — `data-theme="dark"`.
+ *
+ * Deliberadamente NÃO existe `@media (prefers-color-scheme: dark)` aqui.
+ * Herdar o tema do sistema operacional já causou confusão real: a tela abria
+ * escura sem ninguém ter pedido. O app força claro na raiz e só muda se a
+ * operadora pedir.
+ */
+[data-theme='dark'] {
+  --bg: #000000;
+  --surface: #1d1d1f;
+  --surface-sunken: #161617;
+  --line: #38383a;
+  --ink: #f5f5f7;
+  --ink-soft: #a1a1a6;
+  --ink-faint: #6e6e73;
+  --accent: #2997ff;
+  --accent-ink: #ffffff;
+  --accent-soft: #12233a;
+  --ok: #30d158;
+  --alerta: #ff9f0a;
+  --perigo: #ff453a;
 }
 
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--fundo);
-  color: var(--texto);
-  /* O caixa é um app em tela cheia: a página nunca rola inteira. */
-  overflow: hidden;
+/* --- 2. Paleta de catálogo — cores reais das peças ------------------------
+ *
+ * Fixas nos dois temas de propósito. O cadastro do produto guarda a CHAVE
+ * ("vinho"), não o hex — a tradução acontece aqui, num lugar só.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --produto-preto: #1a1a1c;
+  --produto-grafite: #3e3e42;
+  --produto-marfim: #f2efe9;
+  --produto-nude: #d8b49c;
+  --produto-blush: #e8b7b7;
+  --produto-vinho: #7a3129;
+  --produto-vermelho: #a81e28;
+  --produto-marinho: #1e2a44;
+  --produto-verde: #3a5a4a;
 }
 
-button {
-  font: inherit;
-  cursor: pointer;
-  border: none;
-  border-radius: var(--raio);
-  background: var(--superficie-clara);
-  color: var(--texto);
-  padding: 10px 14px;
-  transition: filter 0.12s ease;
+/* --- Ponte para o Tailwind ------------------------------------------------
+ * `inline` mantém a referência `var(...)` em vez de congelar o valor — é o
+ * que permite as classes utilitárias trocarem de cor junto com o tema.
+ * ------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-alerta: var(--alerta);
+  --color-perigo: var(--perigo);
+
+  --radius-card: var(--raio);
+
+  --font-titulo: 'Sora', -apple-system, system-ui, sans-serif;
+  --font-corpo: 'Karla', -apple-system, system-ui, sans-serif;
+  --font-numero: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --ease-suave: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-button:hover:not(:disabled) {
-  filter: brightness(1.25);
-}
+/* --- Base ---------------------------------------------------------------- */
 
-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-input {
-  font: inherit;
-  background: var(--fundo);
-  color: var(--texto);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  padding: 10px 12px;
-  width: 100%;
-}
-
-input:focus {
-  outline: 2px solid var(--destaque);
-  outline-offset: 1px;
-}
-
-/* --- Login ---------------------------------------------------------------- */
-
-.tela-login {
-  display: grid;
-  place-items: center;
-  height: 100vh;
-}
-
-.cartao-login {
-  background: var(--superficie);
-  padding: 32px;
-  border-radius: 16px;
-  width: min(380px, 90vw);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.cartao-login h1 {
-  margin: 0;
-  font-size: 26px;
-}
-
-.subtitulo {
-  margin: 0 0 8px;
-  color: var(--texto-fraco);
-  font-size: 14px;
-}
-
-.cartao-login label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--texto-fraco);
-}
-
-.cartao-login button[type='submit'] {
-  background: var(--destaque);
-  padding: 14px;
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-/* --- Barra de status ------------------------------------------------------ */
-
-.barra-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: var(--superficie);
-  border-bottom: 1px solid var(--borda);
-  font-size: 13px;
-}
-
-.barra-status .marca {
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--destaque);
-}
-
-.barra-status .preenche {
-  flex: 1;
-}
-
-.indicador {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-}
-
-/* Offline não é erro: o caixa continua vendendo. A cor comunica isso. */
-.indicador.online {
-  background: color-mix(in srgb, var(--sucesso) 20%, transparent);
-  color: var(--sucesso);
-}
-
-.indicador.offline {
-  background: color-mix(in srgb, var(--alerta) 20%, transparent);
-  color: var(--alerta);
-}
-
-.indicador.pendente {
-  background: color-mix(in srgb, var(--destaque) 25%, transparent);
-  color: #c7d2fe;
-}
-
-.indicador.bloqueado {
-  background: color-mix(in srgb, var(--perigo) 22%, transparent);
-  color: #fca5a5;
-}
-
-.barra-status .catalogo,
-.barra-status .operador {
-  color: var(--texto-fraco);
-}
-
-.barra-status .sair {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-/* --- Tela de venda -------------------------------------------------------- */
-
-.tela-venda {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-.corpo {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 380px;
-  gap: 12px;
-  padding: 12px;
-  min-height: 0;
-}
-
-.painel-busca,
-.painel-carrinho,
-.painel-total {
-  background: var(--superficie);
-  border-radius: 14px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.campo-busca {
-  font-size: 16px;
-  padding: 14px;
-}
-
-.resultados {
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.resultados button {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 12px;
-  text-align: left;
-  background: var(--superficie-clara);
-  padding: 12px;
-}
-
-.resultados .nome {
-  font-weight: 600;
-}
-
-.resultados .variacao {
-  grid-column: 1;
-  font-size: 12px;
-  color: var(--texto-fraco);
-}
-
-.resultados .preco {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  align-self: center;
-  font-weight: 700;
-}
-
-.vazio {
-  color: var(--texto-fraco);
-  font-size: 14px;
-}
-
-.painel-carrinho h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.painel-carrinho h2 small {
-  color: var(--texto-fraco);
-  font-weight: 400;
-}
-
-.itens {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.itens li {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  align-items: center;
-  gap: 12px;
-  background: var(--superficie-clara);
-  border-radius: var(--raio);
-  padding: 10px 12px;
-}
-
-.itens .descricao {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.itens .descricao span {
-  font-size: 12px;
-  color: var(--texto-fraco);
-}
-
-.quantidade {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.quantidade button {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  font-size: 18px;
-}
-
-.itens .valor {
-  font-weight: 700;
-  min-width: 90px;
-  text-align: right;
-}
-
-.itens .remover {
-  background: transparent;
-  color: var(--perigo);
-  font-size: 20px;
-  padding: 4px 8px;
-}
-
-/* --- Totais e pagamento --------------------------------------------------- */
-
-.painel-total {
-  gap: 10px;
-  overflow-y: auto;
-}
-
-.painel-total .linha {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 15px;
-}
-
-.painel-total .linha.total {
-  font-size: 30px;
-  font-weight: 800;
-  border-top: 1px solid var(--borda);
-  padding-top: 12px;
-  margin-top: 4px;
-}
-
-.campo-valor {
-  width: 130px;
-  text-align: right;
-}
-
-.pagamentos {
-  border-top: 1px solid var(--borda);
-  padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pagamentos h3 {
-  margin: 0;
-  font-size: 14px;
-  color: var(--texto-fraco);
-}
-
-.pagamentos ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pagamentos li {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  background: var(--superficie-clara);
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.formas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.troco {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--sucesso);
-}
-
-.finalizar {
-  background: var(--sucesso);
-  color: #052e16;
-  font-size: 17px;
-  font-weight: 700;
-  padding: 16px;
-  margin-top: 8px;
-}
-
-.cancelar {
-  background: transparent;
-  color: var(--texto-fraco);
-  font-size: 13px;
-}
-
-.limpar {
-  background: transparent;
-  color: var(--texto-fraco);
-  font-size: 12px;
-  padding: 4px;
-}
-
-.erro {
-  color: #fca5a5;
-  background: color-mix(in srgb, var(--perigo) 15%, transparent);
-  padding: 10px;
-  border-radius: var(--raio);
-  font-size: 14px;
-  margin: 0;
-}
-
-.sucesso {
-  color: var(--sucesso);
-  font-size: 14px;
-  margin: 0;
-}
-
-@media (max-width: 1100px) {
-  .corpo {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 1fr;
+@layer base {
+  html {
+    overflow-x: hidden;
   }
-  .painel-total {
-    grid-column: span 2;
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-corpo);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-titulo);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /*
+   * Foco visível e consistente. A tela de venda é operada por teclado; se o
+   * foco some, a operadora fica cega.
+   */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-/* --- Tela de caixa (abertura/fechamento) ---------------------------------- */
+@layer utilities {
+  /*
+   * Todo número que entra em coluna (preço, código, quantidade) usa largura
+   * tabular — sem isso os totais "dançam" ao atualizar e a conferência de
+   * caixa fica desconfortável de ler.
+   */
+  .num {
+    font-family: var(--font-numero);
+    font-variant-numeric: tabular-nums;
+  }
 
-.tela-caixa {
-  display: grid;
-  place-items: center;
-  height: 100vh;
-}
+  /* Elevação: sombra difusa e quase imperceptível, só para separar planos. */
+  .elevado {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 4%),
+      0 8px 24px rgb(0 0 0 / 6%);
+  }
 
-.cartao-caixa {
-  background: var(--superficie);
-  padding: 32px;
-  border-radius: 16px;
-  width: min(420px, 90vw);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.cartao-caixa-largo {
-  width: min(560px, 92vw);
-}
-
-.cartao-caixa h1 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.cartao-caixa label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--texto-fraco);
-}
-
-.campo-valor-grande {
-  font-size: 28px;
-  font-weight: 700;
-  text-align: right;
-  padding: 14px;
-}
-
-.ajuda {
-  margin: 0;
-  font-size: 13px;
-  color: var(--texto-fraco);
-}
-
-.acao-principal {
-  background: var(--destaque);
-  font-weight: 700;
-  padding: 14px;
-  font-size: 16px;
-}
-
-.acao-perigo {
-  background: var(--perigo);
-  color: #450a0a;
-  font-weight: 700;
-}
-
-.resumo-caixa {
-  display: grid;
-  gap: 10px;
-  background: var(--superficie-clara);
-  border-radius: var(--raio);
-  padding: 14px;
-}
-
-.resumo-caixa div {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-}
-
-.acoes-caixa {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-}
-
-.painel-flutuante {
-  background: var(--superficie-clara);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.painel-flutuante h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.acoes-formulario {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.barra-status .caixa {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-/* --- Devolução -------------------------------------------------------------- */
-
-.barra-status .devolucao {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.cabecalho-devolucao {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.cabecalho-devolucao h1 {
-  margin: 0;
-}
-
-.busca-venda,
-.formulario-devolucao {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.busca-venda label,
-.formulario-devolucao label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--texto-fraco);
-}
-
-.formulario-devolucao select {
-  font: inherit;
-  background: var(--fundo);
-  color: var(--texto);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  padding: 10px 12px;
-}
-
-.itens-devolucao {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.itens-devolucao li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  background: var(--superficie-clara);
-  border-radius: var(--raio);
-  padding: 10px 12px;
-}
-
-.itens-devolucao .descricao {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.itens-devolucao .descricao span {
-  font-size: 12px;
-  color: var(--texto-fraco);
-}
-
-.total-devolucao {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.resultado-devolucao {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-/* --- Histórico de vendas ---------------------------------------------------- */
-
-.barra-status .historico {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.historico-vendas {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.historico-vendas label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--texto-fraco);
-}
-
-.lista-historico {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-}
-
-.lista-historico li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  background: var(--superficie-clara);
-  border-radius: var(--raio);
-  padding: 10px 12px;
-}
-
-.lista-historico .descricao {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.lista-historico .descricao span {
-  font-size: 12px;
-  color: var(--texto-fraco);
-}
-
-.lista-historico .valor {
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.paginacao-historico {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--texto-fraco);
+  .elevado-alto {
+    box-shadow:
+      0 2px 8px rgb(0 0 0 / 6%),
+      0 24px 48px rgb(0 0 0 / 12%);
+  }
 }

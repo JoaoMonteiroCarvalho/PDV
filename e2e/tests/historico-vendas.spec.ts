@@ -6,6 +6,17 @@
  * sessão atual e clica em "Devolver" direto dali.
  */
 
+/*
+ * PENDENTE — aguardando reconstrucao da interface.
+ *
+ * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
+ * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
+ * por teste de integracao no backend. O que sumiu foi a tela.
+ *
+ * Volta a rodar quando Fase 5 entregar: histórico de vendas.
+ * Deixar como skip e registro de divida, nao conserto.
+ */
+
 import { expect, test } from '@playwright/test';
 import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
 
@@ -13,7 +24,7 @@ test.beforeEach(async () => {
   await garantirTerminalFechado();
 });
 
-test('lista a venda no histórico e devolve direto pela lista, sem digitar número', async ({
+test.skip('lista a venda no histórico e devolve direto pela lista, sem digitar número', async ({
   page,
   context,
 }) => {
@@ -68,7 +79,7 @@ test('lista a venda no histórico e devolve direto pela lista, sem digitar núme
   await expect(page.getByText(/já teve devolução/)).toBeVisible();
 });
 
-test('busca por cliente filtra a lista do histórico', async ({ page, context }) => {
+test.skip('busca por cliente filtra a lista do histórico', async ({ page, context }) => {
   await irParaTelaCaixa(page);
 
   await page.getByPlaceholder('0,00').fill('100,00');

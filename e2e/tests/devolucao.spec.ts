@@ -6,6 +6,17 @@
  * compra várias peças iguais e devolve só uma.
  */
 
+/*
+ * PENDENTE — aguardando reconstrucao da interface.
+ *
+ * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
+ * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
+ * por teste de integracao no backend. O que sumiu foi a tela.
+ *
+ * Volta a rodar quando Fase 5 entregar: devolução.
+ * Deixar como skip e registro de divida, nao conserto.
+ */
+
 import { expect, test } from '@playwright/test';
 import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
 
@@ -13,7 +24,7 @@ test.beforeEach(async () => {
   await garantirTerminalFechado();
 });
 
-test('vende 2 unidades, devolve 1 e a outra continua disponível para devolução futura', async ({
+test.skip('vende 2 unidades, devolve 1 e a outra continua disponível para devolução futura', async ({
   page,
   context,
 }) => {
@@ -88,7 +99,7 @@ test('vende 2 unidades, devolve 1 e a outra continua disponível para devoluçã
   await expect(page.getByText(/disponível 1/)).toBeVisible();
 });
 
-test('devolução exige gerente válido — operador comum é recusado', async ({ page, context }) => {
+test.skip('devolução exige gerente válido — operador comum é recusado', async ({ page, context }) => {
   await irParaTelaCaixa(page);
   await page.getByPlaceholder('0,00').fill('100,00');
   await page.getByRole('button', { name: 'Abrir caixa' }).click();

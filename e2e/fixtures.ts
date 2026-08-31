@@ -27,8 +27,10 @@ export function terminalIdSemeado(): string {
  */
 export async function loginOperador(page: Page): Promise<void> {
   const { DADOS_E2E } = await import('./dados.js');
-  await page.goto('/');
-  await page.getByLabel('Operador').fill(DADOS_E2E.operador.login);
+  // Rota dedicada: `/` cai no guard e redireciona para cá de qualquer forma,
+  // mas ir direto evita depender do redirecionamento no caminho feliz.
+  await page.goto('/entrar');
+  await page.getByLabel('Operadora').fill(DADOS_E2E.operador.login);
   await page.getByLabel('Senha').fill(DADOS_E2E.operador.senha);
 
   const respostaLogin = page.waitForResponse((resposta) => resposta.url().includes('/sessao/login'));
