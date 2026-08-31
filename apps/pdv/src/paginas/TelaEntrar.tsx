@@ -1,24 +1,46 @@
 /**
  * Login / seleção de operadora.
  *
- * VERSÃO DA FASE 0 — funcional, mas ainda sem a cena 3D. A composição já é a
- * final: o palco do objeto à esquerda ocupando a maior parte da tela, o
- * formulário pequeno e discreto ao lado, nunca por cima. Na Fase 1 o painel
- * neutro vira a cena 3D, sem mexer no formulário.
+ * Composição no espírito de uma página de produto: o objeto ocupa o palco
+ * grande à esquerda como protagonista, e o formulário fica pequeno e discreto
+ * ao lado — nunca por cima da cena, competindo com ela.
+ *
+ * A cena 3D entra por `lazy`: o formulário renderiza e recebe foco antes de
+ * qualquer byte de Three.js chegar. Quem só quer bater o ponto e abrir o
+ * caixa não espera a peça carregar.
  */
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Suspense, lazy, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { Botao, Campo, Erro } from '../componentes/base.js';
+import { CORES_PRODUTO } from '../design/coresProduto.js';
 import { useSessao } from '../estado/sessaoStore.js';
+import { PalcoEstatico } from '../tres/PalcoEstatico.js';
+import { podeRenderizar3d } from '../tres/capacidade.js';
+
+const CenaLogin = lazy(() => import('../tres/CenaLogin.js'));
+
+/**
+ * Cores da embalagem — da paleta de CATÁLOGO, não da interface. A caixinha
+ * continua marfim com fita vinho mesmo se alguém trocar o tema do sistema.
+ */
+const COR_EMBALAGEM = CORES_PRODUTO.marfim.hex;
+const COR_FITA = CORES_PRODUTO.vinho.hex;
 
 const esquema = z.object({
   login: z.string().min(1, 'Informe o usuário'),
   senha: z.string().min(1, 'Informe a senha'),
 });
 type Entrada = z.infer<typeof esquema>;
+
+function saudacao(hora = new Date().getHours()): string {
+  if (hora < 12) return 'Bom dia';
+  if (hora < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
 
 export function TelaEntrar() {
   const operadora = useSessao((estado) => estado.operadora);
@@ -27,6 +49,9 @@ export function TelaEntrar() {
   const entrando = useSessao((estado) => estado.entrando);
   const navegar = useNavigate();
   const local = useLocation();
+
+  // Decidido uma vez: a capacidade do computador não muda no meio da sessão.
+  const usar3d = useMemo(() => podeRenderizar3d(), []);
 
   const {
     register,
@@ -49,21 +74,26 @@ export function TelaEntrar() {
   }
 
   return (
-    <div className="grid h-screen grid-cols-1 bg-bg lg:grid-cols-[1.4fr_1fr]">
-      {/*
-        Palco do objeto. Na Fase 1 recebe a cena 3D; por ora, o mesmo respiro
-        visual com um fundo neutro — nunca um placeholder cinza feio.
-      */}
-      <section className="relative hidden place-items-center overflow-hidden bg-sunken lg:grid">
-        <div className="size-64 rounded-[32px] bg-surface elevado" aria-hidden />
-        <p className="absolute bottom-8 text-[13px] text-ink-faint">
-          Cena 3D entra na Fase 1
-        </p>
+    <div className="grid h-screen grid-cols-1 bg-bg lg:grid-cols-[1.45fr_1fr]">
+      <section className="relative hidden overflow-hidden bg-sunken lg:block">
+        {usar3d ? (
+          <Suspense fallback={<PalcoEstatico cor={COR_EMBALAGEM} corFita={COR_FITA} />}>
+            <CenaLogin cor={COR_EMBALAGEM} corFita={COR_FITA} />
+          </Suspense>
+        ) : (
+          <PalcoEstatico cor={COR_EMBALAGEM} corFita={COR_FITA} />
+        )}
+
+        {usar3d && (
+          <p className="pointer-events-none absolute inset-x-0 bottom-8 text-center text-[12px] text-ink-faint">
+            Arraste para girar
+          </p>
+        )}
       </section>
 
       <section className="grid place-items-center px-8">
         <form onSubmit={handleSubmit(submeter)} className="w-full max-w-[320px]">
-          <h1 className="text-[26px]">Bom dia</h1>
+          <h1 className="text-[26px]">{saudacao()}</h1>
           <p className="mt-1 mb-8 text-[15px] text-ink-soft">Identifique-se para abrir o caixa</p>
 
           <div className="flex flex-col gap-4">
@@ -84,7 +114,13 @@ export function TelaEntrar() {
 
             {erro && <Erro>{erro}</Erro>}
 
-            <Botao type="submit" variante="primario" tamanho="grande" disabled={entrando} className="mt-2 w-full">
+            <Botao
+              type="submit"
+              variante="primario"
+              tamanho="grande"
+              disabled={entrando}
+              className="mt-2 w-full"
+            >
               {entrando ? 'Entrando…' : 'Entrar'}
             </Botao>
           </div>

@@ -37,6 +37,7 @@ function definirEstado(parcial: Partial<EstadoSincronizacao>): void {
 
 afterEach(() => {
   estadoAtual.valor = null;
+  vi.restoreAllMocks();
 });
 
 describe('IndicadorConexao', () => {
@@ -47,9 +48,20 @@ describe('IndicadorConexao', () => {
   });
 
   it('offline avisa que a venda continua possível — não é erro', () => {
+    // Estar online vem do NAVEGADOR, nao do motor: o indicador precisa
+    // acertar mesmo antes de o motor de sincronizacao subir.
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     definirEstado({ online: false });
     render(<IndicadorConexao />);
     // A operadora não pode achar que o caixa parou.
+    expect(screen.getByText(/vendendo normalmente/i)).toBeVisible();
+  });
+
+  it('acerta o estado offline mesmo sem o motor ter iniciado', () => {
+    // Cenario da corrida real: tela montada, motor ainda subindo, rede caida.
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    estadoAtual.valor = null; // motor nunca emitiu nada
+    render(<IndicadorConexao />);
     expect(screen.getByText(/vendendo normalmente/i)).toBeVisible();
   });
 
