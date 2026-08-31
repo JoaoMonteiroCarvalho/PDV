@@ -226,7 +226,26 @@ informativo; vale-troca não mexe em caixa nenhum.
 **Localização da venda**: o operador digita o número impresso no comprovante,
 ou o código curto do UUID quando a venda ainda está na fila offline (o número
 sequencial só existe depois que o servidor confirma — o código de 8
-caracteres é impresso sempre, mesmo sem rede).
+caracteres é impresso sempre, mesmo sem rede). Também dá para localizar sem
+digitar nada: veja Histórico de vendas abaixo.
+
+## Histórico de vendas
+
+Resolve o caso em que o operador não tem o comprovante em mãos (cliente sem
+nota, nota rasgada ou perdida). `GET /vendas` lista as vendas **da sessão de
+caixa atual** — não mistura turnos — com busca por nome de cliente e
+paginação. Cada linha mostra um indicador `temDevolucao`, calculado a partir
+da existência de `Cancelamento` vinculado, para o operador ver de relance
+quais vendas já tiveram alguma devolução sem abrir cada uma.
+
+Clicar em "Devolver" numa linha da lista leva **direto** para a tela de
+devolução com a venda já resolvida — sem digitar de novo o número que acabou
+de aparecer na tela.
+
+A paginação aqui é por **offset**, diferente da paginação por chave do
+catálogo: aceitável porque o volume por sessão de caixa é baixo e vendas
+nunca são editadas, só inseridas em ordem — não há o risco de deslocamento de
+página que a paginação por chave existe para evitar.
 
 ## Estado atual
 
@@ -241,13 +260,14 @@ caracteres é impresso sempre, mesmo sem rede).
 | API — vendas e catalogo | verificada de ponta a ponta — 39 testes |
 | API — sessao de caixa (abrir, sangria, suprimento, fechar) | verificada de ponta a ponta — 17 testes |
 | API — devolucao (parcial, busca por numero/codigo, alcada) | verificada de ponta a ponta — 23 testes |
+| API — historico de vendas (filtro, busca, paginacao) | verificada de ponta a ponta — 10 testes |
 | Seed | 8 produtos, 60 variantes, sessao de caixa aberta |
 | Banco local do caixa (IndexedDB) | pronto |
 | Fila de sincronizacao | pronta — 25 testes |
 | Carrinho | pronto — 23 testes (2 novos: saldo com troco) |
 | Sincronizacao e busca do catalogo | pronta — 17 testes |
 | Comprovante 80mm | pronto — 12 testes |
-| Tela de venda + abertura/fechamento de caixa + devolucao + PWA instalavel | verificada de ponta a ponta — **7 testes Playwright** |
+| Tela de venda + abertura/fechamento de caixa + devolucao + historico + PWA instalavel | verificada de ponta a ponta — **9 testes Playwright** |
 
-**269 testes de API/unitarios** (174 unitarios + 95 de integracao) **+ 7
+**279 testes de API/unitarios** (174 unitarios + 105 de integracao) **+ 9
 testes E2E**, `tsc --strict` limpo nos quatro workspaces.

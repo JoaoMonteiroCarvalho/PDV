@@ -160,6 +160,77 @@ export async function construirServidor(
     }
   });
 
+  // --- Histórico de vendas ---------------------------------------------------
+
+  const esquemaListarVendas = z.object({
+    /** Sessão de caixa a listar. Sem isso o operador veria vendas de qualquer turno. */
+    sessaoCaixaId: z.string().uuid().optional(),
+    /** Busca por nome do cliente. Vendas sem cliente identificado não aparecem numa busca. */
+    cliente: z.string().min(1).optional(),
+    pagina: z.coerce.number().int().min(1).default(1),
+    porPagina: z.coerce.number().int().min(1).max(100).default(20),
+  });
+
+  /**
+   * Lista vendas para o operador localizar uma sem precisar do comprovante
+   * físico em mãos — cobre o caso de cliente sem nota, ou nota rasgada/perdida.
+   *
+   * Paginação por OFFSET, não por chave: aqui é aceitável porque o volume por
+   * sessão de caixa é baixo (vendas de um turno, não o catálogo inteiro) e
+   * vendas nunca são editadas — só inseridas em ordem, então não há o risco
+   * de deslocamento de página que a paginação por chave do catálogo evita.
+   *
+   * `temDevolucao` é calculado aqui para o operador ver de relance, na lista,
+   * quais vendas já tiveram alguma devolução — sem precisar abrir cada uma.
+   */
+  app.get('/vendas', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaListarVendas.safeParse(requisicao.query);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    const { sessaoCaixaId, cliente, pagina, porPagina } = entrada.data;
+
+    const filtro = {
+      ...(sessaoCaixaId ? { sessaoCaixaId } : {}),
+      ...(cliente ? { cliente: { nome: { contains: cliente, mode: 'insensitive' as const } } } : {}),
+    };
+
+    const [vendas, total] = await Promise.all([
+      prisma.venda.findMany({
+        where: filtro,
+        orderBy: { registradaEm: 'desc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+        select: {
+          id: true,
+          numero: true,
+          totalCentavos: true,
+          registradaEm: true,
+          operador: { select: { nome: true } },
+          cliente: { select: { nome: true } },
+          _count: { select: { cancelamentos: true } },
+        },
+      }),
+      prisma.venda.count({ where: filtro }),
+    ]);
+
+    return {
+      itens: vendas.map((venda) => ({
+        id: venda.id,
+        numero: venda.numero,
+        totalCentavos: venda.totalCentavos,
+        registradaEm: venda.registradaEm,
+        operador: venda.operador.nome,
+        cliente: venda.cliente?.nome ?? null,
+        temDevolucao: venda._count.cancelamentos > 0,
+      })),
+      total,
+      pagina,
+      porPagina,
+      totalPaginas: Math.max(1, Math.ceil(total / porPagina)),
+    };
+  });
+
   // --- Devolução / cancelamento ---------------------------------------------
 
   /**

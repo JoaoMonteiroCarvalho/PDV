@@ -214,6 +214,29 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  // --- Histórico de vendas -----------------------------------------------------
+
+  /**
+   * Lista vendas para o operador localizar uma sem precisar do comprovante
+   * físico em mãos. Filtra por sessão de caixa por padrão — sem isso, o
+   * operador veria vendas de qualquer turno.
+   */
+  async listarVendas(filtros: {
+    sessaoCaixaId?: string | undefined;
+    cliente?: string | undefined;
+    pagina?: number | undefined;
+    porPagina?: number | undefined;
+  }): Promise<ListaVendas> {
+    const consulta = new URLSearchParams();
+    if (filtros.sessaoCaixaId) consulta.set('sessaoCaixaId', filtros.sessaoCaixaId);
+    if (filtros.cliente) consulta.set('cliente', filtros.cliente);
+    if (filtros.pagina) consulta.set('pagina', String(filtros.pagina));
+    if (filtros.porPagina) consulta.set('porPagina', String(filtros.porPagina));
+
+    const resposta = await fetch(`${BASE}/vendas?${consulta}`, { headers: this.cabecalhos() });
+    return this.json(resposta);
+  }
+
   // --- Devolução / cancelamento ----------------------------------------------
 
   /** Localiza a venda pelo número impresso no comprovante — não pelo UUID interno. */
@@ -270,6 +293,24 @@ export interface ItemDisponivelParaDevolucao {
 export interface DisponivelParaDevolucao {
   vendaId: string;
   itens: ItemDisponivelParaDevolucao[];
+}
+
+export interface VendaResumo {
+  id: string;
+  numero: number;
+  totalCentavos: number;
+  registradaEm: string;
+  operador: string;
+  cliente: string | null;
+  temDevolucao: boolean;
+}
+
+export interface ListaVendas {
+  itens: VendaResumo[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
 }
 
 export const clienteApi = new ClienteApi();

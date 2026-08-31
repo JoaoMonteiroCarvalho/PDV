@@ -631,3 +631,70 @@ input:focus {
   gap: 14px;
   align-items: flex-start;
 }
+
+/* --- Histórico de vendas ---------------------------------------------------- */
+
+.barra-status .historico {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.historico-vendas {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.historico-vendas label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.lista-historico {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.lista-historico li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--superficie-clara);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+}
+
+.lista-historico .descricao {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lista-historico .descricao span {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.lista-historico .valor {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.paginacao-historico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}

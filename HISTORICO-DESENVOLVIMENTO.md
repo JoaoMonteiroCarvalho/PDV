@@ -230,15 +230,45 @@ a venda errada em silêncio).
 
 ---
 
+## Incremento 8 — Histórico de vendas navegável
+
+**O quê:** rota `GET /vendas` com paginação, filtro por sessão de caixa
+(não misturar turnos diferentes) e busca por nome de cliente. Cada item traz
+um indicador `temDevolucao`, calculado a partir da existência de
+`Cancelamento` vinculado — o operador vê de relance, sem abrir cada venda,
+quais já tiveram alguma devolução.
+
+Paginação por **offset**, não por chave como no catálogo: aqui é aceitável
+porque o volume por sessão de caixa é baixo (vendas de um turno, não 10 mil
+SKUs) e vendas nunca são editadas — só inseridas em ordem, sem o risco de
+deslocamento de página que a paginação por chave do catálogo existe para
+evitar.
+
+`TelaHistorico.tsx` no PWA: lista as vendas da sessão atual, com busca por
+cliente e botão "Devolver" por linha, que leva **direto** para
+`TelaDevolucao` já com a venda resolvida — sem o operador precisar digitar de
+novo o número que acabou de ver na lista. Isso resolve a lacuna criada no
+Incremento 7 (devolução exigia o comprovante físico em mãos).
+
+**Correção descoberta escrevendo o teste E2E:** ao concluir uma devolução
+iniciada a partir do histórico, a tela volta para a **lista do histórico**
+(não para a tela de venda) — comportamento correto, já que é de lá que o
+operador veio, e ele já vê o indicador `temDevolucao` atualizado na hora. A
+primeira versão do teste presumia (errado) que voltaria para a venda; a
+asserção foi corrigida para refletir o comportamento real, não o outro
+caminho ajustado.
+
+---
+
 ## Estado ao final desta sessão
 
-- **276 testes passando** (174 unitários + 95 de integração + 7 E2E),
+- **288 testes passando** (174 unitários + 105 de integração + 9 E2E),
   `tsc --strict` limpo nos quatro workspaces (`packages/shared`, `apps/api`,
   `apps/pdv`, `e2e`).
-- **Nada commitado ainda** — o repositório Git foi inicializado mas está
-  inteiramente untracked. Ver seção "Próximos passos" no README para o que
-  falta (cancelamento em rota já existe; falta tela de histórico de vendas
-  navegável, ícones reais do PWA, impressora térmica real testada).
+- Histórico de vendas navegável concluído — a única pendência restante do
+  Incremento 7 (buscar venda sem comprovante físico) está resolvida.
+- Pendências que seguem em aberto: ícones reais do PWA (hoje são
+  placeholder), impressora térmica real nunca testada fisicamente.
 - Quatro bancos PostgreSQL em uso: `pdv` (desenvolvimento), `pdv_teste`
   (integração), `pdv_e2e` (Playwright), todos no mesmo contêiner Docker na
   porta 5433 (não 5432, por conflito com Postgres nativo da máquina).

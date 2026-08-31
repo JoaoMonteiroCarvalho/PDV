@@ -25,10 +25,18 @@ const NOME_DA_FORMA: Record<FormaEstorno, string> = {
 
 interface Props {
   readonly aoVoltar: () => void;
+  /**
+   * Quando a venda já foi escolhida antes (ex.: clicada na tela de
+   * histórico), pula direto para o formulário — sem isso, o operador teria
+   * que digitar de novo o número que acabou de ver na lista.
+   */
+  readonly vendaInicial?: { id: string; numero: number; totalCentavos: number } | undefined;
 }
 
-export function TelaDevolucao({ aoVoltar }: Props) {
-  const [venda, setVenda] = useState<{ id: string; numero: number; totalCentavos: number } | null>(null);
+export function TelaDevolucao({ aoVoltar, vendaInicial }: Props) {
+  const [venda, setVenda] = useState<{ id: string; numero: number; totalCentavos: number } | null>(
+    vendaInicial ?? null,
+  );
 
   return (
     <div className="tela-caixa">

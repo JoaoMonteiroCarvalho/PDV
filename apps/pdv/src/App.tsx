@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteApi, type Operador, type SessaoCaixaAberta } from './api/cliente.js';
 import { TelaCaixa } from './caixa/TelaCaixa.js';
 import { TelaDevolucao } from './devolucao/TelaDevolucao.js';
+import { TelaHistorico } from './historico/TelaHistorico.js';
 import { bancoLocal, type ItemCatalogo } from './banco/local.js';
 import { buscarProdutos } from './catalogo/sincronizacao.js';
 import { imprimirComprovante } from './impressao/imprimir.js';
@@ -132,6 +133,7 @@ function TelaVenda({
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [mostrarDevolucao, setMostrarDevolucao] = useState(false);
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
 
   useEffect(() => {
     motor.iniciar();
@@ -231,6 +233,10 @@ function TelaVenda({
     return <TelaDevolucao aoVoltar={() => setMostrarDevolucao(false)} />;
   }
 
+  if (mostrarHistorico) {
+    return <TelaHistorico sessaoCaixaId={sessaoCaixaId} aoVoltar={() => setMostrarHistorico(false)} />;
+  }
+
   return (
     <div className="tela-venda">
       <BarraStatus
@@ -239,6 +245,7 @@ function TelaVenda({
         aoSair={aoSair}
         aoIrParaCaixa={aoIrParaCaixa}
         aoIrParaDevolucao={() => setMostrarDevolucao(true)}
+        aoIrParaHistorico={() => setMostrarHistorico(true)}
       />
 
       <main className="corpo">
@@ -343,12 +350,14 @@ function BarraStatus({
   aoSair,
   aoIrParaCaixa,
   aoIrParaDevolucao,
+  aoIrParaHistorico,
 }: {
   estado: EstadoSincronizacao | null;
   operador: Operador;
   aoSair: () => void;
   aoIrParaCaixa: () => void;
   aoIrParaDevolucao: () => void;
+  aoIrParaHistorico: () => void;
 }) {
   const online = estado?.online ?? true;
   const pendentes = estado?.pendentes ?? 0;
@@ -377,6 +386,7 @@ function BarraStatus({
       <span className="catalogo">{estado?.produtosLocais ?? 0} produtos no caixa</span>
       <span className="operador">{operador.nome}</span>
       <button className="caixa" onClick={aoIrParaCaixa}>Caixa</button>
+      <button className="historico" onClick={aoIrParaHistorico}>Histórico</button>
       <button className="devolucao" onClick={aoIrParaDevolucao}>Devolução</button>
       <button className="sair" onClick={aoSair}>Sair</button>
     </header>
