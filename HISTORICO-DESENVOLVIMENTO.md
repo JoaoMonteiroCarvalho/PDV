@@ -521,9 +521,95 @@ próprio, e o nome acessível saía da amostra mais o texto. Agora tem
 
 ---
 
+## Fase 5 — Venda concluída, comprovante e política de troca
+
+Depois de confirmar, a venda vai para `/venda/concluida`: confirmação em 3D à
+esquerda, comprovante em tela à direita.
+
+### O comprovante em tela é o MESMO texto do papel
+
+Nada de layout bonito diferente da bobina. Um documento de dinheiro não pode
+ter a chance de a tela mostrar uma coisa e o papel outra, então a tela renderiza
+as mesmas 48 colunas que a impressora recebe.
+
+Isso também deixa a cliente **dispensar a via impressa**: ela confere na tela e
+vai embora sem levar um papel que talvez não queira que ninguém veja.
+
+### Discrição: o nome do produto não vai ao papel
+
+O comprovante sai da loja e nem sempre fica com quem comprou — vai para a
+bolsa, para a mesa da cozinha, para a prestação de contas de um casal.
+"Calcinha Fio Duplo Algodão" impresso em letra garrafal expõe a cliente a uma
+conversa que ela não pediu.
+
+Por padrão, o nome vira um genérico por categoria (`discricao.ts`):
+
+| categoria | vai ao papel |
+|---|---|
+| Lingerie | `Peca intima` |
+| Sensual / sexshop | `Produto` |
+| Moda praia, Pijamas | `Vestuario` |
+| Perfumaria | `Perfumaria` |
+| não cadastrada | `Produto` |
+
+O que **não** some é o que ela usa para conferir a conta no balcão:
+quantidade, preço unitário, total da linha, tamanho e cor. Some só o nome, que
+é a parte que denuncia. Categoria desconhecida cai no genérico, nunca no nome
+— errar para o lado de esconder é o certo aqui.
+
+O SKU também fica fora: nesta loja ele é escrito com o nome dentro
+(`CJ-REN-P-PRETO`), então imprimi-lo desfaria o resto. Quem precisa identificar
+a peça usa o código curto da venda, que o comprovante traz.
+
+Há um interruptor na tela — "nome dos produtos" — porque a via detalhada é
+direito da cliente. A escolha é dela, não do sistema.
+
+### Política de troca: impressa e confirmada
+
+Peça íntima não tem troca por higiene, e a loja pode fixar isso **para
+arrependimento e troca por gosto**. O que ela NÃO pode recusar é troca por
+**defeito de fabricação** (CDC art. 18) — nenhuma política de loja derruba
+esse direito. Por isso a ressalva vai junto no texto impresso e não é
+opcional: um comprovante dizendo apenas "peça íntima não tem troca" induziria
+a cliente a erro e exporia a loja a uma reclamação com razão. Há teste
+garantindo que a ressalva nunca sai sozinha.
+
+Também não se promete o arrependimento em 7 dias do art. 49: aquele prazo vale
+para compra FORA do estabelecimento. Imprimir que vale no balcão criaria uma
+obrigação que a loja não tem.
+
+Na tela, a operadora precisa **marcar que avisou a cliente** antes de o botão
+de confirmar habilitar — mas só quando a venda tem peça sujeita à restrição.
+Pedir em toda venda treinaria a mão a marcar sem ler, que é o mesmo que não
+pedir.
+
+### A confirmação em 3D
+
+A caixa da marca se fechando: a tampa desce, encaixa com um leve
+`easeOutBack`, e a fita cresce depois que ela assenta. É o mesmo objeto do
+login, então o sistema abre e fecha o dia com a mesma peça — um "check" verde
+genérico diria o mesmo e não seria de lugar nenhum.
+
+Dura 1,15 s e **para**. Isto aparece depois de cada venda, dezenas de vezes por
+dia; animação longa vira obstáculo entre a operadora e a próxima cliente. Ao
+terminar, `frameloop` vira `demand`. Quem pediu menos movimento no sistema
+operacional já recebe a caixa fechada, sem animação.
+
+### Ajustes que a fase exigiu
+
+- `ItemCarrinho` ganhou `categoria`: é ela que decide o genérico impresso e a
+  restrição de higiene.
+- O seed de E2E passou a usar categorias reais (Lingerie, Perfumaria,
+  Vestuario) no lugar de "Categoria E2E" — com o rótulo genérico, nenhum dos
+  dois caminhos de negócio aparecia nos testes.
+- `impressao/loja.ts` centraliza os dados da loja, hoje provisórios. O CNPJ
+  fica de fora de propósito: imprimir um número inventado num papel que a
+  cliente leva embora é pior que não imprimir nada.
+
+---
+
 ## Fases restantes da interface
 
-5. Finalização e comprovante em tela, com animação 3D de confirmação
 6. Fechamento de caixa (conferência às cegas)
 7. Sangria e suprimento
 8. Estoque e produtos (upload de XML)
@@ -536,11 +622,11 @@ próprio, e o nome acessível saía da amostra mais o texto. Agora tem
 
 ## Estado ao final desta sessão
 
-- **441 testes passando**: 272 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 175 em `apps/pdv`), 107 de integração contra Postgres real, e 62
+- **490 testes passando**: 306 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 209 em `apps/pdv`), 107 de integração contra Postgres real, e 74
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 4 da interface concluídas: venda, catálogo visual e consulta de
-  produto com prévia 3D.
+- Fases 0 a 5 da interface concluídas: venda, catálogo visual, consulta de
+  produto com prévia 3D, e venda concluída com comprovante discreto.
 - **7 specs E2E seguem pendentes** (devolução, fluxo completo, histórico).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela, que volta nas Fases 5 a 7. Cada arquivo

@@ -13,6 +13,8 @@
  */
 
 import { type VendaCalculada, formatarBRL } from '@pdv/shared';
+import { descricaoParaComprovante, type NivelDiscricao } from './discricao.js';
+import { linhasDaPoliticaTroca, vendaExigeAvisoDeHigiene } from './politicaTroca.js';
 
 export const COLUNAS = 48;
 
@@ -30,6 +32,8 @@ export interface DadosComprovante {
   readonly operador: string;
   readonly itens: readonly {
     readonly descricao: string;
+    /** Decide o termo genérico impresso e a restrição de troca por higiene. */
+    readonly categoria: string | null;
     readonly tamanho: string | null;
     readonly cor: string | null;
     readonly quantidade: number;
@@ -45,6 +49,11 @@ export interface DadosComprovante {
     | readonly { readonly numero: number; readonly valorCentavos: number; readonly vencimento: Date }[]
     | undefined;
   readonly cliente?: string | undefined;
+  /**
+   * `discreto` (padrão) troca o nome do produto por um termo genérico.
+   * `completo` sai com o nome real — a via detalhada, quando a cliente pede.
+   */
+  readonly discricao?: NivelDiscricao | undefined;
 }
 
 const NOME_DA_FORMA: Readonly<Record<string, string>> = {
@@ -80,10 +89,19 @@ function formatarDataHora(momento: Date): string {
   );
 }
 
-/** Quebra a descrição para não estourar a largura do papel. */
-function descricaoDoItem(item: DadosComprovante['itens'][number]): string {
+/**
+ * Linha de descrição do item.
+ *
+ * O nome do produto passa pela discrição; tamanho e cor NÃO, porque são o que
+ * a cliente usa para conferir a conta no balcão e não denunciam nada.
+ */
+function descricaoDoItem(
+  item: DadosComprovante['itens'][number],
+  discricao: NivelDiscricao,
+): string {
+  const nome = descricaoParaComprovante(item.descricao, item.categoria, discricao);
   const variacao = [item.tamanho, item.cor].filter(Boolean).join('/');
-  const completa = variacao ? `${item.descricao} ${variacao}` : item.descricao;
+  const completa = variacao ? `${nome} ${variacao}` : nome;
   return completa.slice(0, COLUNAS);
 }
 
@@ -113,8 +131,10 @@ export function montarComprovante(
   linhas.push('ITEM                     QTD   UNIT     TOTAL');
   linhas.push(linha());
 
+  const discricao = dados.discricao ?? 'discreto';
+
   for (const item of dados.itens) {
-    linhas.push(descricaoDoItem(item));
+    linhas.push(descricaoDoItem(item, discricao));
     const quantidade = String(item.quantidade).padStart(3, ' ');
     const unitario = formatarBRL(item.precoUnitarioCentavos as never, { simbolo: false }).padStart(9);
     const total = formatarBRL(item.totalCentavos as never, { simbolo: false }).padStart(10);
@@ -145,6 +165,17 @@ export function montarComprovante(
       const rotulo = `${String(parcela.numero).padStart(2, '0')}/${String(dados.parcelas.length).padStart(2, '0')}  venc ${formatarDataHora(parcela.vencimento).slice(0, 10)}`;
       linhas.push(duasColunas(rotulo, formatarBRL(parcela.valorCentavos as never)));
     }
+  }
+
+  /*
+   * A política de troca vai IMPRESSA, não só combinada de boca. É o que a
+   * cliente tem na mão se voltar em duas semanas querendo trocar — e é o que
+   * protege a loja de uma reclamação em que ninguém lembra o que foi dito.
+   */
+  linhas.push('');
+  linhas.push(linha());
+  for (const texto of linhasDaPoliticaTroca(vendaExigeAvisoDeHigiene(dados.itens))) {
+    linhas.push(texto.slice(0, COLUNAS));
   }
 
   linhas.push('');

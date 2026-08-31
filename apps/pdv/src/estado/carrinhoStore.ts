@@ -10,9 +10,10 @@
  * pagamentos lançados e o passo de finalização.
  */
 
-import type { PagamentoEntrada } from '@pdv/shared';
+import type { PagamentoEntrada, VendaCalculada } from '@pdv/shared';
 import { create } from 'zustand';
 import type { ItemCatalogo } from '../banco/local.js';
+import type { DadosComprovante } from '../impressao/comprovante.js';
 import {
   CARRINHO_VAZIO,
   adicionar,
@@ -22,11 +23,24 @@ import {
   type EstadoCarrinho,
 } from '../venda/carrinho.js';
 
+/**
+ * Tudo que a tela de comprovante precisa, capturado no instante em que a venda
+ * fechou.
+ *
+ * Guardado inteiro de propósito, em vez de só o id: o comprovante tem que
+ * poder ser mostrado e reimpresso mesmo com a venda ainda na fila, sem rede e
+ * sem consultar o servidor. A venda já aconteceu.
+ */
+export interface VendaConcluida {
+  readonly calculo: VendaCalculada;
+  readonly dados: DadosComprovante;
+}
+
 interface EstadoLoja {
   carrinho: EstadoCarrinho;
   pagamentos: PagamentoEntrada[];
-  /** Mensagem da última venda concluída, para o aviso de sucesso. */
-  ultimaVenda: string | null;
+  /** Última venda fechada, para a tela de comprovante. */
+  ultimaVenda: VendaConcluida | null;
 
   adicionarItem: (item: ItemCatalogo, quantidade?: number) => void;
   mudarQuantidade: (varianteId: string, quantidade: number) => void;
@@ -36,7 +50,7 @@ interface EstadoLoja {
   removerPagamento: (indice: number) => void;
   limparPagamentos: () => void;
   limparVenda: () => void;
-  registrarSucesso: (mensagem: string) => void;
+  registrarSucesso: (venda: VendaConcluida) => void;
   descartarAviso: () => void;
 }
 
@@ -53,6 +67,7 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
           id: item.id,
           sku: item.sku,
           nome: item.nome,
+          categoria: item.categoria,
           tamanho: item.tamanho,
           cor: item.cor,
           precoCentavos: item.precoCentavos,
@@ -84,6 +99,6 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
   // pagamento de uma venda anterior pendurado é como o dinheiro some do caixa.
   limparVenda: () => set({ carrinho: CARRINHO_VAZIO, pagamentos: [] }),
 
-  registrarSucesso: (mensagem) => set({ ultimaVenda: mensagem }),
+  registrarSucesso: (venda) => set({ ultimaVenda: venda }),
   descartarAviso: () => set({ ultimaVenda: null }),
 }));

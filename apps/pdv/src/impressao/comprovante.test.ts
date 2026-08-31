@@ -27,6 +27,7 @@ const dados: DadosComprovante = {
   itens: [
     {
       descricao: 'Conjunto Renda Delicada',
+      categoria: 'Lingerie',
       tamanho: 'M',
       cor: 'Preto',
       quantidade: 2,
@@ -63,8 +64,27 @@ describe('montarComprovante()', () => {
     expect(texto).toContain('Ana Souza');
   });
 
-  it('descreve o item com tamanho e cor', () => {
-    expect(texto).toContain('Conjunto Renda Delicada M/Preto');
+  it('não imprime o nome do produto — o papel sai discreto por padrão', () => {
+    /*
+     * O comprovante vai para a bolsa, a mesa da cozinha, a prestação de contas
+     * de um casal. O nome é a parte que expõe a cliente; tamanho e cor ficam,
+     * porque são o que ela usa para conferir a conta no balcão.
+     */
+    expect(texto).not.toContain('Conjunto Renda Delicada');
+    expect(texto).toContain('Peca intima M/Preto');
+  });
+
+  it('imprime o nome real na via detalhada, quando a cliente pede', () => {
+    const detalhado = montarComprovante(venda, { ...dados, discricao: 'completo' }, LOJA).join('\n');
+    expect(detalhado).toContain('Conjunto Renda Delicada M/Preto');
+  });
+
+  it('traz a política de troca impressa, não só combinada de boca', () => {
+    // É o que a cliente tem na mão se voltar em duas semanas, e o que protege
+    // a loja quando ninguém lembra o que foi dito no balcão.
+    expect(texto).toContain('POLITICA DE TROCA');
+    expect(texto).toMatch(/higiene/);
+    expect(texto).toMatch(/defeito de fabricacao/i);
   });
 
   it('mostra subtotal, desconto e total', () => {
@@ -128,9 +148,12 @@ describe('montarComprovante()', () => {
       venda,
       {
         ...dados,
+        // Só a via detalhada imprime o nome real; é nela que a truncagem importa.
+        discricao: 'completo',
         itens: [
           {
             descricao: 'Conjunto de lingerie em renda francesa com detalhes bordados a mao e acabamento premium',
+            categoria: 'Lingerie',
             tamanho: 'GG',
             cor: 'Vermelho Escuro',
             quantidade: 1,

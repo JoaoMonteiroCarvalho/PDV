@@ -68,7 +68,15 @@ async function main(): Promise<void> {
 
   const terminal = await prisma.terminal.create({ data: { nome: DADOS_E2E.terminal.nome } });
 
-  const categoria = await prisma.categoria.create({ data: { nome: 'Categoria E2E' } });
+  /*
+   * Categorias REAIS da loja, não um rótulo genérico. A categoria decide duas
+   * coisas de negócio que os testes precisam exercitar: o termo discreto que
+   * vai ao comprovante e se a venda exige confirmação da política de troca
+   * por higiene. Com "Categoria E2E" nenhum dos dois caminhos aparecia.
+   */
+  const categoria = await prisma.categoria.create({ data: { nome: 'Vestuario' } });
+  const categoriaIntima = await prisma.categoria.create({ data: { nome: 'Lingerie' } });
+  const categoriaPerfumaria = await prisma.categoria.create({ data: { nome: 'Perfumaria' } });
   const produto = await prisma.produto.create({
     data: { nome: DADOS_E2E.produto.nome, categoriaId: categoria.id },
   });
@@ -106,7 +114,7 @@ async function main(): Promise<void> {
    *  Vinho   3        — (não existe)
    */
   const produtoGrade = await prisma.produto.create({
-    data: { nome: DADOS_E2E.produtoComGrade.nome, categoriaId: categoria.id },
+    data: { nome: DADOS_E2E.produtoComGrade.nome, categoriaId: categoriaIntima.id },
   });
   const combinacoes = [
     { tamanho: 'P', cor: 'Preto', saldo: 5 },
@@ -142,7 +150,7 @@ async function main(): Promise<void> {
   }
 
   const produtoSimples = await prisma.produto.create({
-    data: { nome: DADOS_E2E.produtoSemVariacao.nome, categoriaId: categoria.id },
+    data: { nome: DADOS_E2E.produtoSemVariacao.nome, categoriaId: categoriaPerfumaria.id },
   });
   const varianteSimples = await prisma.variante.create({
     data: {

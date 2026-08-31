@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { bancoLocal, type ItemCatalogo } from '../banco/local.js';
 import { buscarProdutos } from '../catalogo/sincronizacao.js';
 import { agruparPorProduto } from '../catalogo/grade.js';
@@ -24,6 +25,7 @@ import { PainelCarrinho } from '../venda/PainelCarrinho.js';
 import { ModalFinalizacao } from '../venda/ModalFinalizacao.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
+import { useSessao } from '../estado/sessaoStore.js';
 import { fecharVenda } from '../venda/carrinho.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
 
@@ -45,10 +47,10 @@ export function TelaVenda() {
   const adicionarItem = useCarrinho((estado) => estado.adicionarItem);
   const limparVenda = useCarrinho((estado) => estado.limparVenda);
   const registrarSucesso = useCarrinho((estado) => estado.registrarSucesso);
-  const descartarAviso = useCarrinho((estado) => estado.descartarAviso);
-  const ultimaVenda = useCarrinho((estado) => estado.ultimaVenda);
   const carrinho = useCarrinho((estado) => estado.carrinho);
   const sessao = useCaixa((estado) => estado.sessao);
+  const operadora = useSessao((estado) => estado.operadora);
+  const navegar = useNavigate();
 
   // O foco começa na busca: a operadora bipa o primeiro item sem clicar.
   useEffect(() => {
@@ -158,10 +160,37 @@ export function TelaVenda() {
       totalCentavos: fechada.calculo.totalCentavos,
     });
 
+    /*
+     * Captura o comprovante ANTES de limpar o carrinho: a tela de conclusão
+     * mostra e reimprime a venda sem consultar nada, inclusive offline.
+     */
+    registrarSucesso({
+      calculo: fechada.calculo,
+      dados: {
+        numero: null,
+        vendaId: fechada.id,
+        momento: new Date(),
+        operador: operadora?.nome ?? 'Operadora',
+        itens: carrinho.itens.map((item, indice) => ({
+          descricao: item.nome,
+          categoria: item.categoria,
+          tamanho: item.tamanho,
+          cor: item.cor,
+          quantidade: item.quantidade,
+          precoUnitarioCentavos: item.precoUnitarioCentavos,
+          totalCentavos: fechada.calculo.itens[indice]!.totalCentavos,
+        })),
+        pagamentos: pagamentos.map((pagamento) => ({
+          forma: pagamento.forma,
+          valorCentavos: pagamento.valorCentavos,
+          trocoCentavos: pagamento.trocoCentavos,
+        })),
+      },
+    });
+
     limparVenda();
     setFinalizando(false);
-    registrarSucesso(`Venda ${fechada.id.slice(0, 8).toUpperCase()} registrada.`);
-    campoBusca.current?.focus();
+    navegar('/venda/concluida');
   }
 
   return (
@@ -180,15 +209,6 @@ export function TelaVenda() {
             />
           </form>
         </div>
-
-        {ultimaVenda && (
-          <div className="mx-6 mt-4 flex items-center gap-3 rounded-[12px] bg-ok/10 px-4 py-3">
-            <span className="flex-1 text-[14px] text-ink">{ultimaVenda}</span>
-            <Botao variante="discreto" onClick={descartarAviso} className="h-8 px-3 text-[13px]">
-              Ok
-            </Botao>
-          </div>
-        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {erroBusca && <Erro>{erroBusca}</Erro>}

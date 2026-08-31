@@ -19,6 +19,7 @@ import { TelaEntrar } from './paginas/TelaEntrar.js';
 import { EmConstrucao } from './paginas/EmConstrucao.js';
 import { TelaCaixa } from './paginas/TelaCaixa.js';
 import { TelaVenda } from './paginas/TelaVenda.js';
+import { TelaVendaConcluida } from './paginas/TelaVendaConcluida.js';
 import { TelaCatalogo } from './paginas/TelaCatalogo.js';
 import { TelaProduto } from './paginas/TelaProduto.js';
 import { DesignSystem } from './paginas/DesignSystem.js';
@@ -66,6 +67,14 @@ export const roteador = createBrowserRouter([
         element: (
           <ExigeCaixa>
             <TelaVenda />
+          </ExigeCaixa>
+        ),
+      },
+      {
+        path: 'venda/concluida',
+        element: (
+          <ExigeCaixa>
+            <TelaVendaConcluida />
           </ExigeCaixa>
         ),
       },

@@ -29,6 +29,11 @@ export interface ItemCarrinho {
   readonly varianteId: string;
   readonly sku: string;
   readonly nome: string;
+  /**
+   * Decide duas coisas no comprovante: o termo genérico impresso no lugar do
+   * nome, e se a venda exige a confirmação da política de troca por higiene.
+   */
+  readonly categoria: string | null;
   readonly tamanho: string | null;
   readonly cor: string | null;
   readonly precoUnitarioCentavos: Centavos;
@@ -51,6 +56,7 @@ export interface ProdutoParaVenda {
   readonly id: string;
   readonly sku: string;
   readonly nome: string;
+  readonly categoria: string | null;
   readonly tamanho: string | null;
   readonly cor: string | null;
   readonly precoCentavos: number;
@@ -83,6 +89,7 @@ export function adicionar(
     varianteId: produto.id,
     sku: produto.sku,
     nome: produto.nome,
+    categoria: produto.categoria,
     tamanho: produto.tamanho,
     cor: produto.cor,
     precoUnitarioCentavos: centavos(produto.precoCentavos),

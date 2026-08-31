@@ -36,6 +36,17 @@ function montar(precoCentavos = 10_000) {
   return { aoConfirmar };
 }
 
+/**
+ * Marca a confirmação da política de troca.
+ *
+ * A fixture é uma peça de lingerie, então quase todo teste passa por aqui —
+ * o que é o ponto: com peça íntima no carrinho não existe finalizar sem a
+ * operadora confirmar que avisou a cliente.
+ */
+async function confirmarPolitica() {
+  await userEvent.click(screen.getByRole('checkbox'));
+}
+
 /** Digita centavos no campo de valor, como a operadora faz na maquininha. */
 async function digitarValor(digitos: string) {
   const campo = screen.getByLabelText('Valor recebido');
@@ -57,8 +68,10 @@ describe('ModalFinalizacao', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Lançar pagamento' }));
 
-    // Valor vazio lança o saldo inteiro — a conta fecha e o botão habilita.
+    // Valor vazio lança o saldo inteiro: a conta fecha.
     expect(screen.getByText('Pago por completo')).toBeInTheDocument();
+
+    await confirmarPolitica();
     expect(screen.getByRole('button', { name: 'Confirmar venda' })).toBeEnabled();
   });
 
@@ -82,6 +95,7 @@ describe('ModalFinalizacao', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Dinheiro' }));
     await userEvent.click(screen.getByRole('button', { name: 'Lançar pagamento' }));
+    await confirmarPolitica();
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar venda' }));
 
     expect(aoConfirmar).toHaveBeenCalledTimes(1);
@@ -108,6 +122,7 @@ describe('ModalFinalizacao', () => {
 
     await digitarValor('15000');
     await userEvent.click(screen.getByRole('button', { name: 'Lançar pagamento' }));
+    await confirmarPolitica();
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar venda' }));
 
     expect(aoConfirmar.mock.calls[0]![0]).toEqual([
@@ -132,10 +147,52 @@ describe('ModalFinalizacao', () => {
     render(<ModalFinalizacao aoFechar={vi.fn()} aoConfirmar={aoConfirmar} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Lançar pagamento' }));
+    await confirmarPolitica();
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar venda' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('Caixa fechado.');
     // Os pagamentos continuam lançados: a operadora corrige e tenta de novo.
     expect(screen.getByText('Pago por completo')).toBeInTheDocument();
+  });
+});
+
+describe('ModalFinalizacao — política de troca por higiene', () => {
+  it('com peça íntima, não fecha a venda sem a operadora confirmar o aviso', async () => {
+    montar(10_000);
+    await userEvent.click(screen.getByRole('button', { name: 'Lançar pagamento' }));
+
+    // A conta fechou, mas o botão continua travado: falta o aviso.
+    expect(screen.getByText('Pago por completo')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar venda' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirmar venda' })).toBeEnabled();
+  });
+
+  it('o aviso diz que defeito de fabricação continua trocando', async () => {
+    // Sem essa ressalva a operadora repassaria à cliente uma regra que a loja
+    // não pode aplicar — troca por defeito é direito, não cortesia.
+    montar(10_000);
+    expect(screen.getByText(/exceto defeito de fabricação/i)).toBeVisible();
+  });
+
+  it('venda sem peça íntima não pede confirmação nenhuma', async () => {
+    /*
+     * Pedir em toda venda treinaria a mão a marcar sem ler, que é o mesmo que
+     * não pedir. Perfume não tem restrição de higiene.
+     */
+    useCarrinho.getState().limparVenda();
+    useCarrinho.getState().adicionarItem({
+      ...item(12_000, 'perfume'),
+      nome: 'Perfume Sedução',
+      categoria: 'Perfumaria',
+    });
+    const aoConfirmar = vi.fn().mockResolvedValue(undefined);
+    render(<ModalFinalizacao aoFechar={vi.fn()} aoConfirmar={aoConfirmar} />);
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Lançar pagamento' }));
+    expect(screen.getByRole('button', { name: 'Confirmar venda' })).toBeEnabled();
   });
 });

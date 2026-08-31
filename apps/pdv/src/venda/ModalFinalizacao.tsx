@@ -17,6 +17,7 @@ import { useMemo, useState } from 'react';
 import { Botao, Erro, cx } from '../componentes/base.js';
 import { CampoDinheiro } from '../componentes/CampoDinheiro.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
+import { AVISO_NA_TELA, vendaExigeAvisoDeHigiene } from '../impressao/politicaTroca.js';
 import { calcular, saldoAPagar } from './carrinho.js';
 
 /**
@@ -47,9 +48,21 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
   const [valorDigitado, setValorDigitado] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [avisouTroca, setAvisouTroca] = useState(false);
 
   const venda = useMemo(() => calcular(carrinho), [carrinho]);
   const saldo = saldoAPagar(venda, pagamentos);
+
+  /*
+   * A confirmação da política só aparece quando a venda TEM peça sujeita à
+   * restrição de higiene. Pedir em toda venda treinaria a mão a marcar sem
+   * ler, que é o mesmo que não pedir.
+   */
+  const exigeAviso = useMemo(
+    () => vendaExigeAvisoDeHigiene(carrinho.itens.map((item) => ({ categoria: item.categoria }))),
+    [carrinho.itens],
+  );
+  const podeConfirmar = saldo === ZERO && (!exigeAviso || avisouTroca);
 
   // Em dinheiro, o valor sugerido é o saldo exato; em cartão e Pix o valor é
   // sempre exatamente o saldo, porque não existe "pagar a mais".
@@ -209,6 +222,23 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
             </div>
           )}
 
+          {exigeAviso && (
+            <label
+              className={cx(
+                'mt-5 flex cursor-pointer items-start gap-3 rounded-[12px] border px-4 py-3',
+                avisouTroca ? 'border-line bg-sunken' : 'border-alerta/40 bg-alerta/5',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={avisouTroca}
+                onChange={(evento) => setAvisouTroca(evento.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
+              />
+              <span className="text-[13px] leading-relaxed text-ink">{AVISO_NA_TELA}</span>
+            </label>
+          )}
+
           {erro && (
             <div className="mt-4">
               <Erro>{erro}</Erro>
@@ -224,9 +254,12 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
             variante="primario"
             tamanho="grande"
             className="flex-[2]"
-            // Só habilita com a conta fechada. `validarPagamentos` recusaria
-            // depois, mas aí o erro chegaria tarde demais.
-            disabled={saldo !== ZERO || enviando}
+            /*
+              Só habilita com a conta fechada E com a política confirmada.
+              `validarPagamentos` recusaria o pagamento errado depois, mas aí o
+              erro chegaria tarde demais; e a política ninguém valida por nós.
+            */
+            disabled={!podeConfirmar || enviando}
             onClick={() => void confirmar()}
           >
             {enviando ? 'Registrando…' : 'Confirmar venda'}

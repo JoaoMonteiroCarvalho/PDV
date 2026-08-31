@@ -182,10 +182,12 @@ test.describe('finalização', () => {
     await modal.getByRole('button', { name: 'Lançar pagamento' }).click();
     await expect(modal.getByText('Pago por completo')).toBeVisible();
 
+    // Peça íntima: a venda não fecha sem a operadora confirmar o aviso.
+    await modal.getByRole('checkbox').check();
     await modal.getByRole('button', { name: 'Confirmar venda' }).click();
 
-    await expect(page.getByText(/Venda .* registrada/)).toBeVisible();
-    await expect(page.getByText('Nenhuma peça lançada.')).toBeVisible();
+    await expect(page).toHaveURL(/\/venda\/concluida/);
+    await expect(page.getByText('Venda registrada')).toBeVisible();
   });
 
   test('não deixa confirmar enquanto a conta não fecha', async ({ page }) => {
