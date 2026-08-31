@@ -433,9 +433,82 @@ que dependem das Fases 5–7.
 
 ---
 
+## Fase 4 — Catálogo visual e consulta de produto
+
+Duas telas: `/catalogo` para navegar, `/produto/:produtoId` para consultar uma
+peça. É onde a operadora responde "vem em vinho? no GG? qual o código?" sem
+abrir o sistema do escritório. Lê do Dexie, nunca da rede.
+
+### A prévia 3D é um símbolo, não uma foto
+
+`PecaAbstrata.tsx` tem três formas, e nenhuma delas tem corpo humano. Roupa
+aparece **dobrada**, como fica na prateleira: um manequim numa loja de moda
+íntima é constrangedor com a cliente do outro lado do balcão, e uma silhueta
+ainda sugeriria caimento que o sistema não conhece.
+
+| forma | quando | como é feita |
+|---|---|---|
+| `dobrada` | peça com grade de tamanho | três lâminas empilhadas e giradas |
+| `frasco` | categoria Perfumaria/Cosméticos | cilindro, ombro, gargalo, tampa |
+| `bloco` | o resto | embalagem neutra |
+
+A escolha sai da categoria e da existência de grade (`formaDaPeca.ts`), nunca
+do nome do produto — adivinhar por texto erraria em cadastro escrito de outro
+jeito, e erraria em silêncio.
+
+A tela traz uma legenda fixa dizendo que a imagem indica a **cor**, não o
+modelo. Sem ela a operadora pode tomar a prévia por foto e descrever para a
+cliente uma peça que não existe.
+
+### Um canvas por tela, e o motivo é técnico
+
+A tentação seria pôr prévia 3D em cada card do catálogo. O navegador limita
+quantos contextos WebGL existem ao mesmo tempo (na prática 8 a 16) e passa a
+**descartar os mais antigos em silêncio** — os cards virariam retângulos
+pretos sem erro nenhum no console. Por isso o catálogo usa amostra de cor
+plana e o 3D vive só na tela de um produto. Há teste E2E garantindo que a
+listagem não cria canvas.
+
+O resto da economia de GPU é a mesma do login: `frameloop="demand"` ao
+repousar, `dpr` em 1.5, aba em segundo plano para tudo, e a cena destruída ao
+trocar de rota (teste E2E cobre isso).
+
+### Bug de produto achado pelo E2E
+
+O teste "consultar sem caixa aberto" foi o único que abria o catálogo **sem
+passar pela tela de venda** — e falhou. A causa não era o teste: as duas telas
+liam o Dexie **uma vez na montagem e nunca mais**. Quem abrisse o catálogo
+enquanto a primeira carga ainda descia via "o catálogo ainda não sincronizou"
+e continuava vendo, mesmo depois de os produtos chegarem. Só sair e voltar
+resolvia, e a operadora não tem como saber disso.
+
+Corrigido com `liveQuery` do Dexie nas duas telas: a lista se preenche sozinha
+conforme o motor grava. É o comportamento correto para um app offline-first,
+onde o banco local muda embaixo da tela o tempo todo.
+
+Também virou lacuna de acessibilidade fechada: o botão de cor não tinha rótulo
+próprio, e o nome acessível saía da amostra mais o texto. Agora tem
+`aria-label` explícito, como o de tamanho já tinha.
+
+### Detalhes que vieram do balcão
+
+- A tela abre na primeira combinação **com saldo**, não na primeira cadastrada
+  (`primeiraCombinacaoDisponivel`). Abrir num tamanho esgotado faria a
+  operadora ler "0" e achar que o produto inteiro acabou.
+- Tamanho que não existe naquela cor continua clicável, e o rótulo diz "não
+  vendido nesta cor". Desabilitar deixaria a operadora sem saber se o problema
+  é a cor ou o tamanho.
+- A rota aceita id de produto **ou** de variante. A tela de venda trabalha com
+  variantes, e um link colado de lá não pode dar "não encontrado" por uma
+  diferença que a operadora não vê.
+- Consultar funciona sem caixa aberto; só o botão de lançar fica desabilitado,
+  com o motivo escrito e um link para abrir o caixa. Consultar produto é o que
+  a loja mais faz, inclusive antes de abrir o turno.
+
+---
+
 ## Fases restantes da interface
 
-4. Consulta/cadastro de produto com preview 3D
 5. Finalização e comprovante em tela, com animação 3D de confirmação
 6. Fechamento de caixa (conferência às cegas)
 7. Sangria e suprimento
@@ -449,12 +522,11 @@ que dependem das Fases 5–7.
 
 ## Estado ao final desta sessão
 
-- **399 testes passando**: 249 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 152 em `apps/pdv`), 107 de integração contra Postgres real, e 43
+- **438 testes passando**: 272 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 175 em `apps/pdv`), 107 de integração contra Postgres real, e 59
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 3 da interface concluídas. A tela de venda está de pé: busca com
-  código bipado, grade de variação, carrinho sempre visível e finalização com
-  múltiplas formas de pagamento.
+- Fases 0 a 4 da interface concluídas: venda, catálogo visual e consulta de
+  produto com prévia 3D.
 - **7 specs E2E seguem pendentes** (devolução, fluxo completo, histórico).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela, que volta nas Fases 5 a 7. Cada arquivo
@@ -467,17 +539,49 @@ que dependem das Fases 5–7.
 
 ### Restrição de ambiente que atrapalha os testes
 
-A máquina de desenvolvimento tem 7,3 GB de RAM e vive acima de 90% de uso. O
-login usa scrypt com N=32768 e r=8, que aloca **32 MB por chamada**; com menos
-de ~0,5 GB livres, o `POST /sessao/login` passa a devolver 500 (a alocação
-falha) ou 401 intermitente, e a suíte E2E quebra em lugares **diferentes a
-cada rodada** — sinal de contenção de recursos, não de regressão.
+A máquina de desenvolvimento tem 7,3 GB de RAM, e o gargalo **não é a RAM
+física** — é o *commit limit* do Windows. Medido com a suíte quebrando:
 
-O custo do scrypt **não foi reduzido**: baixá-lo enfraqueceria a senha de
-todos os operadores para resolver um problema de RAM da máquina de
-desenvolvimento. O procedimento correto antes de rodar o E2E completo é
-fechar o navegador e parar os servidores de dev (`npm run dev`), que disputam
-memória com os quatro processos que o Playwright sobe.
+    Fisica livre : 0,18 GB   <- normal no Windows, ele usa RAM como cache
+    Commit usado : 28,11 GB de 29,28 GB  (96%)   <- ESTE e o problema
+
+Quando o commit chega no teto, qualquer alocação nova falha na hora. É o que
+produz `FATAL ERROR: Zone Allocation failed` no worker do Playwright e
+`HTTP 500` no login (o scrypt pede 32 MB por chamada e não consegue). Os
+testes quebram em lugares **diferentes a cada rodada** — sinal de contenção,
+nunca de regressão. Antes de investigar um teste vermelho, medir o commit.
+
+O que estava consumindo (private bytes, medido com `Get-Process`):
+
+| processo | commit | observação |
+|---|---|---|
+| vmmem + vmmemWSL | 4,3 GB | as duas VMs do Docker/WSL |
+| msedgewebview2 (41 proc.) | 2,7 GB | webviews do VS Code |
+| Code (18 proc.) | 2,4 GB | VS Code |
+| **oracle** | 2,1 GB | Oracle XE como serviço automático |
+| sqldeveloper64W | 0,9 GB | Oracle SQL Developer |
+| **mysqld** | 0,7 GB | MySQL como serviço automático |
+
+Oracle XE e MySQL sobem sozinhos com o Windows e **não são usados por este
+projeto** — o PDV só precisa do Postgres, que roda no Docker. Pará-los devolveu
+2,4 GB e a folga de commit foi de 1,17 GB para 3,61 GB, o bastante para a
+suíte E2E completa passar inteira pela primeira vez.
+
+Comando (exige administrador; os serviços voltam sozinhos no próximo boot):
+
+```powershell
+Stop-Service OracleServiceXE, OracleOraDB21Home1TNSListener,
+             OracleOraDB21Home1MTSRecoveryService, MySQL97 -Force
+```
+
+Outras folgas disponíveis, se precisar de mais: criar `~/.wslconfig`
+limitando a VM do Docker a 2 GB (não existe hoje, então o WSL pode reservar
+até metade da máquina), e aumentar o arquivo de paginação para subir o teto de
+commit — só há 15,9 GB livres no disco, então cabe pouco.
+
+O custo do scrypt **não foi reduzido** e não deve ser: baixá-lo enfraqueceria
+a senha de todos os operadores para resolver um problema de memória da máquina
+de desenvolvimento.
 
 ## Para retomar em outra máquina
 

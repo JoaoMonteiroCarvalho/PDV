@@ -133,3 +133,20 @@ export function situacaoDaCombinacao(
 export function ehProdutoSimples(produto: ProdutoAgrupado): boolean {
   return produto.variantes.length === 1 && produto.cores.length === 0 && produto.tamanhos.length === 0;
 }
+
+/**
+ * Qual combinação já vem escolhida ao abrir a consulta.
+ *
+ * Prefere a primeira COM saldo: abrir num tamanho esgotado faria a operadora
+ * ler "0" e achar que o produto inteiro acabou. Se nada tem saldo, cai na
+ * primeira que existe — a peça continua consultável e vendável.
+ */
+export function primeiraCombinacaoDisponivel(
+  produto: ProdutoAgrupado,
+): { cor: string | null; tamanho: string | null } | null {
+  if (produto.variantes.length === 0) return null;
+
+  const comSaldo = produto.variantes.find((variante) => variante.saldoEstoque > 0);
+  const escolhida = comSaldo ?? produto.variantes[0]!;
+  return { cor: escolhida.cor, tamanho: escolhida.tamanho };
+}

@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import type { ItemCatalogo } from '../banco/local.js';
 import { agruparPorProduto } from '../catalogo/grade.js';
@@ -24,6 +26,15 @@ function variante(parcial: Partial<ItemCatalogo> & { id: string }): ItemCatalogo
   };
 }
 
+/**
+ * O card tem um link para a consulta do produto, e `<Link>` exige contexto de
+ * rota. Renderizar sem router lançaria — e o erro apontaria para o teste, não
+ * para a causa.
+ */
+function montar(elemento: ReactElement) {
+  return render(<MemoryRouter>{elemento}</MemoryRouter>);
+}
+
 const COM_GRADE = agruparPorProduto([
   variante({ id: 'a', cor: 'Preto', tamanho: 'P', saldoEstoque: 3 }),
   variante({ id: 'b', cor: 'Preto', tamanho: 'GG', saldoEstoque: 0 }),
@@ -32,7 +43,7 @@ const COM_GRADE = agruparPorProduto([
 
 describe('CardProduto', () => {
   it('mostra a grade inteira no resultado da busca, sem abrir outra tela', () => {
-    render(<CardProduto produto={COM_GRADE} aoAdicionar={vi.fn()} />);
+    montar(<CardProduto produto={COM_GRADE} aoAdicionar={vi.fn()} />);
 
     // Ambas as cores e ambos os tamanhos visíveis de uma vez: é o que permite
     // responder "tem no GG vinho?" sem navegar.
@@ -43,7 +54,7 @@ describe('CardProduto', () => {
   });
 
   it('distingue esgotado de combinação não vendida', () => {
-    render(<CardProduto produto={COM_GRADE} aoAdicionar={vi.fn()} />);
+    montar(<CardProduto produto={COM_GRADE} aoAdicionar={vi.fn()} />);
 
     // Preto/GG existe e zerou: continua sendo botão, com saldo zero.
     expect(screen.getByRole('button', { name: /Preto GG, sem saldo registrado/ })).toBeInTheDocument();
@@ -55,7 +66,7 @@ describe('CardProduto', () => {
 
   it('clicar numa célula adiciona exatamente aquela variante', async () => {
     const aoAdicionar = vi.fn();
-    render(<CardProduto produto={COM_GRADE} aoAdicionar={aoAdicionar} />);
+    montar(<CardProduto produto={COM_GRADE} aoAdicionar={aoAdicionar} />);
 
     await userEvent.click(screen.getByRole('button', { name: /Vinho P, 7 em estoque/ }));
 
@@ -67,7 +78,7 @@ describe('CardProduto', () => {
     // O saldo local vem da última sincronização. A peça pode estar na arara
     // agora — bloquear por número defasado é pior que vender o que existe.
     const aoAdicionar = vi.fn();
-    render(<CardProduto produto={COM_GRADE} aoAdicionar={aoAdicionar} />);
+    montar(<CardProduto produto={COM_GRADE} aoAdicionar={aoAdicionar} />);
 
     await userEvent.click(screen.getByRole('button', { name: /Preto GG, sem saldo/ }));
 
@@ -79,7 +90,7 @@ describe('CardProduto', () => {
       variante({ id: 'a', cor: 'Preto', tamanho: 'P', precoCentavos: 8990 }),
       variante({ id: 'b', cor: 'Preto', tamanho: 'GG', precoCentavos: 10990 }),
     ])[0]!;
-    render(<CardProduto produto={produto} aoAdicionar={vi.fn()} />);
+    montar(<CardProduto produto={produto} aoAdicionar={vi.fn()} />);
 
     expect(screen.getByText('R$ 89,90 – R$ 109,90')).toBeInTheDocument();
   });
@@ -88,7 +99,7 @@ describe('CardProduto', () => {
     const perfume = agruparPorProduto([
       variante({ id: 'x', produtoId: 'p9', nome: 'Perfume', cor: null, tamanho: null }),
     ])[0]!;
-    render(<CardProduto produto={perfume} aoAdicionar={vi.fn()} />);
+    montar(<CardProduto produto={perfume} aoAdicionar={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Adicionar' })).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
@@ -98,7 +109,7 @@ describe('CardProduto', () => {
     const produto = agruparPorProduto([
       variante({ id: 'a', cor: 'Tie-dye', tamanho: 'M', saldoEstoque: 2 }),
     ])[0]!;
-    render(<CardProduto produto={produto} aoAdicionar={vi.fn()} />);
+    montar(<CardProduto produto={produto} aoAdicionar={vi.fn()} />);
 
     expect(screen.getByLabelText('Tie-dye, cor não catalogada')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tie-dye M, 2 em estoque/ })).toBeEnabled();

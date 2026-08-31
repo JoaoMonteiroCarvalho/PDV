@@ -17,6 +17,7 @@
  */
 
 import { formatarBRL, centavos } from '@pdv/shared';
+import { Link } from 'react-router-dom';
 import type { ItemCatalogo } from '../banco/local.js';
 import { Cartao, Selo, cx } from '../componentes/base.js';
 import { SwatchCor } from '../componentes/SwatchCor.js';
@@ -60,11 +61,22 @@ function Cabecalho({ produto }: { produto: ProdutoAgrupado }) {
           {[produto.marca, produto.categoria].filter(Boolean).join(' · ') || '—'}
         </p>
       </div>
-      <div className="shrink-0 text-right">
+      <div className="flex shrink-0 flex-col items-end gap-1">
         <p className="num text-[15px] font-medium text-ink">{faixa}</p>
         {produto.saldoTotal === 0 && (
           <span className="text-[12px] text-alerta">Sem peças</span>
         )}
+        {/*
+          Caminho para a consulta completa: prévia da cor, código de barras e
+          SKU de cada combinação. Fica discreto de propósito — no balcão o
+          gesto normal é clicar na grade e vender, não abrir a ficha.
+        */}
+        <Link
+          to={`/produto/${produto.produtoId}`}
+          className="text-[12px] text-ink-faint underline-offset-2 transition-colors hover:text-accent hover:underline"
+        >
+          detalhes
+        </Link>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import {
   compararTamanhos,
   ehProdutoSimples,
   encontrarVariante,
+  primeiraCombinacaoDisponivel,
   situacaoDaCombinacao,
 } from './grade.js';
 
@@ -141,5 +142,36 @@ describe('ehProdutoSimples()', () => {
       variante({ id: 'b', produtoId: 'p1', cor: 'Vinho', tamanho: 'M' }),
     ])[0]!;
     expect(ehProdutoSimples(conjunto)).toBe(false);
+  });
+});
+
+describe('primeiraCombinacaoDisponivel()', () => {
+  it('abre na primeira combinação COM saldo, não na primeira da lista', () => {
+    // Abrir num tamanho esgotado faria a operadora ler "0" e achar que o
+    // produto inteiro acabou.
+    const produto = agruparPorProduto([
+      variante({ id: 'a', produtoId: 'p1', cor: 'Preto', tamanho: 'P', saldoEstoque: 0 }),
+      variante({ id: 'b', produtoId: 'p1', cor: 'Vinho', tamanho: 'M', saldoEstoque: 4 }),
+    ])[0]!;
+
+    expect(primeiraCombinacaoDisponivel(produto)).toEqual({ cor: 'Vinho', tamanho: 'M' });
+  });
+
+  it('produto todo esgotado ainda abre em alguma combinação', () => {
+    // A peça continua consultável e vendável: o saldo local pode estar velho.
+    const produto = agruparPorProduto([
+      variante({ id: 'a', produtoId: 'p1', cor: 'Preto', tamanho: 'P', saldoEstoque: 0 }),
+      variante({ id: 'b', produtoId: 'p1', cor: 'Preto', tamanho: 'GG', saldoEstoque: 0 }),
+    ])[0]!;
+
+    expect(primeiraCombinacaoDisponivel(produto)).toEqual({ cor: 'Preto', tamanho: 'P' });
+  });
+
+  it('produto simples abre sem cor nem tamanho, em vez de null', () => {
+    const perfume = agruparPorProduto([
+      variante({ id: 'x', produtoId: 'p9', cor: null, tamanho: null, saldoEstoque: 3 }),
+    ])[0]!;
+
+    expect(primeiraCombinacaoDisponivel(perfume)).toEqual({ cor: null, tamanho: null });
   });
 });

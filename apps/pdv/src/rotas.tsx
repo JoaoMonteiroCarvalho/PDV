@@ -19,6 +19,8 @@ import { TelaEntrar } from './paginas/TelaEntrar.js';
 import { EmConstrucao } from './paginas/EmConstrucao.js';
 import { TelaCaixa } from './paginas/TelaCaixa.js';
 import { TelaVenda } from './paginas/TelaVenda.js';
+import { TelaCatalogo } from './paginas/TelaCatalogo.js';
+import { TelaProduto } from './paginas/TelaProduto.js';
 import { DesignSystem } from './paginas/DesignSystem.js';
 
 function ExigeLogin({ children }: { children: ReactNode }) {
@@ -67,8 +69,8 @@ export const roteador = createBrowserRouter([
           </ExigeCaixa>
         ),
       },
-      { path: 'catalogo', element: <EmConstrucao titulo="Catálogo visual" fase="Fase 3" /> },
-      { path: 'produto/:id', element: <EmConstrucao titulo="Consulta de produto" fase="Fase 4" /> },
+      { path: 'catalogo', element: <TelaCatalogo /> },
+      { path: 'produto/:produtoId', element: <TelaProduto /> },
       { path: 'historico', element: <EmConstrucao titulo="Histórico de vendas" fase="Fase 5" /> },
       { path: 'caixa', element: <TelaCaixa /> },
       { path: 'caixa/fechar', element: <EmConstrucao titulo="Fechamento de caixa" fase="Fase 6" /> },
