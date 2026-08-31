@@ -28,6 +28,34 @@ export function digitosParaCentavos(texto: string): number {
   return Number.isFinite(inteiro) ? inteiro : 0;
 }
 
+/**
+ * Teto de 13 dígitos (R$ 99.999.999.999,99). Bem acima de qualquer venda real
+ * e bem abaixo de `Number.MAX_SAFE_INTEGER`, onde a aritmética de centavos
+ * deixaria de ser exata.
+ */
+const MAXIMO_CENTAVOS = 9_999_999_999_999;
+
+/**
+ * Aplica uma tecla ao valor, como uma maquininha faz: dígito entra pela
+ * direita, apagar sai pela direita. `null` significa "não é tecla minha".
+ *
+ * Isto é caret-INDEPENDENTE de propósito, e essa é a correção que motivou a
+ * função existir. Antes o valor saía do texto do campo, então onde o cursor
+ * estivesse mudava o resultado: com "0,00" na tela, digitar "4" no fim dava
+ * R$ 0,04 e digitar "4" no começo dava R$ 40,00. Um clique no meio do número
+ * — coisa que acontece o tempo todo — lançava outro valor sem a operadora
+ * perceber.
+ */
+export function aplicarTecla(valorAtual: number, tecla: string): number | null {
+  if (tecla === 'Backspace') return Math.floor(valorAtual / 10);
+  if (tecla === 'Delete') return 0;
+  if (!/^\d$/.test(tecla)) return null;
+
+  const novo = valorAtual * 10 + Number(tecla);
+  // Estourou o teto: ignora a tecla em vez de truncar em silêncio.
+  return novo > MAXIMO_CENTAVOS ? valorAtual : novo;
+}
+
 interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
   readonly rotulo?: string;
   readonly valorCentavos: number;
@@ -58,7 +86,34 @@ export const CampoDinheiro = forwardRef<HTMLInputElement, Props>(function CampoD
         inputMode="numeric"
         autoComplete="off"
         value={formatarBRL(paraCentavos(valorCentavos), { simbolo: false })}
+        /*
+          A digitação é tratada no keydown, não no change: assim o valor não
+          depende de onde o cursor está. Ver `aplicarTecla`.
+        */
+        onKeyDown={(evento) => {
+          if (evento.ctrlKey || evento.metaKey || evento.altKey) return;
+          const novo = aplicarTecla(valorCentavos, evento.key);
+          if (novo === null) return;
+          evento.preventDefault();
+          aoMudar(novo);
+        }}
+        /*
+          O change continua existindo para o que não passa pelo teclado: colar
+          um valor, autofill, ou o campo sendo preenchido por script. Aí sim
+          vale ler os dígitos do texto inteiro.
+        */
         onChange={(evento) => aoMudar(digitosParaCentavos(evento.target.value))}
+        // Cursor sempre no fim: o número cresce pela direita, e um caret no
+        // meio de "1.250,00" não significa nada neste campo.
+        onFocus={(evento) => {
+          const fim = evento.target.value.length;
+          evento.target.setSelectionRange(fim, fim);
+        }}
+        onClick={(evento) => {
+          const alvo = evento.currentTarget;
+          const fim = alvo.value.length;
+          alvo.setSelectionRange(fim, fim);
+        }}
         aria-invalid={erro ? true : undefined}
         aria-describedby={ajuda ? `${id}-ajuda` : undefined}
         /*

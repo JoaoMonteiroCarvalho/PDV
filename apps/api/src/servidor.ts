@@ -7,7 +7,7 @@
  */
 
 import fastifyJwt from '@fastify/jwt';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { type TokenOperador, verificarSenha } from './autenticacao.js';
@@ -391,6 +391,7 @@ export async function construirServidor(
       take: limite + 1,
       select: {
         id: true,
+        produtoId: true,
         sku: true,
         codigoBarras: true,
         tamanho: true,
@@ -408,9 +409,34 @@ export async function construirServidor(
     const pagina = temMais ? encontradas.slice(0, limite) : encontradas;
     const ultima = pagina.at(-1);
 
+    /*
+     * Saldo por variante, da view `EstoqueAtual` (soma do livro-razao).
+     *
+     * Consulta separada, restrita aos ids desta pagina, em vez de JOIN no
+     * findMany: mantem a paginacao por chave tipada no Prisma e o custo
+     * limitado ao tamanho da pagina.
+     *
+     * O saldo e do INSTANTE da sincronizacao. O caixa usa isso para sinalizar
+     * combinacao esgotada, nunca para bloquear venda — o estoque real vive no
+     * servidor, e travar a venda por um numero possivelmente defasado seria
+     * pior do que vender uma peca que estava na arara.
+     */
+    const saldos =
+      pagina.length === 0
+        ? []
+        : await prisma.$queryRaw<{ varianteId: string; saldo: number }[]>`
+            SELECT "varianteId", "saldo" FROM "EstoqueAtual"
+            WHERE "varianteId" IN (${Prisma.join(pagina.map((v) => v.id))})
+          `;
+    const saldoPorVariante = new Map(saldos.map((linha) => [linha.varianteId, linha.saldo]));
+
     return {
       itens: pagina.map((variante) => ({
         id: variante.id,
+        // O caixa agrupa as variacoes pelo produto para montar a grade de
+        // tamanho/cor. Agrupar por nome seria fragil: dois produtos distintos
+        // podem ter o mesmo nome, e ai as grades se misturariam.
+        produtoId: variante.produtoId,
         sku: variante.sku,
         codigoBarras: variante.codigoBarras,
         nome: variante.produto.nome,
@@ -421,6 +447,7 @@ export async function construirServidor(
         precoCentavos: variante.precoCentavos,
         // Produto inativo derruba todas as suas variantes de uma vez.
         ativo: variante.ativo && variante.produto.ativo,
+        saldoEstoque: saldoPorVariante.get(variante.id) ?? 0,
         atualizadoEm: variante.atualizadoEm.toISOString(),
       })),
       proximoDesde: ultima?.atualizadoEm.toISOString() ?? null,

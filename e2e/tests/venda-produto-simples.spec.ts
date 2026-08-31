@@ -2,68 +2,66 @@
  * Venda de produto sem variação (perfume) — para garantir que o catálogo
  * com tamanho/cor opcionais funciona no caminho real da tela, não só nos
  * testes unitários do carrinho.
- */
-
-/*
- * PENDENTE — aguardando reconstrucao da interface.
  *
- * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
- * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
- * por teste de integracao no backend. O que sumiu foi a tela.
- *
- * Volta a rodar quando Fase 3 entregar: tela de venda.
- * Deixar como skip e registro de divida, nao conserto.
+ * Reativado na Fase 3, que entregou a tela de venda. Antes disso o arquivo
+ * ficou marcado como pendente: exercitava a UI antiga, removida na Fase 0.
+ * A grade de variação tem cobertura própria em `venda-grade.spec.ts`; aqui o
+ * foco é o produto que NÃO tem grade nenhuma.
  */
 
 import { expect, test } from '@playwright/test';
-import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
+import { DADOS_E2E, garantirTerminalFechado, irParaVenda } from '../fixtures.js';
 
 test.beforeEach(async () => {
   await garantirTerminalFechado();
 });
 
-test.skip('vende produto sem tamanho/cor e paga com débito', async ({ page }) => {
-  await irParaTelaCaixa(page);
+test('vende produto sem tamanho/cor e paga com débito', async ({ page }) => {
+  await irParaVenda(page);
 
-  await page.getByPlaceholder('0,00').fill('100,00');
-  await page.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
-  await esperarCatalogoSincronizado(page, 2);
+  await page.getByLabel(/Buscar produto/).fill('perfume');
+  await page.getByRole('button', { name: 'Adicionar' }).click();
 
-  await page.getByPlaceholder(/Bipe o código de barras/).fill('perfume');
-  await expect(page.getByText(DADOS_E2E.produtoSemVariacao.nome)).toBeVisible();
-  await page.getByText(DADOS_E2E.produtoSemVariacao.nome).click();
+  await expect(page.getByTestId('total-venda')).toHaveText('R$ 120,00');
 
-  await expect(page.locator('.itens .valor')).toHaveText('R$ 120,00');
+  await page.getByRole('complementary').getByRole('button', { name: 'Finalizar' }).click();
+  const modal = page.getByRole('dialog');
 
-  // Débito não gera troco — o botão de pagamento fecha o saldo exatamente.
-  await page.getByPlaceholder(/Falta/).fill('120,00');
-  await page.getByRole('button', { name: 'Débito' }).click();
+  // Débito não gera troco: o lançamento fecha o saldo exatamente.
+  await modal.getByRole('button', { name: 'Débito' }).click();
+  await modal.getByRole('button', { name: 'Lançar pagamento' }).click();
 
-  await expect(page.getByRole('button', { name: 'Finalizar e imprimir' })).toBeEnabled();
+  await expect(modal.getByText('Pago por completo')).toBeVisible();
+  await expect(modal.getByText('Troco a devolver')).toHaveCount(0);
+  await expect(modal.getByRole('button', { name: 'Confirmar venda' })).toBeEnabled();
 });
 
-test.skip('bipar o mesmo produto duas vezes soma a quantidade', async ({ page }) => {
-  await irParaTelaCaixa(page);
+test('produto simples não desenha grade de uma célula só', async ({ page }) => {
+  await irParaVenda(page);
+  await page.getByLabel(/Buscar produto/).fill('perfume');
 
-  await page.getByPlaceholder('0,00').fill('100,00');
-  await page.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
-  await esperarCatalogoSincronizado(page, 2);
+  // Perfume não tem tamanho nem cor. Montar uma tabela com uma célula seria
+  // ruído no lugar onde a operadora só quer clicar "adicionar".
+  await expect(page.getByRole('button', { name: 'Adicionar' })).toBeVisible();
+  await expect(page.getByRole('table')).toHaveCount(0);
+});
 
-  const busca = page.getByPlaceholder(/Bipe o código de barras/);
-  // getByRole('button') evita a ambiguidade entre o item da lista de busca
-  // (um <button>) e o <strong> que exibe o mesmo nome dentro do carrinho.
-  const itemDaBusca = page.getByRole('button', { name: new RegExp(DADOS_E2E.produto.nome) });
+test('bipar o mesmo produto duas vezes soma a quantidade', async ({ page }) => {
+  await irParaVenda(page);
+
+  const busca = page.getByLabel(/Buscar produto/);
+  const naGrade = page.getByRole('button', { name: /Adicionar Azul M,/ });
 
   await busca.fill('camiseta');
-  await itemDaBusca.click();
+  await naGrade.click();
 
   await busca.fill('camiseta');
-  await itemDaBusca.click();
+  await naGrade.click();
 
   // Uma linha só, quantidade 2 — não duas linhas.
-  await expect(page.locator('.itens li')).toHaveCount(1);
-  await expect(page.locator('.itens .quantidade span')).toHaveText('2');
-  await expect(page.locator('.itens .valor')).toHaveText('R$ 100,00');
+  const carrinho = page.getByRole('complementary');
+  await expect(carrinho.getByRole('listitem')).toHaveCount(1);
+  await expect(carrinho.getByText('2 peças')).toBeVisible();
+  await expect(page.getByTestId('total-venda')).toHaveText('R$ 100,00');
+  await expect(carrinho.getByText(DADOS_E2E.produto.nome)).toBeVisible();
 });

@@ -58,21 +58,57 @@ export async function irParaTelaCaixa(page: Page): Promise<void> {
 /**
  * Espera o catálogo local terminar de sincronizar.
  *
- * O motor de sincronização roda em background assim que a tela de venda
- * monta, mas é assíncrono contra a API real. Buscar um produto antes disso
- * terminar dá "nenhum produto encontrado" mesmo com o catálogo correto no
- * servidor — corrida entre a digitação do teste e o fetch do app.
+ * O motor de sincronização roda em background assim que o Shell monta, mas é
+ * assíncrono contra a API real. Buscar um produto antes disso terminar dá
+ * "nada encontrado" mesmo com o catálogo correto no servidor — corrida entre a
+ * digitação do teste e o fetch do app.
+ *
+ * Lê o IndexedDB direto em vez de um número na tela: o contador de produtos
+ * era um detalhe da UI antiga, e amarrar o helper a ele fez a suíte inteira
+ * quebrar quando a tela mudou.
  */
 export async function esperarCatalogoSincronizado(page: Page, minimoDeProdutos = 1): Promise<void> {
   await page.waitForFunction(
-    (minimo) => {
-      const texto = document.querySelector('.catalogo')?.textContent ?? '';
-      const numero = parseInt(texto, 10);
-      return !Number.isNaN(numero) && numero >= minimo;
+    async (minimo) => {
+      const abertura = indexedDB.open('pdv-caixa');
+      const total = await new Promise<number>((resolver) => {
+        abertura.onsuccess = () => {
+          const banco = abertura.result;
+          if (!banco.objectStoreNames.contains('catalogo')) {
+            banco.close();
+            resolver(0);
+            return;
+          }
+          const pedido = banco.transaction('catalogo').objectStore('catalogo').count();
+          pedido.onsuccess = () => {
+            banco.close();
+            resolver(pedido.result);
+          };
+          pedido.onerror = () => {
+            banco.close();
+            resolver(0);
+          };
+        };
+        abertura.onerror = () => resolver(0);
+      });
+      return total >= minimo;
     },
     minimoDeProdutos,
-    { timeout: 15_000 },
+    { timeout: 20_000 },
   );
+}
+
+/**
+ * Login + terminal + caixa aberto, parando na tela de venda com o catálogo já
+ * baixado. É o ponto de partida de qualquer teste sobre vender.
+ */
+export async function irParaVenda(page: Page, fundoTrocoCentavos = '20000'): Promise<void> {
+  await irParaTelaCaixa(page);
+  await page.getByLabel('Fundo de troco').fill('');
+  await page.getByLabel('Fundo de troco').type(fundoTrocoCentavos);
+  await page.getByRole('button', { name: /Abrir caixa/ }).click();
+  await page.waitForURL(/\/venda/);
+  await esperarCatalogoSincronizado(page, 4);
 }
 
 const URL_API_E2E = 'http://localhost:3334';

@@ -21,6 +21,21 @@ describe('corDoProduto()', () => {
     expect(corDoProduto('marinho').rotulo).toBe('Azul marinho');
   });
 
+  it('reconhece a grafia que o cadastro usa de verdade', () => {
+    // A etiqueta do fornecedor diz "Azul Marinho", não "marinho". Sem apelido,
+    // uma peça catalogada apareceria como cor desconhecida só pela grafia.
+    expect(corDoProduto('Azul Marinho').desconhecida).toBe(false);
+    expect(corDoProduto('Azul Marinho').hex).toBe(CORES_PRODUTO.marinho.hex);
+    expect(corDoProduto('Off White').hex).toBe(CORES_PRODUTO.marfim.hex);
+    expect(corDoProduto('bordô').hex).toBe(CORES_PRODUTO.vinho.hex);
+  });
+
+  it('cobre as cores que o catálogo da loja usa', () => {
+    for (const cor of ['Preto', 'Branco', 'Nude', 'Vermelho', 'Rosa', 'Vinho', 'Verde', 'Estampado']) {
+      expect(corDoProduto(cor).desconhecida, `"${cor}" deveria estar catalogada`).toBe(false);
+    }
+  });
+
   it('não derruba a venda quando a cor não está catalogada', () => {
     // Produto com cor nova, cadastrada depois que o front foi publicado:
     // precisa continuar vendável, só sinalizado.

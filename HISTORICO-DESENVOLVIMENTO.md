@@ -260,18 +260,224 @@ caminho ajustado.
 
 ---
 
+---
+
+# Parte II — Reescrita da interface
+
+O backend dos Incrementos 1–8 permanece intacto. O que foi refeito do zero foi
+a **camada de interface**, contra uma especificação nova de design de produto.
+A regra de trabalho passou a ser: uma fase por vez, mostrando a tela antes de
+avançar para a próxima.
+
+## Fase 0 — Fundação de design e rotas
+
+Stack fixada: React + TypeScript + Vite PWA, React Router, Zustand, Dexie,
+Tailwind v4, react-three-fiber. O estado anterior (tela única, tema escuro)
+foi removido.
+
+**Duas decisões que valem mais que o resto da fase:**
+
+1. **Tema claro forçado.** `index.html` traz `data-theme="light"` no HTML, e
+   `estilo.css` deliberadamente NÃO tem `@media (prefers-color-scheme: dark)`.
+   Herdar o modo escuro do sistema causou confusão real durante a prototipação
+   — a loja abria o PDV e via outra coisa do que foi desenhado. Escuro existe
+   só como escolha manual em Configurações.
+
+2. **Dois sistemas de cor paralelos.** A cor do PRODUTO é independente da cor
+   da INTERFACE. Um sutiã vinho é vinho no tema claro, no escuro e no
+   comprovante. `design/coresProduto.ts` guarda a paleta de catálogo e tem um
+   teste que **lê o próprio arquivo-fonte** e falha se alguém fizer a cor de
+   produto derivar de um token de interface (`var(--accent)` etc.). Comentário
+   não impede regressão; esse teste impede.
+
+**Dívida assumida explicitamente:** 9 specs E2E exercitavam a UI removida.
+Foram marcados como pendentes, com o motivo e a fase de retorno no cabeçalho
+de cada arquivo — não apagados nem esvaziados. Um teste que não afirma nada é
+pior que um teste vermelho.
+
+---
+
+## Fase 1 — Login com cena 3D
+
+`CenaLogin.tsx` renderiza a caixinha da marca em react-three-fiber.
+Restrições que moldaram o resultado:
+
+- **3D só em três telas** (login, consulta de produto, confirmação de venda) —
+  nunca na tela de venda, que é a de maior movimento.
+- `frameloop="demand"` quando a animação de apresentação termina: a GPU para
+  de desenhar em vez de girar um modelo parado.
+- **Nada de corpo humano realista.** Formas geométricas abstratas.
+- O formulário aparece e recebe foco ANTES da cena carregar. Dá para logar sem
+  nunca esperar o 3D, e há teste E2E provando isso.
+- Sem WebGL (máquina fraca, driver antigo, efeitos desligados nas
+  Configurações), cai em `PalcoEstatico` — não em erro nem em tela branca.
+
+**Problemas resolvidos nesta fase:**
+
+- `@react-three/fiber@9` exige React 19; o projeto está no 18.3.1. Fixado em
+  fiber@8.18 / drei@9.122. Subir o React no meio da reescrita seria mexer em
+  duas variáveis ao mesmo tempo.
+- **Vite estourando memória** no build E no dev ("Zone Allocation failed"). A
+  causa foi o import de índice do drei, que puxa centenas de módulos. Trocado
+  por imports cirúrgicos (`@react-three/drei/core/RoundedBox.js`). A máquina
+  também estava em 95% de RAM.
+- A fita da caixinha atravessava o modelo — erro de medida meu: altura 1,42
+  numa caixa de 1,15. Corrigida para envolver do fundo à tampa.
+
+---
+
+## Fase 2 — Abertura de caixa
+
+`TelaCaixa.tsx` com três estados: configurar terminal (uma vez por
+computador), abrir caixa, e resumo do caixa aberto. Na UI anterior a tela de
+resumo era **inatingível** — ela se auto-substituía no instante em que
+detectava sessão aberta.
+
+`caixaStore` ganhou a flag `jaConsultou`, que distingue "não há caixa aberto"
+de "ainda não perguntei ao servidor". Sem ela o guard de rota expulsava a
+operadora da venda mesmo com o caixa aberto, no primeiro render.
+
+O motor de sincronização foi movido para o `useEffect` do `Shell` — ou seja,
+só depois do login. Antes rodava em escopo global e tomava 401 sem token.
+
+**Detalhe tipográfico com motivo:** o campo de dinheiro usa a fonte de CORPO
+com `tabular-nums`, não a monoespaçada. Em IBM Plex Mono a vírgula ganha
+largura de dígito, e em 30px "R$ 200 , 00" fica com um vão feio. A mono
+continua nos números que alinham em COLUNA, que é onde ela serve.
+
+---
+
+## Fase 3 — Tela de venda
+
+A tela onde a loja passa o dia. Duas colunas: busca e resultados à esquerda,
+carrinho **sempre visível** à direita. Sem 3D, por decisão de projeto.
+
+Navegação por mouse, a pedido — os atalhos F2–F10 foram descartados. O que
+ficou foi o campo de busca que aceita código bipado: o leitor da loja funciona
+como teclado (digita o código e manda Enter), e sem esse caminho o
+equipamento que a loja já tem fica inútil.
+
+### Grade de variação — o problema central do ramo
+
+O servidor manda variantes planas; a vendedora pensa em produto ("o conjunto
+de renda, tem no 42 preto?"). `catalogo/grade.ts` faz a tradução, em lógica
+pura e testável sem montar tela.
+
+A grade inteira aparece **dentro do card do resultado da busca**. Abrir uma
+tela por variação transformaria uma pergunta de dois segundos em quatro
+cliques. Cada célula tem três estados, e a diferença entre os dois últimos
+importa no balcão:
+
+| célula | significa | o que a vendedora responde |
+|---|---|---|
+| azul com número | tem peça | "tenho, 3" |
+| cinza com 0 | a loja vende, acabou | "chega quinta" |
+| tracejada com – | não é vendida | "não trabalhamos nessa" |
+
+Tratar "esgotado" e "não vendemos" como a mesma coisa faz a operadora prometer
+reposição de algo que nunca vai chegar.
+
+Célula esgotada **continua clicável** de propósito: o saldo local é da última
+sincronização, e travar a venda por um número defasado é pior do que vender a
+peça que está na arara. O estoque real vive no servidor.
+
+Ordenação de tamanho é por convenção do varejo, não alfabética — ordenar
+"P, M, G, GG" como texto daria "G, GG, M, P" e a vendedora leria a grade
+errada.
+
+### Backend tocado nesta fase
+
+- `GET /catalogo` passou a devolver `produtoId` (agrupar por nome seria
+  frágil: dois produtos podem se chamar igual) e `saldoEstoque` (consulta
+  separada à view `EstoqueAtual`, restrita aos IDs da página).
+- Dexie migrou para `version(2)`: limpa o catálogo e a marca de sincronização,
+  porque os itens antigos não têm `produtoId`. **A fila de vendas não é
+  tocada** — ali há dinheiro que ainda não subiu ao servidor.
+
+### Finalização
+
+`ModalFinalizacao.tsx`. A regra que organiza a tela: **o que falta receber
+está sempre na cara da operadora**. Venda dividida (Pix + cartão + dinheiro) é
+rotina, e o erro clássico é fechar achando que o cliente pagou tudo. O saldo é
+o número maior da tela e "Confirmar" só habilita quando ele zera.
+
+Troco calculado ao vivo, e só em dinheiro — a maquininha opera separada do PDV
+e não devolve troco.
+
+Crediário ficou **de fora** desta fase: exige cliente identificado, que é a
+Fase 9. Oferecer agora deixaria a operadora escolher uma forma que o servidor
+recusa no envio — pendência bloqueada com o comprovante já na mão da cliente.
+
+### Dois bugs reais que os testes acharam
+
+1. **O campo de dinheiro dependia da posição do cursor.** Com "0,00" na tela,
+   digitar "4" no fim dava R$ 0,04 e no começo dava R$ 40,00. Um clique no
+   meio do número — coisa que acontece o tempo todo — lançava outro valor sem
+   a operadora perceber. Reescrito para funcionar como maquininha de verdade:
+   `aplicarTecla()` trata dígito e Backspace no `keydown`, ignorando o caret.
+   Achado pelo E2E da venda dividida, não por inspeção.
+
+2. **O Enter do leitor caía no vazio.** O scanner digita o código e manda
+   Enter em milissegundos, antes do debounce de 180 ms. A busca passou a ser
+   refeita no submit, em vez de ler o estado.
+
+Também descoberto: os primeiros testes E2E amarravam o clique ao saldo
+("5 em estoque") e por isso dependiam da ordem de execução — estoque é
+livro-razão, e uma venda finalizada num teste derruba o saldo do próximo.
+
+### Dívida paga
+
+`venda-produto-simples.spec.ts` (3 testes) voltou a rodar, reescrito contra a
+tela nova. Seguem pendentes 6 specs (devolução, fluxo completo, histórico),
+que dependem das Fases 5–7.
+
+---
+
+## Fases restantes da interface
+
+4. Consulta/cadastro de produto com preview 3D
+5. Finalização e comprovante em tela, com animação 3D de confirmação
+6. Fechamento de caixa (conferência às cegas)
+7. Sangria e suprimento
+8. Estoque e produtos (upload de XML)
+9. Clientes e fiado (validação de CPF)
+10. Relatórios (exportar CSV, gráficos simples — nunca gráfico 3D)
+11. Configurações e usuários (inclui o interruptor do 3D e o texto da
+    política de troca)
+
+---
+
 ## Estado ao final desta sessão
 
-- **288 testes passando** (174 unitários + 105 de integração + 9 E2E),
-  `tsc --strict` limpo nos quatro workspaces (`packages/shared`, `apps/api`,
-  `apps/pdv`, `e2e`).
-- Histórico de vendas navegável concluído — a única pendência restante do
-  Incremento 7 (buscar venda sem comprovante físico) está resolvida.
-- Pendências que seguem em aberto: ícones reais do PWA (hoje são
+- **399 testes passando**: 249 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 152 em `apps/pdv`), 107 de integração contra Postgres real, e 43
+  E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
+- Fases 0 a 3 da interface concluídas. A tela de venda está de pé: busca com
+  código bipado, grade de variação, carrinho sempre visível e finalização com
+  múltiplas formas de pagamento.
+- **7 specs E2E seguem pendentes** (devolução, fluxo completo, histórico).
+  Não estão quebrados: a funcionalidade existe e tem cobertura de integração
+  no backend; o que falta é a tela, que volta nas Fases 5 a 7. Cada arquivo
+  traz no cabeçalho o motivo e a fase de retorno.
+- Pendências antigas ainda abertas: ícones reais do PWA (hoje são
   placeholder), impressora térmica real nunca testada fisicamente.
 - Quatro bancos PostgreSQL em uso: `pdv` (desenvolvimento), `pdv_teste`
   (integração), `pdv_e2e` (Playwright), todos no mesmo contêiner Docker na
   porta 5433 (não 5432, por conflito com Postgres nativo da máquina).
+
+### Restrição de ambiente que atrapalha os testes
+
+A máquina de desenvolvimento tem 7,3 GB de RAM e vive acima de 90% de uso. O
+login usa scrypt com N=32768 e r=8, que aloca **32 MB por chamada**; com menos
+de ~0,5 GB livres, o `POST /sessao/login` passa a devolver 500 (a alocação
+falha) ou 401 intermitente, e a suíte E2E quebra em lugares **diferentes a
+cada rodada** — sinal de contenção de recursos, não de regressão.
+
+O custo do scrypt **não foi reduzido**: baixá-lo enfraqueceria a senha de
+todos os operadores para resolver um problema de RAM da máquina de
+desenvolvimento. O procedimento correto antes de rodar o E2E completo é
+fechar o navegador e parar os servidores de dev (`npm run dev`), que disputam
+memória com os quatro processos que o Playwright sobe.
 
 ## Para retomar em outra máquina
 

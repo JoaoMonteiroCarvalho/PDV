@@ -18,6 +18,8 @@ import Dexie, { type EntityTable } from 'dexie';
 
 export interface ItemCatalogo {
   id: string;
+  /** Produto ao qual esta variante pertence — agrupa a grade de tamanho/cor. */
+  produtoId: string;
   sku: string;
   codigoBarras: string | null;
   nome: string;
@@ -27,6 +29,13 @@ export interface ItemCatalogo {
   cor: string | null;
   precoCentavos: number;
   ativo: boolean;
+  /**
+   * Saldo no instante da sincronizacao — serve para sinalizar combinacao
+   * esgotada, NUNCA para bloquear a venda. O estoque real vive no servidor, e
+   * travar por um numero defasado seria pior que vender a peca que esta na
+   * arara.
+   */
+  saldoEstoque: number;
   atualizadoEm: string;
   /**
    * Tokens de busca pré-calculados na gravação, não na consulta.
@@ -75,14 +84,38 @@ export class BancoLocal extends Dexie {
 
   constructor(nome = 'pdv-caixa') {
     super(nome);
+    // Versao 1: schema original, sem `produtoId` no catalogo.
     this.version(1).stores({
-      // `*termos` é multiEntry: um índice por token, que sustenta busca por
-      // prefixo. `codigoBarras` indexado para a leitura do scanner ser O(log n).
       catalogo: 'id, sku, codigoBarras, nome, ativo, atualizadoEm, *termos',
-      // Índice composto: a fila pergunta "o que está pendente e já pode tentar?"
       fila: 'id, estado, proximaTentativaEm, [estado+proximaTentativaEm], criadaEm',
       metadados: 'chave',
     });
+
+    /*
+     * Versao 2: catalogo passa a guardar `produtoId`, para agrupar a grade de
+     * tamanho/cor.
+     *
+     * `*termos` e multiEntry: um indice por token, que sustenta busca por
+     * prefixo. `codigoBarras` indexado para a leitura do scanner ser O(log n).
+     *
+     * O upgrade LIMPA o catalogo e apaga a marca d'agua da sincronizacao. Isso
+     * e seguro porque o catalogo e replica, nao fonte de verdade — os itens
+     * antigos nao tem `produtoId` e ficariam sem grade de variacao. A fila de
+     * vendas NAO e tocada: la ha dinheiro que ainda nao chegou ao servidor.
+     */
+    this.version(2)
+      .stores({
+        catalogo: 'id, produtoId, sku, codigoBarras, nome, ativo, atualizadoEm, *termos',
+        fila: 'id, estado, proximaTentativaEm, [estado+proximaTentativaEm], criadaEm',
+        metadados: 'chave',
+      })
+      .upgrade(async (transacao) => {
+        await transacao.table('catalogo').clear();
+        await transacao.table('metadados').bulkDelete([
+          'catalogo.marcaDagua',
+          'catalogo.ultimoId',
+        ]);
+      });
   }
 }
 

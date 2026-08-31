@@ -8,7 +8,35 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { CampoDinheiro, digitosParaCentavos } from './CampoDinheiro.js';
+import { CampoDinheiro, aplicarTecla, digitosParaCentavos } from './CampoDinheiro.js';
+
+describe('aplicarTecla()', () => {
+  it('dígito entra pela direita, como numa maquininha', () => {
+    expect(aplicarTecla(0, '1')).toBe(1);
+    expect(aplicarTecla(1, '2')).toBe(12);
+    expect(aplicarTecla(12, '5')).toBe(125);
+    expect(aplicarTecla(125, '0')).toBe(1250);
+  });
+
+  it('apagar tira o último dígito, não o campo inteiro', () => {
+    expect(aplicarTecla(1250, 'Backspace')).toBe(125);
+    expect(aplicarTecla(1, 'Backspace')).toBe(0);
+    expect(aplicarTecla(0, 'Backspace')).toBe(0);
+  });
+
+  it('devolve null para tecla que não é dela — Tab e setas seguem o caminho normal', () => {
+    expect(aplicarTecla(100, 'Tab')).toBeNull();
+    expect(aplicarTecla(100, 'ArrowLeft')).toBeNull();
+    expect(aplicarTecla(100, 'Enter')).toBeNull();
+    expect(aplicarTecla(100, ',')).toBeNull();
+  });
+
+  it('ignora a tecla que estouraria o limite, em vez de truncar calado', () => {
+    const quaseNoTeto = 9_999_999_999_999;
+    expect(aplicarTecla(quaseNoTeto, '9')).toBe(quaseNoTeto);
+    expect(Number.isSafeInteger(aplicarTecla(quaseNoTeto, '9')!)).toBe(true);
+  });
+});
 
 describe('digitosParaCentavos()', () => {
   it('lê a digitação como centavos, no padrão de maquininha', () => {
@@ -88,6 +116,35 @@ describe('CampoDinheiro', () => {
 
     const recebido = aoMudar.mock.calls.at(-1)?.[0];
     expect(Number.isInteger(recebido)).toBe(true);
+  });
+
+  it('o valor não depende de onde o cursor está', async () => {
+    /*
+     * Regressão real, achada no E2E da tela de venda: com o cursor no início
+     * de "0,00", digitar "4" dava R$ 40,00; com o cursor no fim, R$ 0,04. A
+     * operadora clica no meio do número o tempo todo.
+     */
+    const usuario = userEvent.setup();
+    render(<CampoControlado />);
+    const campo = screen.getByLabelText<HTMLInputElement>('Fundo de troco');
+
+    campo.focus();
+    campo.setSelectionRange(0, 0); // cursor no começo, de propósito
+    await usuario.keyboard('4000');
+
+    expect(screen.getByTestId('centavos')).toHaveTextContent('4000');
+    expect(campo).toHaveValue('40,00');
+  });
+
+  it('apagar volta um dígito por vez, não zera o campo', async () => {
+    const usuario = userEvent.setup();
+    render(<CampoControlado inicial={12_345} />);
+    const campo = screen.getByLabelText('Fundo de troco');
+
+    await usuario.click(campo);
+    await usuario.keyboard('{Backspace}');
+
+    expect(campo).toHaveValue('12,34');
   });
 
   it('associa o erro ao campo para leitor de tela', () => {

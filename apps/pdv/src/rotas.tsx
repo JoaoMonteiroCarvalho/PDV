@@ -18,6 +18,7 @@ import { useCaixa } from './estado/caixaStore.js';
 import { TelaEntrar } from './paginas/TelaEntrar.js';
 import { EmConstrucao } from './paginas/EmConstrucao.js';
 import { TelaCaixa } from './paginas/TelaCaixa.js';
+import { TelaVenda } from './paginas/TelaVenda.js';
 import { DesignSystem } from './paginas/DesignSystem.js';
 
 function ExigeLogin({ children }: { children: ReactNode }) {
@@ -62,7 +63,7 @@ export const roteador = createBrowserRouter([
         path: 'venda',
         element: (
           <ExigeCaixa>
-            <EmConstrucao titulo="Tela de venda" fase="Fase 3" />
+            <TelaVenda />
           </ExigeCaixa>
         ),
       },

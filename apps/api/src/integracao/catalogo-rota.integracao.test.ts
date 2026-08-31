@@ -22,10 +22,12 @@ let produtoId: string;
 
 interface ItemCatalogo {
   id: string;
+  produtoId: string;
   sku: string;
   nome: string;
   precoCentavos: number;
   ativo: boolean;
+  saldoEstoque: number;
   atualizadoEm: string;
   tamanho: string | null;
   cor: string | null;
@@ -160,6 +162,40 @@ describe('carga completa', () => {
     expect(item.categoria).toBe('Lingerie');
     expect(item.precoCentavos).toBe(8990);
     expect(item.ativo).toBe(true);
+  });
+
+  it('traz o produtoId, para o caixa montar a grade de tamanho e cor', async () => {
+    // Sem isto, agrupar variantes só sobraria o nome — e dois produtos com o
+    // mesmo nome virariam uma grade só, misturando peças que não são a mesma.
+    await criarVariantes(2);
+    const resposta = await buscarCatalogo();
+    for (const item of resposta.itens) {
+      expect(item.produtoId).toBe(produtoId);
+    }
+  });
+
+  it('traz o saldo de estoque de cada variante', async () => {
+    const comSaldo = await prisma.variante.create({
+      data: { produtoId, sku: 'COM-SALDO', precoCentavos: 5000, custoCentavos: 2000 },
+    });
+    const semMovimento = await prisma.variante.create({
+      data: { produtoId, sku: 'SEM-MOV', precoCentavos: 5000, custoCentavos: 2000 },
+    });
+
+    await prisma.movimentoEstoque.createMany({
+      data: [
+        { varianteId: comSaldo.id, tipo: 'ENTRADA_COMPRA', quantidade: 10 },
+        { varianteId: comSaldo.id, tipo: 'VENDA', quantidade: -3 },
+      ],
+    });
+
+    const resposta = await buscarCatalogo();
+    const porSku = new Map(resposta.itens.map((item) => [item.sku, item.saldoEstoque]));
+
+    expect(porSku.get('COM-SALDO')).toBe(7);
+    // Variante sem nenhum movimento não aparece na view; o caixa precisa
+    // receber zero, não `undefined` — a grade mostraria célula vazia.
+    expect(porSku.get('SEM-MOV')).toBe(0);
   });
 
   it('não expõe o custo — o caixa não precisa saber a margem', async () => {

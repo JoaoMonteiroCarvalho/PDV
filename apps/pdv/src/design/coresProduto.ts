@@ -18,16 +18,42 @@
 export const CORES_PRODUTO = {
   preto: { rotulo: 'Preto', hex: '#1A1A1C' },
   grafite: { rotulo: 'Grafite', hex: '#3E3E42' },
+  branco: { rotulo: 'Branco', hex: '#FAFAF8' },
   marfim: { rotulo: 'Marfim', hex: '#F2EFE9' },
   nude: { rotulo: 'Nude', hex: '#D8B49C' },
   blush: { rotulo: 'Blush', hex: '#E8B7B7' },
+  rosa: { rotulo: 'Rosa', hex: '#D9789B' },
   vinho: { rotulo: 'Vinho', hex: '#7A3129' },
   vermelho: { rotulo: 'Vermelho', hex: '#A81E28' },
   marinho: { rotulo: 'Azul marinho', hex: '#1E2A44' },
   verde: { rotulo: 'Verde', hex: '#3A5A4A' },
+  /*
+   * Estampado não é uma cor, é a ausência de cor única. Recebe um tom neutro
+   * de propósito — fingir um hex específico faria o swatch mentir sobre uma
+   * peça que tem cinco cores.
+   */
+  estampado: { rotulo: 'Estampado', hex: '#B8ADA0' },
 } as const;
 
 export type ChaveCorProduto = keyof typeof CORES_PRODUTO;
+
+/**
+ * Como o cadastro escreve versus a chave da paleta.
+ *
+ * O cadastro é preenchido por gente, e "Azul Marinho" é o que a etiqueta do
+ * fornecedor diz. Sem estes apelidos, uma peça perfeitamente catalogada
+ * apareceria como cor desconhecida só por causa da grafia.
+ */
+const APELIDOS: Record<string, ChaveCorProduto> = {
+  'azul marinho': 'marinho',
+  azul: 'marinho',
+  'off white': 'marfim',
+  offwhite: 'marfim',
+  creme: 'marfim',
+  bordo: 'vinho',
+  chumbo: 'grafite',
+  estampa: 'estampado',
+};
 
 /** Cor usada quando o cadastro traz uma chave que o front ainda não conhece. */
 const COR_DESCONHECIDA = { rotulo: 'Cor não catalogada', hex: '#C7C7CC' } as const;
@@ -51,11 +77,12 @@ export function corDoProduto(chave: string | null | undefined): CorProduto {
   if (!chave) {
     return { chave: '', ...COR_DESCONHECIDA, desconhecida: true };
   }
-  const normalizada = chave
+  const semAcento = chave
     .trim()
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+  const normalizada = APELIDOS[semAcento] ?? semAcento;
 
   const encontrada = (CORES_PRODUTO as Record<string, { rotulo: string; hex: string } | undefined>)[
     normalizada

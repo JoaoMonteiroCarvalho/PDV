@@ -14,6 +14,7 @@ let banco: BancoLocal;
 function item(indice: number, sobrescrever: Record<string, unknown> = {}) {
   return {
     id: `id-${indice}`,
+    produtoId: `prod-${indice}`,
     sku: `SKU-${indice}`,
     codigoBarras: `789000000${String(indice).padStart(4, '0')}`,
     nome: 'Conjunto Renda Delicada',
@@ -23,6 +24,7 @@ function item(indice: number, sobrescrever: Record<string, unknown> = {}) {
     cor: 'Preto',
     precoCentavos: 8990,
     ativo: true,
+    saldoEstoque: 5,
     atualizadoEm: `2026-08-0${(indice % 9) + 1}T10:00:00.000Z`,
     ...sobrescrever,
   };

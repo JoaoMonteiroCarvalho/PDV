@@ -93,6 +93,54 @@ async function main(): Promise<void> {
     },
   });
 
+  /*
+   * Produto com GRADE de verdade, para o E2E da tela de venda.
+   *
+   * A grade é montada com um buraco deliberado: Vinho/GG não existe. Sem esse
+   * buraco o teste não conseguiria distinguir "esgotado" de "a loja não vende
+   * essa combinação" — que é justamente a diferença que a operadora precisa
+   * enxergar para não prometer reposição de algo que nunca vai chegar.
+   *
+   *          P        GG
+   *  Preto   5        0 (esgotado)
+   *  Vinho   3        — (não existe)
+   */
+  const produtoGrade = await prisma.produto.create({
+    data: { nome: DADOS_E2E.produtoComGrade.nome, categoriaId: categoria.id },
+  });
+  const combinacoes = [
+    { tamanho: 'P', cor: 'Preto', saldo: 5 },
+    { tamanho: 'GG', cor: 'Preto', saldo: 0 },
+    { tamanho: 'P', cor: 'Vinho', saldo: 3 },
+  ] as const;
+
+  for (const combinacao of combinacoes) {
+    const varianteGrade = await prisma.variante.create({
+      data: {
+        produtoId: produtoGrade.id,
+        sku: `E2E-GRADE-${combinacao.tamanho}-${combinacao.cor.toUpperCase()}`,
+        tamanho: combinacao.tamanho,
+        cor: combinacao.cor,
+        precoCentavos: DADOS_E2E.produtoComGrade.precoCentavos,
+        custoCentavos: 3000,
+      },
+    });
+    // Saldo zero fica SEM movimento: é o mesmo estado de uma peça que a loja
+    // cadastrou e ainda não recebeu, e exercita o `?? 0` da rota do catálogo.
+    if (combinacao.saldo > 0) {
+      await prisma.movimentoEstoque.create({
+        data: {
+          varianteId: varianteGrade.id,
+          tipo: 'ENTRADA_COMPRA',
+          quantidade: combinacao.saldo,
+          custoUnitarioCentavos: 3000,
+          documentoTipo: 'CARGA_E2E',
+          documentoId: 'seed-e2e',
+        },
+      });
+    }
+  }
+
   const produtoSimples = await prisma.produto.create({
     data: { nome: DADOS_E2E.produtoSemVariacao.nome, categoriaId: categoria.id },
   });
