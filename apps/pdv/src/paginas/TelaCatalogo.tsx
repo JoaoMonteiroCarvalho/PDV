@@ -6,23 +6,32 @@
  * tem, geralmente para responder a cliente que ainda não sabe o que quer, ou
  * para conferir cadastro.
  *
- * Sem 3D nos cards, e a razão é técnica, não estética: o navegador limita
- * quantos contextos WebGL existem ao mesmo tempo (na prática 8 a 16) e passa a
- * descartar os mais antigos em silêncio. Uma grade de prévias 3D viraria
- * retângulos pretos sem erro nenhum no console. O 3D vive na tela de UM
- * produto; aqui a cor aparece em amostra plana, que é o que a operadora
- * precisa enxergar de relance.
+ * Cada card traz a prévia 3D da peça. O detalhe que faz isso ser viável:
+ * TODOS os cards são desenhados por UM canvas só, via `View` do drei. Um
+ * `<Canvas>` por card criaria um contexto WebGL por card, e o navegador só
+ * mantém 8 a 16 vivos — passando disso ele descarta os mais antigos em
+ * silêncio e os primeiros cards viram retângulos pretos, sem erro no console.
+ *
+ * Só o card visível na tela ganha prévia (`IntersectionObserver`): rolar uma
+ * lista de 10 mil SKUs não pode manter dezenas de peças na cena.
  */
 
 import { formatarBRL, centavos } from '@pdv/shared';
 import { liveQuery } from 'dexie';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bancoLocal, type ItemCatalogo } from '../banco/local.js';
 import { agruparPorProduto, type ProdutoAgrupado } from '../catalogo/grade.js';
+import { descreverForma, formaDaPeca } from '../catalogo/formaDaPeca.js';
 import { buscarProdutos } from '../catalogo/sincronizacao.js';
 import { Botao, Campo, Cartao, Erro, Selo } from '../componentes/base.js';
 import { SwatchCor } from '../componentes/SwatchCor.js';
+import { corDoProduto } from '../design/coresProduto.js';
+import { PalcoProduto } from '../tres/PalcoProduto.js';
+import { podeRenderizar3d } from '../tres/capacidade.js';
+import type { AlvoPrevia } from '../tres/CenaCatalogo.js';
+
+const CenaCatalogo = lazy(() => import('../tres/CenaCatalogo.js'));
 
 /** Quantas VARIANTES carregar por vez. Um produto costuma ter 6 a 20. */
 const PASSO = 240;
@@ -38,8 +47,58 @@ export function TelaCatalogo() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(0);
+  /** Quais cards estão na tela agora — só eles ganham prévia 3D. */
+  const [visiveis, setVisiveis] = useState<ReadonlySet<string>>(new Set());
 
   const buscando = termo.trim().length > 0;
+  const usar3d = useMemo(() => podeRenderizar3d(), []);
+
+  /*
+   * Um objeto-ref estável por produto, criado sob demanda. O `View` do drei
+   * segue o retângulo deste elemento a cada quadro; se o ref trocasse de
+   * identidade a cada render, a prévia perderia o card de vista.
+   */
+  const trilhos = useRef(new Map<string, { current: HTMLElement | null }>());
+  const trilhoDe = useCallback((chave: string) => {
+    let trilho = trilhos.current.get(chave);
+    if (!trilho) {
+      trilho = { current: null };
+      trilhos.current.set(chave, trilho);
+    }
+    return trilho;
+  }, []);
+
+  /** Observa os slots e mantém `visiveis` em dia enquanto a operadora rola. */
+  const observador = useRef<IntersectionObserver | null>(null);
+  useEffect(() => {
+    if (!usar3d) return;
+    observador.current = new IntersectionObserver(
+      (entradas) => {
+        setVisiveis((atual) => {
+          const proximo = new Set(atual);
+          for (const entrada of entradas) {
+            const chave = (entrada.target as HTMLElement).dataset.produto;
+            if (!chave) continue;
+            if (entrada.isIntersecting) proximo.add(chave);
+            else proximo.delete(chave);
+          }
+          return proximo;
+        });
+      },
+      // Margem generosa: a peça já está pronta quando o card entra na tela.
+      { rootMargin: '240px' },
+    );
+    return () => observador.current?.disconnect();
+  }, [usar3d]);
+
+  const registrarSlot = useCallback(
+    (chave: string, elemento: HTMLElement | null) => {
+      trilhoDe(chave).current = elemento;
+      if (!elemento) return;
+      observador.current?.observe(elemento);
+    },
+    [trilhoDe],
+  );
 
   /*
    * Debounce só do TEXTO. A consulta em si é reativa (abaixo); o atraso aqui
@@ -98,6 +157,20 @@ export function TelaCatalogo() {
     return acabou ? agrupados : agrupados.slice(0, -1);
   }, [variantes, acabou]);
 
+  /** Só os cards visíveis viram peça na cena. */
+  const alvos = useMemo<AlvoPrevia[]>(() => {
+    if (!usar3d) return [];
+    return produtos
+      .filter((produto) => visiveis.has(produto.produtoId))
+      .map((produto) => ({
+        chave: produto.produtoId,
+        forma: formaDaPeca(produto.categoria, produto.tamanhos.length > 0),
+        // Cor da PEÇA, da paleta de catálogo — nunca token de interface.
+        cor: corDoProduto(produto.cores[0] ?? null).hex,
+        trilho: trilhoDe(produto.produtoId),
+      }));
+  }, [produtos, visiveis, usar3d, trilhoDe]);
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -136,7 +209,12 @@ export function TelaCatalogo() {
         <>
           <div className="mt-6 grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
             {produtos.map((produto) => (
-              <CardCatalogo key={produto.produtoId} produto={produto} />
+              <CardCatalogo
+                key={produto.produtoId}
+                produto={produto}
+                usar3d={usar3d}
+                aoMontarSlot={registrarSlot}
+              />
             ))}
           </div>
 
@@ -153,15 +231,38 @@ export function TelaCatalogo() {
           )}
         </>
       )}
+
+      {/*
+        UM canvas para a grade inteira. Entra por `lazy`, então a lista, os
+        preços e o estoque aparecem antes de qualquer coisa 3D — quem está com
+        pressa nunca espera pela cena.
+      */}
+      {usar3d && alvos.length > 0 && (
+        <Suspense fallback={null}>
+          <CenaCatalogo alvos={alvos} />
+        </Suspense>
+      )}
     </div>
   );
 }
 
-function CardCatalogo({ produto }: { produto: ProdutoAgrupado }) {
+function CardCatalogo({
+  produto,
+  usar3d,
+  aoMontarSlot,
+}: {
+  produto: ProdutoAgrupado;
+  usar3d: boolean;
+  aoMontarSlot: (chave: string, elemento: HTMLElement | null) => void;
+}) {
   const faixa =
     produto.precoMinimoCentavos === produto.precoMaximoCentavos
       ? formatarBRL(centavos(produto.precoMinimoCentavos))
       : `a partir de ${formatarBRL(centavos(produto.precoMinimoCentavos))}`;
+
+  const forma = formaDaPeca(produto.categoria, produto.tamanhos.length > 0);
+  const tom = corDoProduto(produto.cores[0] ?? null);
+  const descricao = descreverForma(forma, produto.nome);
 
   return (
     <Link
@@ -169,6 +270,24 @@ function CardCatalogo({ produto }: { produto: ProdutoAgrupado }) {
       className="block rounded-card transition-transform duration-200 hover:-translate-y-0.5"
     >
       <Cartao className="flex h-full flex-col gap-3 p-4">
+        {/*
+          Slot da prévia. Com 3D ligado ele fica VAZIO de propósito: o canvas
+          único desenha por cima deste retângulo. Preenchê-lo com o SVG faria
+          as duas imagens aparecerem juntas, porque o `View` do drei não limpa
+          a área antes de desenhar.
+        */}
+        <div
+          data-produto={produto.produtoId}
+          ref={(elemento) => aoMontarSlot(produto.produtoId, elemento)}
+          // Com 3D o slot é um retângulo vazio que o canvas pinta; sem
+          // rótulo, a peça sumiria para quem usa leitor de tela.
+          role={usar3d ? 'img' : undefined}
+          aria-label={usar3d ? descricao : undefined}
+          className="h-[132px] w-full overflow-hidden rounded-[10px] bg-sunken"
+        >
+          {!usar3d && <PalcoProduto forma={forma} cor={tom.hex} descricao={descricao} />}
+        </div>
+
         <div className="min-w-0">
           <p className="truncate font-titulo text-[15px] font-medium">{produto.nome}</p>
           <p className="truncate text-[13px] text-ink-faint">

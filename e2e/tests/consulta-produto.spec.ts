@@ -45,14 +45,60 @@ test.describe('catálogo visual', () => {
     ).toBeVisible();
   });
 
-  test('sem 3D nos cards — um contexto WebGL por card seria descartado pelo navegador', async ({
-    page,
-  }) => {
+  test('cada card tem prévia 3D, servida por UM canvas só', async ({ page }) => {
+    /*
+     * A invariante que este teste protege: por mais cards que a grade tenha,
+     * existe UM canvas. Um `<Canvas>` por card criaria um contexto WebGL por
+     * card, e o navegador descarta os mais antigos em silêncio a partir de 8 a
+     * 16 — os primeiros cards virariam retângulos pretos sem erro no console.
+     */
     await irParaVenda(page);
     await page.getByRole('link', { name: 'Catálogo' }).click();
     await expect(page.getByRole('heading', { name: 'Catálogo' })).toBeVisible();
 
-    await expect(page.locator('canvas')).toHaveCount(0);
+    const cards = page.getByRole('link').filter({ has: page.locator('[data-produto]') });
+    expect(await cards.count()).toBeGreaterThan(1);
+
+    await expect(page.locator('canvas')).toHaveCount(1, { timeout: 20_000 });
+  });
+
+  test('a prévia de cada card é descrita para leitor de tela', async ({ page }) => {
+    await irParaVenda(page);
+    await page.getByRole('link', { name: 'Catálogo' }).click();
+
+    // O canvas é um retângulo pintado por cima; sem rótulo no slot, a peça
+    // sumiria para quem não enxerga.
+    await expect(
+      page.getByRole('img', { name: /Prévia abstrata de Conjunto Grade E2E/ }),
+    ).toBeVisible();
+  });
+
+  test('a lista e os preços aparecem antes de qualquer coisa 3D', async ({ page }) => {
+    await irParaVenda(page);
+    await page.getByRole('link', { name: 'Catálogo' }).click();
+
+    // Sem esperar canvas nenhum: o three.js entra por chunk separado.
+    await expect(page.getByRole('link').filter({ hasText: NOME_GRADE })).toBeVisible();
+  });
+
+  test('sem WebGL, a grade cai no palco estático em cada card', async ({ browser }) => {
+    const contexto = await browser.newContext();
+    await contexto.addInitScript(() => {
+      HTMLCanvasElement.prototype.getContext = function () {
+        return null;
+      } as never;
+    });
+    const pagina = await contexto.newPage();
+
+    await loginOperador(pagina);
+    await esperarCatalogoSincronizado(pagina, 4);
+    await pagina.getByRole('link', { name: 'Catálogo' }).click();
+
+    await expect(pagina.locator('canvas')).toHaveCount(0);
+    await expect(
+      pagina.getByRole('img', { name: /Prévia abstrata de Conjunto Grade E2E/ }),
+    ).toBeVisible();
+    await contexto.close();
   });
 
   test('busca filtra a lista', async ({ page }) => {

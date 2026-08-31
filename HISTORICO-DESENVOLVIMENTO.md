@@ -460,14 +460,28 @@ A tela traz uma legenda fixa dizendo que a imagem indica a **cor**, não o
 modelo. Sem ela a operadora pode tomar a prévia por foto e descrever para a
 cliente uma peça que não existe.
 
-### Um canvas por tela, e o motivo é técnico
+### Prévia 3D em cada card, com UM contexto WebGL
 
-A tentação seria pôr prévia 3D em cada card do catálogo. O navegador limita
-quantos contextos WebGL existem ao mesmo tempo (na prática 8 a 16) e passa a
-**descartar os mais antigos em silêncio** — os cards virariam retângulos
-pretos sem erro nenhum no console. Por isso o catálogo usa amostra de cor
-plana e o 3D vive só na tela de um produto. Há teste E2E garantindo que a
-listagem não cria canvas.
+O catálogo mostra a peça em 3D em todos os cards. O que torna isso viável é
+não haver um `<Canvas>` por card: o navegador só mantém 8 a 16 contextos WebGL
+vivos e passa a **descartar os mais antigos em silêncio** — os primeiros cards
+virariam retângulos pretos sem erro nenhum no console.
+
+A solução é o `View` do drei: **um** canvas fixo cobrindo a janela desenha N
+viewports recortados por scissor, cada um seguindo o retângulo de um card. Um
+contexto, quantos cards a loja quiser. O teste E2E protege exatamente essa
+invariante — a grade tem vários cards e `page.locator('canvas')` tem contagem
+1.
+
+Economia de GPU, que aqui pesa mais que na consulta (dezenas de peças em vez
+de uma): `frameloop="demand"` (parado não desenha nada; rolar ou passar o
+mouse é que pede quadro), só a peça sob o cursor gira, `IntersectionObserver`
+com margem de 240 px para só o card visível virar peça na cena, e `dpr` teto
+1,25. O canvas tem `pointer-events: none`, então o clique atravessa e chega no
+link do card.
+
+A malha foi extraída para `MalhaDaPeca`, compartilhada entre o card e a
+consulta — sem isso as duas divergiriam na primeira alteração.
 
 O resto da economia de GPU é a mesma do login: `frameloop="demand"` ao
 repousar, `dpr` em 1.5, aba em segundo plano para tudo, e a cena destruída ao
@@ -522,8 +536,8 @@ próprio, e o nome acessível saía da amostra mais o texto. Agora tem
 
 ## Estado ao final desta sessão
 
-- **438 testes passando**: 272 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 175 em `apps/pdv`), 107 de integração contra Postgres real, e 59
+- **441 testes passando**: 272 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 175 em `apps/pdv`), 107 de integração contra Postgres real, e 62
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
 - Fases 0 a 4 da interface concluídas: venda, catálogo visual e consulta de
   produto com prévia 3D.

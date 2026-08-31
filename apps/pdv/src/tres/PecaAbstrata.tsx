@@ -65,10 +65,26 @@ export function PecaAbstrata({ forma, cor, interagindo, aoRepousar }: Props) {
 
   return (
     <group ref={grupo}>
+      <MalhaDaPeca forma={forma} cor={cor} />
+    </group>
+  );
+}
+
+/**
+ * Só a geometria, sem animação nenhuma.
+ *
+ * Separado de `PecaAbstrata` porque o card do catálogo precisa da mesma peça
+ * com outro comportamento: lá ela fica parada e só gira quando o mouse passa
+ * por cima. Duplicar as formas para isso faria a peça do card divergir da
+ * peça da consulta com a primeira alteração.
+ */
+export function MalhaDaPeca({ forma, cor }: { forma: FormaDaPeca; cor: string }) {
+  return (
+    <>
       {forma === 'dobrada' && <PecaDobrada cor={cor} />}
       {forma === 'frasco' && <Frasco cor={cor} />}
       {forma === 'bloco' && <Bloco cor={cor} />}
-    </group>
+    </>
   );
 }
 

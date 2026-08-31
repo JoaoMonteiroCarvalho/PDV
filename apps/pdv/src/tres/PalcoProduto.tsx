@@ -25,7 +25,15 @@ export function PalcoProduto({
 }) {
   return (
     <div className="grid size-full place-items-center">
-      <svg width="260" height="230" viewBox="0 0 260 230" fill="none" role="img" aria-label={descricao}>
+      {/* Sem width/height fixos: o mesmo palco serve a caixa de 300px da
+          consulta e o slot de 132px do card, escalando pelo viewBox. */}
+      <svg
+        viewBox="0 0 260 230"
+        fill="none"
+        role="img"
+        aria-label={descricao}
+        className="h-full w-full"
+      >
         {/* Sombra de contato, equivalente ao ContactShadows da cena. */}
         <ellipse cx="130" cy="198" rx="72" ry="9" fill="rgb(0 0 0 / 10%)" />
         {forma === 'dobrada' && <DesenhoDobrada cor={cor} />}
