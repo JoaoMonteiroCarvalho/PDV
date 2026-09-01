@@ -15,8 +15,20 @@ import { carregarConfiguracao, type Configuracao } from './config.js';
 import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import { esquemaEntradaEstoque } from './esquemas/estoque.js';
+import {
+  esquemaBuscarClientes,
+  esquemaCriarCliente,
+  esquemaReceberParcela,
+} from './esquemas/cliente.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
 import { ErroEstoque, registrarEntradaEstoque } from './servicos/estoque.js';
+import {
+  ErroCliente,
+  buscarClientes,
+  criarCliente,
+  obterCliente,
+  receberParcela,
+} from './servicos/cliente.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import {
@@ -593,6 +605,87 @@ export async function construirServidor(
         return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
       }
       throw erro;
+    }
+  });
+
+  // --- Clientes e crediário --------------------------------------------------
+
+  const STATUS_CLIENTE: Readonly<Record<string, number>> = {
+    CLIENTE_INEXISTENTE: 404,
+    PARCELA_INEXISTENTE: 404,
+    CPF_JA_CADASTRADO: 409,
+    PARCELA_JA_PAGA: 409,
+  };
+
+  function tratarErroCliente(erro: unknown, resposta: FastifyReply): FastifyReply | never {
+    if (erro instanceof ErroCliente) {
+      return resposta
+        .status(STATUS_CLIENTE[erro.codigo] ?? 422)
+        .send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  app.get('/clientes', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const filtros = esquemaBuscarClientes.safeParse(requisicao.query);
+    if (!filtros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: filtros.error.issues });
+    }
+    return buscarClientes(prisma, filtros.data);
+  });
+
+  app.post('/clientes', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarCliente.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      return resposta.status(201).send(await criarCliente(prisma, entrada.data));
+    } catch (erro) {
+      return tratarErroCliente(erro, resposta);
+    }
+  });
+
+  /** Ficha da cliente: limite, saldo devedor e parcelas em aberto. */
+  app.get('/clientes/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    if (!parametros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: parametros.error.issues });
+    }
+    try {
+      return await obterCliente(prisma, parametros.data.id);
+    } catch (erro) {
+      return tratarErroCliente(erro, resposta);
+    }
+  });
+
+  /**
+   * Recebe (parte de) uma parcela do crediário.
+   *
+   * É LANÇAMENTO, não edição: cria um `RecebimentoParcela` e o status vem da
+   * soma. Pagamento parcial existe de verdade, e nada some por clique errado.
+   */
+  app.post('/parcelas/:id/receber', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaReceberParcela.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [
+          ...(parametros.success ? [] : parametros.error.issues),
+          ...(entrada.success ? [] : entrada.error.issues),
+        ],
+      });
+    }
+    try {
+      const resultado = await receberParcela(
+        prisma,
+        { parcelaId: parametros.data.id, ...entrada.data },
+        { operadorId: requisicao.user.sub },
+      );
+      return resposta.status(201).send(resultado);
+    } catch (erro) {
+      return tratarErroCliente(erro, resposta);
     }
   });
 

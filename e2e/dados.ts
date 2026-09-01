@@ -18,4 +18,9 @@ export const DADOS_E2E = {
    * ausente. É o cenário que separa "esgotado" de "não vendido" na tela.
    */
   produtoComGrade: { nome: 'Conjunto Grade E2E', precoCentavos: 8990 },
+  /**
+   * Cliente com limite de fiado. O CPF é válido pelo dígito verificador — um
+   * CPF inventado faria o cadastro ser recusado e o seed quebrar em silêncio.
+   */
+  clienteFiado: { nome: 'Carla E2E', cpf: '52998224725', limiteCrediarioCentavos: 500_000 },
 } as const;

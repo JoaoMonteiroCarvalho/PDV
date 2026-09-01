@@ -68,6 +68,14 @@ async function main(): Promise<void> {
 
   const terminal = await prisma.terminal.create({ data: { nome: DADOS_E2E.terminal.nome } });
 
+  await prisma.cliente.create({
+    data: {
+      nome: DADOS_E2E.clienteFiado.nome,
+      cpf: DADOS_E2E.clienteFiado.cpf,
+      limiteCrediarioCentavos: DADOS_E2E.clienteFiado.limiteCrediarioCentavos,
+    },
+  });
+
   /*
    * Categorias REAIS da loja, não um rótulo genérico. A categoria decide duas
    * coisas de negócio que os testes precisam exercitar: o termo discreto que

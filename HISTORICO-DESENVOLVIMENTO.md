@@ -849,9 +849,89 @@ A asserção passou a provar o oposto: que a tela de conferência continua abert
 
 ---
 
+## Fase 9 — Clientes e fiado
+
+`/clientes`: quem tem cadastro e quanto cada uma deve. Mais o fiado na venda,
+que a Fase 3 deixou explicitamente para cá.
+
+### CPF com dígito verificador, no `shared`
+
+`packages/shared/src/cpf.ts` mora no pacote compartilhado porque os **dois
+lados precisam concordar**. Se o caixa aceitasse um CPF que a API recusa, a
+operadora cadastraria a cliente, veria "ok", e o cadastro nunca chegaria ao
+servidor — o pior tipo de erro, porque ninguém percebe na hora.
+
+A validação é o dígito verificador de verdade, não "tem 11 números". Num
+cadastro de crediário o CPF é o que liga a dívida a uma pessoa: aceitar
+qualquer sequência cria fiado no nome de ninguém, e é exatamente aí que a loja
+não consegue cobrar. Sequências como `111.111.111-11` passam no cálculo e são
+tratadas à parte — é o que alguém digita para "pular" o campo.
+
+O CPF é **opcional**: a loja atende quem não quer informar, e exigi-lo perderia
+venda. Mas quando informado, tem que ser válido.
+
+Guardado só com dígitos. Formatado criaria dois registros para a mesma pessoa
+("529.982.247-25" e "52998224725"), a busca por um não acharia o outro, e o
+índice único do banco deixaria a duplicata passar. String vazia vira `null` no
+schema Zod — senão o índice único deixaria só a **primeira** cliente sem CPF
+ser cadastrada.
+
+### Recebimento é lançamento, não edição
+
+A parcela nunca é "marcada como paga": cria-se um `RecebimentoParcela` e o
+status vem da soma. Assim **pagamento parcial existe de verdade** — a cliente
+paga metade hoje e metade na semana que vem, e o sistema sabe disso. Com só
+"paga ou não paga", a operadora teria que escolher entre mentir e recusar o
+dinheiro.
+
+Receber **mais** do que falta é recusado. Não é "sobra", é erro de digitação:
+aceitar criaria crédito fantasma que ninguém sabe devolver e saldo devedor
+negativo.
+
+E recebimento **entra na gaveta**: pertence a uma sessão de caixa aberta e
+precisa bater no fechamento. Dinheiro de fiado que não passa pelo caixa é
+dinheiro que ninguém confere — sem caixa aberto, não recebe.
+
+### Fiado na venda
+
+O modal de finalização ganhou a forma "Fiado", que a Fase 5 tinha deixado de
+fora justamente esperando esta tela.
+
+O que ele confere, nesta ordem:
+
+1. **Cliente identificada.** Fiado sem cliente é dívida de ninguém, e
+   `validarPagamentos` recusaria — depois do comprovante impresso.
+2. **Limite DISPONÍVEL**, não o total: o que ela deve já descontado. É o número
+   que decide se a venda cabe.
+3. **Só a parte no fiado** conta contra o limite. Venda dividida é o caso real
+   — a cliente paga o que tem e leva o resto fiado.
+
+Parcelamento até 6x, à vista por padrão. `calcularParcelas` do `shared` já
+respeita mês curto: compra dia 31 com vencimento em fevereiro cai no último dia
+do mês, não transborda para março.
+
+### A tela de clientes depende de rede, de propósito
+
+Diferente das outras, ela não lê réplica local. O cadastro de clientes tem
+dados pessoais, e guardar CPF de toda a base em cada terminal é risco sem
+contrapartida — consultar fiado é raro comparado a vender.
+
+### Três armadilhas de teste que valem registro
+
+1. **Acúmulo de estado no E2E.** Cada teste gerava uma dívida nova na mesma
+   cliente semeada; com limite de R$ 500, a quinta venda estourava e o teste
+   falhava por acúmulo, não por defeito. O limite do seed subiu para R$ 5.000.
+2. **`getByRole('button', { name: 'Cadastrar' })`** casava também com
+   "Cadastrar cliente" — o `name` do Playwright é substring. Resolvido com
+   `exact: true`.
+3. **O nome de teste "Sem CPF 123456"** colidia com o rótulo `sem CPF` da
+   ficha, porque `getByText` é substring e case-insensitive. Dado de teste mal
+   escolhido, não bug — renomeado.
+
+---
+
 ## Fases restantes da interface
 
-9. Clientes e fiado (validação de CPF)
 10. Relatórios (exportar CSV, gráficos simples — nunca gráfico 3D)
 11. Configurações e usuários (inclui o interruptor do 3D e o texto da
     política de troca)
@@ -860,12 +940,13 @@ A asserção passou a provar o oposto: que a tela de conferência continua abert
 
 ## Estado ao final desta sessão
 
-- **649 testes passando**: 418 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 321 em `apps/pdv`), 120 de integração contra Postgres real, e 111
+- **707 testes passando**: 442 unitários (105 em `packages/shared`, 7 em
+  `apps/api`, 330 em `apps/pdv`), 141 de integração contra Postgres real, e 124
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 8 da interface concluídas: venda, catálogo visual, consulta de
+- Fases 0 a 9 da interface concluídas: venda, catálogo visual, consulta de
   produto com prévia 3D, comprovante discreto, fechamento às cegas, sangria com
-  autorização de gerente e entrada de estoque por XML da NF-e.
+  autorização de gerente, entrada de estoque por XML da NF-e, e clientes com
+  fiado.
 - **4 specs E2E seguem pendentes** (devolução e histórico de vendas).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela de histórico, que ainda não tem fase

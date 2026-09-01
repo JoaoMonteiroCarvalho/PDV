@@ -214,6 +214,47 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  // --- Clientes e crediário ------------------------------------------------------
+
+  async buscarClientes(busca: string): Promise<ClienteResumo[]> {
+    const consulta = new URLSearchParams({ limite: '30' });
+    if (busca.trim()) consulta.set('busca', busca.trim());
+    const resposta = await fetch(`${BASE}/clientes?${consulta}`, { headers: this.cabecalhos() });
+    return this.json(resposta);
+  }
+
+  async criarCliente(dados: {
+    nome: string;
+    cpf?: string | undefined;
+    telefone?: string | undefined;
+    limiteCrediarioCentavos: number;
+  }): Promise<ClienteResumo> {
+    const resposta = await fetch(`${BASE}/clientes`, {
+      method: 'POST',
+      headers: this.cabecalhos(),
+      body: JSON.stringify(dados),
+    });
+    return this.json(resposta);
+  }
+
+  /** Ficha completa: limite, saldo devedor e parcelas em aberto. */
+  async obterCliente(clienteId: string): Promise<ClienteDetalhe> {
+    const resposta = await fetch(`${BASE}/clientes/${clienteId}`, { headers: this.cabecalhos() });
+    return this.json(resposta);
+  }
+
+  async receberParcela(
+    parcelaId: string,
+    dados: { sessaoCaixaId: string; valorCentavos: number; forma: 'DINHEIRO' | 'DEBITO' | 'CREDITO' | 'PIX' },
+  ): Promise<{ recebidoCentavos: number; restanteCentavos: number; status: 'ABERTA' | 'PAGA' }> {
+    const resposta = await fetch(`${BASE}/parcelas/${parcelaId}/receber`, {
+      method: 'POST',
+      headers: this.cabecalhos(),
+      body: JSON.stringify(dados),
+    });
+    return this.json(resposta);
+  }
+
   // --- Estoque -----------------------------------------------------------------
 
   /**
@@ -300,6 +341,33 @@ export class ClienteApi {
     });
     return this.json(resposta);
   }
+}
+
+export interface ClienteResumo {
+  id: string;
+  nome: string;
+  cpf: string | null;
+  telefone: string | null;
+  limiteCrediarioCentavos: number;
+}
+
+export interface ParcelaEmAberto {
+  id: string;
+  numero: number;
+  totalParcelas: number;
+  valorCentavos: number;
+  recebidoCentavos: number;
+  vencimento: string;
+  vendaNumero: number;
+}
+
+export interface ClienteDetalhe extends ClienteResumo {
+  observacao: string | null;
+  ativo: boolean;
+  /** O que FALTA receber — é isso que consome o limite. */
+  saldoDevedorCentavos: number;
+  limiteDisponivelCentavos: number;
+  parcelasEmAberto: ParcelaEmAberto[];
 }
 
 export interface ItemDisponivelParaDevolucao {

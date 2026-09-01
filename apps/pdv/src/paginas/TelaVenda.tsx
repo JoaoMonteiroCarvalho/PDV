@@ -22,7 +22,7 @@ import { agruparPorProduto } from '../catalogo/grade.js';
 import { Botao, Campo, Erro, Selo } from '../componentes/base.js';
 import { CardProduto, LegendaGrade } from '../venda/CardProduto.js';
 import { PainelCarrinho } from '../venda/PainelCarrinho.js';
-import { ModalFinalizacao } from '../venda/ModalFinalizacao.js';
+import { ModalFinalizacao, type PlanoCrediario } from '../venda/ModalFinalizacao.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
 import { useSessao } from '../estado/sessaoStore.js';
@@ -137,7 +137,10 @@ export function TelaVenda() {
     }
   }
 
-  async function confirmarVenda(pagamentos: Parameters<typeof fecharVenda>[1]['pagamentos']) {
+  async function confirmarVenda(
+    pagamentos: Parameters<typeof fecharVenda>[1]['pagamentos'],
+    crediario: PlanoCrediario | null,
+  ) {
     if (!sessao) {
       throw new Error('Caixa fechado. Abra o caixa antes de registrar a venda.');
     }
@@ -150,6 +153,15 @@ export function TelaVenda() {
     const fechada = fecharVenda(carrinho, {
       sessaoCaixaId: sessao.id,
       pagamentos,
+      // Fiado precisa da cliente: `validarPagamentos` recusa sem ela, aqui
+      // mesmo, antes de a venda entrar na fila.
+      clienteId: crediario?.clienteId,
+      crediario: crediario
+        ? {
+            quantidadeParcelas: crediario.quantidadeParcelas,
+            primeiroVencimento: crediario.primeiroVencimento,
+          }
+        : undefined,
     });
 
     // Grava na fila local ANTES de qualquer rede. A venda aconteceu no mundo

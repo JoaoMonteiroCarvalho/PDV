@@ -16,26 +16,47 @@ import { ZERO, centavos, formatarBRL, type FormaPagamento, type PagamentoEntrada
 import { useMemo, useState } from 'react';
 import { Botao, Erro, cx } from '../componentes/base.js';
 import { CampoDinheiro } from '../componentes/CampoDinheiro.js';
+import type { ClienteDetalhe } from '../api/cliente.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { AVISO_NA_TELA, vendaExigeAvisoDeHigiene } from '../impressao/politicaTroca.js';
 import { calcular, saldoAPagar } from './carrinho.js';
+import { SeletorCliente } from './SeletorCliente.js';
 
-/**
- * Crediário fica de fora por enquanto: exige cliente identificado, e a tela de
- * clientes é a Fase 9. Oferecer aqui deixaria a operadora escolher uma forma
- * que o servidor recusa no envio — pendência bloqueada com o comprovante já
- * impresso.
- */
 const FORMAS: { readonly valor: FormaPagamento; readonly rotulo: string }[] = [
   { valor: 'DINHEIRO', rotulo: 'Dinheiro' },
   { valor: 'PIX', rotulo: 'Pix' },
   { valor: 'DEBITO', rotulo: 'Débito' },
   { valor: 'CREDITO', rotulo: 'Crédito' },
+  { valor: 'CREDIARIO', rotulo: 'Fiado' },
 ];
+
+/** Parcelamentos que a loja pratica. Além de 6x o risco não se justifica. */
+const PARCELAS_POSSIVEIS = [1, 2, 3, 4, 5, 6];
+
+/**
+ * Primeiro vencimento: um mês depois, no mesmo dia.
+ *
+ * `calcularParcelas` no `@pdv/shared` respeita mês curto — compra dia 31 com
+ * vencimento em fevereiro cai no último dia de fevereiro, não transborda para
+ * março.
+ */
+function primeiroVencimentoPadrao(): Date {
+  const hoje = new Date();
+  return new Date(hoje.getFullYear(), hoje.getMonth() + 1, hoje.getDate());
+}
+
+export interface PlanoCrediario {
+  readonly clienteId: string;
+  readonly quantidadeParcelas: number;
+  readonly primeiroVencimento: Date;
+}
 
 interface Props {
   readonly aoFechar: () => void;
-  readonly aoConfirmar: (pagamentos: readonly PagamentoEntrada[]) => Promise<void>;
+  readonly aoConfirmar: (
+    pagamentos: readonly PagamentoEntrada[],
+    crediario: PlanoCrediario | null,
+  ) => Promise<void>;
 }
 
 export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
@@ -49,6 +70,8 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [avisouTroca, setAvisouTroca] = useState(false);
+  const [cliente, setCliente] = useState<ClienteDetalhe | null>(null);
+  const [parcelas, setParcelas] = useState(1);
 
   const venda = useMemo(() => calcular(carrinho), [carrinho]);
   const saldo = saldoAPagar(venda, pagamentos);
@@ -62,7 +85,24 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
     () => vendaExigeAvisoDeHigiene(carrinho.itens.map((item) => ({ categoria: item.categoria }))),
     [carrinho.itens],
   );
-  const podeConfirmar = saldo === ZERO && (!exigeAviso || avisouTroca);
+  /*
+   * Quanto da venda foi lançado no fiado. É esse valor que precisa caber no
+   * limite DISPONÍVEL da cliente — não o total da venda, porque parte pode ter
+   * sido paga em dinheiro.
+   */
+  const totalNoCrediario = pagamentos
+    .filter((pagamento) => pagamento.forma === 'CREDIARIO')
+    .reduce((soma, pagamento) => soma + pagamento.valorCentavos, 0);
+
+  const temCrediario = totalNoCrediario > 0;
+  const estouraLimite =
+    temCrediario && cliente !== null && totalNoCrediario > cliente.limiteDisponivelCentavos;
+
+  const podeConfirmar =
+    saldo === ZERO &&
+    (!exigeAviso || avisouTroca) &&
+    // Fiado sem cliente identificada é dívida de ninguém, e o servidor recusa.
+    (!temCrediario || (cliente !== null && !estouraLimite));
 
   // Em dinheiro, o valor sugerido é o saldo exato; em cartão e Pix o valor é
   // sempre exatamente o saldo, porque não existe "pagar a mais".
@@ -85,6 +125,19 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
       setErro('Só existe troco em dinheiro. Em cartão e Pix, lance no máximo o saldo.');
       return;
     }
+    if (forma === 'CREDIARIO') {
+      if (!cliente) {
+        setErro('Escolha a cliente antes de lançar no fiado.');
+        return;
+      }
+      const jaNoFiado = totalNoCrediario;
+      if (jaNoFiado + valorEfetivo > cliente.limiteDisponivelCentavos) {
+        setErro(
+          `${cliente.nome} pode levar no máximo ${formatarBRL(centavos(cliente.limiteDisponivelCentavos))} no fiado.`,
+        );
+        return;
+      }
+    }
     lancarPagamento({
       forma,
       valorCentavos: centavos(valorEfetivo),
@@ -97,7 +150,16 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
     setErro(null);
     setEnviando(true);
     try {
-      await aoConfirmar(pagamentos);
+      await aoConfirmar(
+        pagamentos,
+        temCrediario && cliente
+          ? {
+              clienteId: cliente.id,
+              quantidadeParcelas: parcelas,
+              primeiroVencimento: primeiroVencimentoPadrao(),
+            }
+          : null,
+      );
     } catch (falha) {
       // Erro aparece AQUI, no botão que falhou — nunca uma tela em branco.
       setErro(falha instanceof Error ? falha.message : 'Não foi possível finalizar a venda.');
@@ -195,6 +257,41 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
                 ))}
               </div>
 
+              {forma === 'CREDIARIO' && (
+                <div className="space-y-3">
+                  <SeletorCliente escolhida={cliente} aoEscolher={setCliente} />
+
+                  {cliente && (
+                    <div>
+                      <span className="text-[13px] text-ink-soft">Em quantas vezes</span>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {PARCELAS_POSSIVEIS.map((quantidade) => (
+                          <button
+                            key={quantidade}
+                            type="button"
+                            onClick={() => setParcelas(quantidade)}
+                            aria-pressed={parcelas === quantidade}
+                            aria-label={`${quantidade}x`}
+                            className={cx(
+                              'num h-10 w-12 rounded-[10px] text-[14px] font-medium transition-colors duration-200',
+                              parcelas === quantidade
+                                ? 'bg-accent text-accent-ink'
+                                : 'bg-sunken text-ink-soft hover:bg-line hover:text-ink',
+                            )}
+                          >
+                            {quantidade}x
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[12px] text-ink-faint">
+                        Primeiro vencimento em{' '}
+                        {primeiroVencimentoPadrao().toLocaleDateString('pt-BR')}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <CampoDinheiro
                 rotulo="Valor recebido"
                 destaque
@@ -244,6 +341,16 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
               />
               <span className="text-[13px] leading-relaxed text-ink">{AVISO_NA_TELA}</span>
             </label>
+          )}
+
+          {estouraLimite && cliente && (
+            <div className="mt-4">
+              <Erro>
+                O fiado lançado passa do que {cliente.nome} pode levar (
+                {formatarBRL(centavos(cliente.limiteDisponivelCentavos))}). Remova o pagamento e
+                lance um valor menor.
+              </Erro>
+            </div>
           )}
 
           {erro && (

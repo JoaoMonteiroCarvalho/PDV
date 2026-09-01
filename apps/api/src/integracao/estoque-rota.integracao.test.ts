@@ -44,7 +44,7 @@ async function saldoDe(varianteId: string): Promise<number> {
   return linhas[0]?.saldo ?? 0;
 }
 
-async function darEntrada(corpo: unknown) {
+async function darEntrada(corpo: Record<string, unknown>) {
   return app.inject({
     method: 'POST',
     url: '/estoque/entrada',
