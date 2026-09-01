@@ -688,9 +688,78 @@ sinal de que o cadastro precisa de conferência.
 
 ---
 
+## Fase 7 — Sangria e suprimento
+
+`/caixa/movimento`. Dinheiro entrando ou saindo da gaveta **fora** de uma
+venda. É o ponto clássico de fraude interna no varejo, e por isso a regra aqui
+não tem alçada: toda operação exige gerente identificada, por menor que seja o
+valor. Desconto tem limite de operador; isto não tem.
+
+### A gerente autoriza sem assumir o terminal
+
+`entrarSemTrocarSessao` — que já existia no cliente HTTP desde o Incremento 5,
+esperando por esta tela. A operadora continua logada; a gerente só prova
+identidade para aquela operação. Trocar o token aqui deslogaria a operadora no
+meio do expediente, e o teste E2E confirma que a barra de estado continua com
+o nome dela.
+
+Credencial certa com papel errado recebe uma mensagem específica — "Fulana não
+tem perfil de gerente e não pode autorizar" — em vez de "credenciais
+inválidas". É mais útil e não vaza nada que a pessoa já não saiba.
+
+O `id` da gerente é o que vai ao servidor, que **revalida o papel**. O
+front-end aqui adianta o erro; não é ele quem decide.
+
+### O saldo aparece para a gerente, e só
+
+Esta é a contrapartida prometida na Fase 6. O saldo da gaveta sumiu da tela do
+resumo para não desfazer a conferência às cegas, mas ele tem uso legítimo:
+decidir quanto levar ao cofre. Ele reaparece **depois** que a gerente se
+identifica, num resumo que mostra o que tem agora, o que sai (ou entra) e com
+quanto fica.
+
+Enquanto a gerente não entra, `saldoEsperadoCentavos` chega como `null` na
+regra pura — checar o teto antes disso vazaria o número para a operadora por
+via indireta.
+
+### Duas assimetrias deliberadas
+
+| | sangria | suprimento |
+|---|---|---|
+| justificativa | **obrigatória** | opcional |
+| teto | o que a gaveta tem | sem teto |
+
+Dinheiro SAINDO fora de venda é o que vira "sangria de R$ 300 sem observação"
+que ninguém consegue explicar três semanas depois. Dinheiro entrando não tem
+esse risco. E tirar mais do que existe deixaria o saldo esperado negativo, com
+o fechamento acusando uma "sobra" que é só erro de digitação.
+
+Justificativa com menos de 5 caracteres não conta: é uma tecla apertada, não
+uma justificativa.
+
+### Detalhes de uso
+
+- Os impedimentos aparecem TODOS de uma vez, não um por tentativa: a operadora
+  corrige tudo junto em vez de descobrir o próximo erro a cada clique.
+- Depois de registrar, "Outro movimento" mantém a gerente identificada. Ela
+  costuma fazer dois seguidos, e repedir a senha só atrasa.
+- O caixa é resincronizado após o registro: sem isso, um segundo movimento
+  seria validado contra um saldo velho.
+
+### Dívida paga
+
+`fluxo-completo.spec.ts` (3 testes) voltou a rodar, reescrito contra as telas
+novas. Estava pendente desde a Fase 0 e só podia voltar agora, porque percorre
+login → terminal → abertura → venda → comprovante → sangria → fechamento — e
+sangria era a última peça que faltava. É o teste que prova que as fases se
+encaixam quando alguém clica de verdade.
+
+Restam 4 specs pendentes (devolução e histórico de vendas).
+
+---
+
 ## Fases restantes da interface
 
-7. Sangria e suprimento
 8. Estoque e produtos (upload de XML)
 9. Clientes e fiado (validação de CPF)
 10. Relatórios (exportar CSV, gráficos simples — nunca gráfico 3D)
@@ -701,15 +770,16 @@ sinal de que o cadastro precisa de conferência.
 
 ## Estado ao final desta sessão
 
-- **516 testes passando**: 320 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 223 em `apps/pdv`), 107 de integração contra Postgres real, e 86
+- **576 testes passando**: 364 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 267 em `apps/pdv`), 107 de integração contra Postgres real, e 102
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 6 da interface concluídas: venda, catálogo visual, consulta de
-  produto com prévia 3D, comprovante discreto e fechamento de caixa às cegas.
-- **7 specs E2E seguem pendentes** (devolução, fluxo completo, histórico).
+- Fases 0 a 7 da interface concluídas: venda, catálogo visual, consulta de
+  produto com prévia 3D, comprovante discreto, fechamento às cegas e sangria
+  com autorização de gerente.
+- **4 specs E2E seguem pendentes** (devolução e histórico de vendas).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
-  no backend; o que falta é a tela, que volta nas Fases 5 a 7. Cada arquivo
-  traz no cabeçalho o motivo e a fase de retorno.
+  no backend; o que falta é a tela de histórico, que ainda não tem fase
+  marcada. Cada arquivo traz no cabeçalho o motivo.
 - Pendências antigas ainda abertas: ícones reais do PWA (hoje são
   placeholder), impressora térmica real nunca testada fisicamente.
 - Quatro bancos PostgreSQL em uso: `pdv` (desenvolvimento), `pdv_teste`

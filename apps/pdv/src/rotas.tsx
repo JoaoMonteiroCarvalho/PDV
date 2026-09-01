@@ -19,6 +19,7 @@ import { TelaEntrar } from './paginas/TelaEntrar.js';
 import { EmConstrucao } from './paginas/EmConstrucao.js';
 import { TelaCaixa } from './paginas/TelaCaixa.js';
 import { TelaFecharCaixa } from './paginas/TelaFecharCaixa.js';
+import { TelaMovimentoCaixa } from './paginas/TelaMovimentoCaixa.js';
 import { TelaVenda } from './paginas/TelaVenda.js';
 import { TelaVendaConcluida } from './paginas/TelaVendaConcluida.js';
 import { TelaCatalogo } from './paginas/TelaCatalogo.js';
@@ -84,7 +85,7 @@ export const roteador = createBrowserRouter([
       { path: 'historico', element: <EmConstrucao titulo="Histórico de vendas" fase="Fase 5" /> },
       { path: 'caixa', element: <TelaCaixa /> },
       { path: 'caixa/fechar', element: <TelaFecharCaixa /> },
-      { path: 'caixa/movimento', element: <EmConstrucao titulo="Sangria e suprimento" fase="Fase 7" /> },
+      { path: 'caixa/movimento', element: <TelaMovimentoCaixa /> },
       { path: 'estoque', element: <EmConstrucao titulo="Estoque e produtos" fase="Fase 8" /> },
       { path: 'clientes', element: <EmConstrucao titulo="Clientes e fiado" fase="Fase 9" /> },
       { path: 'relatorios', element: <EmConstrucao titulo="Relatórios" fase="Fase 10" /> },

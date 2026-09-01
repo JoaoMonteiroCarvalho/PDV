@@ -210,7 +210,14 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
               {troco > 0 && (
                 <div className="flex items-baseline justify-between rounded-[12px] bg-alerta/10 px-4 py-3">
                   <span className="text-[14px] text-ink-soft">Troco a devolver</span>
-                  <span className="num font-titulo text-[22px] font-semibold text-alerta">
+                  {/*
+                    O mesmo valor pode coincidir com o total ou com o saldo —
+                    o testid marca qual deles é O troco.
+                  */}
+                  <span
+                    data-testid="troco"
+                    className="num font-titulo text-[22px] font-semibold text-alerta"
+                  >
                     {formatarBRL(centavos(troco))}
                   </span>
                 </div>
