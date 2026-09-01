@@ -214,6 +214,28 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  // --- Estoque -----------------------------------------------------------------
+
+  /**
+   * Dá entrada de mercadoria.
+   *
+   * `documento` (número ou chave da nota) torna a operação idempotente por
+   * recusa: um segundo envio do mesmo documento volta 409 em vez de dobrar o
+   * estoque.
+   */
+  async registrarEntradaEstoque(dados: {
+    itens: { varianteId: string; quantidade: number; custoUnitarioCentavos: number }[];
+    documento?: string | undefined;
+    observacao?: string | undefined;
+  }): Promise<{ movimentos: number; pecas: number }> {
+    const resposta = await fetch(`${BASE}/estoque/entrada`, {
+      method: 'POST',
+      headers: this.cabecalhos(),
+      body: JSON.stringify(dados),
+    });
+    return this.json(resposta);
+  }
+
   // --- Histórico de vendas -----------------------------------------------------
 
   /**

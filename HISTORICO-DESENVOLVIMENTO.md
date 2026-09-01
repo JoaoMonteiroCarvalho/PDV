@@ -758,9 +758,99 @@ Restam 4 specs pendentes (devolução e histórico de vendas).
 
 ---
 
+## Fase 8 — Estoque e entrada por XML da NF-e
+
+`/estoque`. Duas coisas: o que a loja tem, e entrada de mercadoria lendo o XML
+da nota que veio com a caixa.
+
+Digitar 40 itens à mão é onde a loja perde uma tarde e ganha erro de cadastro
+— e onde o custo digitado errado estraga a margem de um produto pelo resto do
+ano.
+
+### O XML é lido no navegador
+
+`notaFiscal.ts` usa o `DOMParser` do próprio navegador. Uma biblioteca de XML
+resolveria o mesmo problema custando megabytes num app que precisa abrir
+rápido num mini-PC.
+
+E o arquivo **não sobe para lugar nenhum**: a nota tem CNPJ, endereço e valores
+do fornecedor que o servidor não precisa. Só os itens conciliados viram
+requisição.
+
+O módulo não tenta ser um leitor completo de NF-e — ignora imposto,
+transporte, cobrança. Assumir menos e falhar claro é melhor que fingir que
+entende a nota inteira.
+
+### O detalhe que estraga custo: decimal para centavos
+
+`vUnCom` vem com até 10 casas ("25.5000000000"). `parseFloat('25.55') * 100`
+dá **2554,999999999999** — o custo entra um centavo menor e a margem sai errada
+pelo resto do ano.
+
+A conversão é feita na STRING: separa inteiro e decimais, pega duas casas e
+arredonda pela terceira, que é o que a Receita faz e o que o fornecedor
+imprimiu no papel. Há teste para cada caso de arredondamento.
+
+O total da linha usa o `vProd` do emissor, não `quantidade × unitário`: com
+preço de 10 casas o arredondamento dele é o que consta na nota e o que o
+contador vai conferir.
+
+### Conciliação conservadora
+
+`conciliacao.ts` casa item da nota com variante do catálogo por duas vias, nas
+duas só quando há CERTEZA:
+
+1. **código de barras** idêntico — o único automático confiável;
+2. **`cProd` igual a um SKU da loja** — acontece e é exato.
+
+Não há casamento por semelhança de texto, e a ausência é deliberada. Ele
+acertaria bastante e erraria em silêncio: um palpite errado dá entrada de 12
+peças na variante errada, e o erro só aparece quando a arara não bate com o
+sistema — semanas depois, sem rastro.
+
+Item não reconhecido **não trava a nota**. Entra o que foi reconhecido, a tela
+avisa o que ficou de fora, e a operadora casa na mão se quiser. A mercadoria já
+está na loja; travar tudo por um cadastro faltando deixaria o estoque errado o
+dia inteiro.
+
+### Backend: livro-razão e idempotência por recusa
+
+`POST /estoque/entrada` lança `MovimentoEstoque` do tipo `ENTRADA_COMPRA` —
+soma linha, nunca escreve saldo, igual à venda.
+
+O `documento` (chave da NF-e) torna a operação **idempotente por recusa**: um
+segundo envio do mesmo documento devolve 409. Clicar de novo achando que não
+foi é o erro mais provável aqui, e dobrar estoque custa uma conferência de
+arara inteira para descobrir.
+
+Todas as variantes são conferidas ANTES de gravar qualquer uma: entrada pela
+metade seria pior que entrada nenhuma — a operadora veria "deu erro", mandaria
+de novo, e as linhas que passaram entrariam em dobro.
+
+O custo da variante passa a ser o da última entrada, exceto quando a nota traz
+zero: brinde e bonificação chegam assim, e sobrescrever com zero destruiria a
+apuração de margem daquele produto.
+
+### Saldo negativo aparece como negativo
+
+Na lista, saldo negativo sai marcado "conferir", não escondido como zero. Ele
+significa que vendeu mais do que o cadastro diz existir — é o único sinal que a
+loja tem de que aquele produto precisa de olhada. A lista vem do **menor saldo
+para o maior**, que é a razão de abrir a tela na maioria das vezes.
+
+### Duas semânticas de asserção que não são iguais
+
+Um teste E2E passou a falhar por uma diferença sutil: `getByText('Entrada
+registrada')` do Playwright casa por **substring e sem diferenciar caixa**, e a
+mensagem de erro do servidor contém "já teve entrada registrada". O mesmo
+teste no Testing Library passava, porque lá o match de string é **exato**.
+
+A asserção passou a provar o oposto: que a tela de conferência continua aberta.
+
+---
+
 ## Fases restantes da interface
 
-8. Estoque e produtos (upload de XML)
 9. Clientes e fiado (validação de CPF)
 10. Relatórios (exportar CSV, gráficos simples — nunca gráfico 3D)
 11. Configurações e usuários (inclui o interruptor do 3D e o texto da
@@ -770,12 +860,12 @@ Restam 4 specs pendentes (devolução e histórico de vendas).
 
 ## Estado ao final desta sessão
 
-- **576 testes passando**: 364 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 267 em `apps/pdv`), 107 de integração contra Postgres real, e 102
+- **649 testes passando**: 418 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 321 em `apps/pdv`), 120 de integração contra Postgres real, e 111
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 7 da interface concluídas: venda, catálogo visual, consulta de
-  produto com prévia 3D, comprovante discreto, fechamento às cegas e sangria
-  com autorização de gerente.
+- Fases 0 a 8 da interface concluídas: venda, catálogo visual, consulta de
+  produto com prévia 3D, comprovante discreto, fechamento às cegas, sangria com
+  autorização de gerente e entrada de estoque por XML da NF-e.
 - **4 specs E2E seguem pendentes** (devolução e histórico de vendas).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela de histórico, que ainda não tem fase

@@ -14,7 +14,9 @@ import { type TokenOperador, verificarSenha } from './autenticacao.js';
 import { carregarConfiguracao, type Configuracao } from './config.js';
 import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
+import { esquemaEntradaEstoque } from './esquemas/estoque.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
+import { ErroEstoque, registrarEntradaEstoque } from './servicos/estoque.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import {
@@ -562,6 +564,37 @@ export async function construirServidor(
       }
     },
   );
+
+  /**
+   * Entrada de mercadoria no estoque.
+   *
+   * O estoque é livro-razão: isto LANÇA movimentos, nunca escreve um saldo.
+   *
+   * `documento` (a chave ou o número da nota) torna a operação idempotente por
+   * recusa: um segundo envio do mesmo documento devolve 409 em vez de dobrar o
+   * estoque. Clicar duas vezes achando que não foi é o erro mais provável
+   * aqui, e ele custa uma conferência de arara inteira para descobrir.
+   */
+  app.post('/estoque/entrada', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const entrada = esquemaEntradaEstoque.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta
+        .status(400)
+        .send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      const resultado = await registrarEntradaEstoque(prisma, entrada.data, {
+        operadorId: requisicao.user.sub,
+      });
+      return resposta.status(201).send(resultado);
+    } catch (erro) {
+      if (erro instanceof ErroEstoque) {
+        const status = erro.codigo === 'DOCUMENTO_JA_LANCADO' ? 409 : 422;
+        return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
+      }
+      throw erro;
+    }
+  });
 
   app.addHook('onClose', async () => {
     await prisma.$disconnect();
