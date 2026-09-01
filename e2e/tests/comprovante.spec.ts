@@ -22,10 +22,21 @@ test.beforeEach(async () => {
 
 type Pagina = import('@playwright/test').Page;
 
-/** Lança a peça e abre o modal de finalização, já estando na tela de venda. */
+/**
+ * Lança a peça e abre o modal de finalização, já estando na tela de venda.
+ *
+ * A célula é escolhida por NOME, nunca por `.first()`: a ordem das cores na
+ * grade vem do Dexie, que não garante ordem, e o `.first()` acabava vendendo
+ * uma combinação diferente a cada rodada — inclusive a que outro spec usa para
+ * afirmar saldo exato, cujo estoque foi parar em -5.
+ */
 async function abrirFinalizacao(page: Pagina, busca = 'Conjunto Grade') {
   await page.getByLabel(/Buscar produto/).fill(busca);
-  await page.getByRole('button', { name: /^Adicionar/ }).first().click();
+  const alvo =
+    busca === 'Conjunto Grade'
+      ? page.getByRole('button', { name: /Adicionar Preto P,/ })
+      : page.getByRole('button', { name: 'Adicionar', exact: true });
+  await alvo.click();
   await page.getByRole('complementary').getByRole('button', { name: 'Finalizar' }).click();
   return page.getByRole('dialog');
 }

@@ -81,7 +81,7 @@ test.describe('abertura', () => {
 });
 
 test.describe('resumo do caixa aberto', () => {
-  test('é alcançável pelo menu e mostra fundo e saldo esperado', async ({ page }) => {
+  test('é alcançável pelo menu e mostra o fundo, mas NÃO o saldo esperado', async ({ page }) => {
     await loginOperador(page);
     await configurar(page);
     await page.reload();
@@ -95,6 +95,13 @@ test.describe('resumo do caixa aberto', () => {
     await expect(page.getByRole('heading', { name: 'Caixa aberto' })).toBeVisible();
     await expect(page.getByText('Fundo de troco')).toBeVisible();
     await expect(page.getByText('R$ 200,00').first()).toBeVisible();
+
+    /*
+     * O saldo esperado NÃO pode aparecer aqui. O fechamento é conferência às
+     * cegas; com o esperado a um clique do botão de fechar, bastaria ler o
+     * número nesta tela e digitá-lo lá, e o controle inteiro se desfaz.
+     */
+    await expect(page.getByText('Saldo esperado')).toHaveCount(0);
   });
 
   test('oferece caminho de volta para a venda sem perder a sessão', async ({ page }) => {

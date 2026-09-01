@@ -608,9 +608,88 @@ operacional já recebe a caixa fechada, sem animação.
 
 ---
 
+## Fase 6 — Fechamento de caixa às cegas
+
+`/caixa/fechar`. A regra que define a tela: **o valor esperado não aparece
+antes de a operadora dizer quanto contou**. Só depois de confirmar é que o
+sistema revela esperado, contado e diferença.
+
+Isso não é rigor gratuito. Com o esperado na tela, conferir vira copiar: a
+operadora bate o olho no número, digita ele, e a divergência some — junto com
+a única chance de a loja descobrir um erro de troco, uma venda lançada errada
+ou um desvio. A conferência às cegas é o controle inteiro; sem ela a tela só
+encerra a sessão.
+
+### O furo que já existia
+
+A tela de resumo do caixa aberto mostrava **"Saldo esperado"**, a um clique do
+botão de fechar. Bastava ler ali e digitar no fechamento — o controle nascia
+morto.
+
+O número saiu dessa tela. Ele tem uso legítimo (decidir uma sangria), mas quem
+decide sangria é o gerente, e ele o vê na tela de sangria, que já exige
+identificação (Fase 7). Há teste E2E garantindo que "Saldo esperado" não
+aparece no resumo.
+
+### Contagem por cédula
+
+Ninguém confere caixa somando de cabeça: empilha as notas por valor e conta
+quantas são de cada. `cedulas.ts` traz as denominações em circulação (a de
+R$ 200 inclusive — sem linha para ela a operadora joga o valor em outra e a
+conferência perde o sentido; moeda de 1 centavo fora, porque só atrasa) e o
+sistema multiplica.
+
+A soma ignora lixo — quantidade negativa, fracionária, `NaN` — em vez de
+lançar: o total aparece ao vivo enquanto a operadora digita, e uma exceção no
+meio apagaria a tela inteira por causa de um caractere.
+
+Quem prefere digitar o total direto pode. O que não pode é o sistema exigir
+aritmética mental de quem está com as mãos ocupadas de dinheiro.
+
+### Divergência em palavras
+
+"Sobrou" e "Faltou", com valor sempre positivo. No balcão ninguém pensa em
+"diferença de -1500", pensa em "faltou quinze reais" — e as duas têm peso
+diferente: falta levanta suspeita, sobra costuma ser troco que não saiu.
+
+### Fila pendente bloqueia o fechamento
+
+O valor esperado vem do servidor. Se há venda que não subiu, o servidor não
+sabe dela, o esperado sai menor que a gaveta e a conferência acusa uma sobra
+que não existe — e esse número falso fica gravado, sem como desfazer. A tela
+bloqueia e oferece "enviar agora".
+
+Venda **bloqueada** (4xx) é outro caso: retentar não resolve e a loja precisa
+fechar o dia. Aí a tela avisa sem travar, deixando claro que a diferença vai
+refletir isso.
+
+### Bug achado pelo teste
+
+`encerrar()` zera a sessão local, e a checagem `if (!sessao)` vinha antes de
+`if (resultado)`. No instante do fechamento a tela caía em "não há caixa
+aberto" e a operadora **nunca via a diferença** — justamente o único produto
+da tela. Ordem invertida, com comentário no lugar.
+
+### Isolamento entre specs de E2E
+
+O spec de comprovante escolhia a célula com `.first()`. A ordem das cores na
+grade vem do Dexie, que não garante ordem, então ele vendia uma combinação
+diferente a cada rodada — inclusive a que outro spec usa para afirmar saldo
+exato, cujo estoque foi parar em **-5**.
+
+O seed passou a ter uma combinação **sacrificável** (Preto/P, com 500 peças),
+usada por todo teste que finaliza venda, e duas com saldo exato que ninguém
+vende (Vinho/P = 3, Preto/GG = 0), que sustentam as asserções de número. Os
+seletores deixaram de usar `.first()`.
+
+De passagem: o estoque ficar negativo não é defeito. A decisão de nunca
+bloquear venda por saldo defasado (Fase 3) tem esse preço, e negativo é o
+sinal de que o cadastro precisa de conferência.
+
+---
+
 ## Fases restantes da interface
 
-6. Fechamento de caixa (conferência às cegas)
 7. Sangria e suprimento
 8. Estoque e produtos (upload de XML)
 9. Clientes e fiado (validação de CPF)
@@ -622,11 +701,11 @@ operacional já recebe a caixa fechada, sem animação.
 
 ## Estado ao final desta sessão
 
-- **490 testes passando**: 306 unitários (90 em `packages/shared`, 7 em
-  `apps/api`, 209 em `apps/pdv`), 107 de integração contra Postgres real, e 74
+- **516 testes passando**: 320 unitários (90 em `packages/shared`, 7 em
+  `apps/api`, 223 em `apps/pdv`), 107 de integração contra Postgres real, e 86
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 5 da interface concluídas: venda, catálogo visual, consulta de
-  produto com prévia 3D, e venda concluída com comprovante discreto.
+- Fases 0 a 6 da interface concluídas: venda, catálogo visual, consulta de
+  produto com prévia 3D, comprovante discreto e fechamento de caixa às cegas.
 - **7 specs E2E seguem pendentes** (devolução, fluxo completo, histórico).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela, que volta nas Fases 5 a 7. Cada arquivo

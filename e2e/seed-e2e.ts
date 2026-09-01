@@ -116,8 +116,16 @@ async function main(): Promise<void> {
   const produtoGrade = await prisma.produto.create({
     data: { nome: DADOS_E2E.produtoComGrade.nome, categoriaId: categoriaIntima.id },
   });
+  /*
+   * Preto/P e a combinacao SACRIFICAVEL: todo teste que finaliza venda usa
+   * ela, entao leva estoque de sobra. Vinho/P e Preto/GG tem saldo exato e
+   * nenhum teste os vende — sao eles que sustentam as assercoes de numero.
+   *
+   * Sem essa separacao, uma dezena de vendas derrubava o saldo e o teste
+   * seguinte falhava por ordem de execucao, nao por defeito.
+   */
   const combinacoes = [
-    { tamanho: 'P', cor: 'Preto', saldo: 5 },
+    { tamanho: 'P', cor: 'Preto', saldo: 500 },
     { tamanho: 'GG', cor: 'Preto', saldo: 0 },
     { tamanho: 'P', cor: 'Vinho', saldo: 3 },
   ] as const;

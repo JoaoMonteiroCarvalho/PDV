@@ -151,16 +151,27 @@ function CaixaAberto() {
   return (
     <Moldura
       titulo="Caixa aberto"
-      descricao="O caixa está operando. O saldo esperado considera o fundo inicial, as vendas em dinheiro e os movimentos manuais."
+      descricao="O caixa está operando. As vendas em dinheiro entram na gaveta e são conferidas no fechamento."
     >
       <div className="flex flex-col gap-6">
         <dl className="grid gap-3 rounded-[12px] bg-sunken px-5 py-4">
-          <Linha rotulo="Fundo de troco" valor={formatarBRL(centavos(sessao.fundoTrocoCentavos))} />
           <Linha
-            rotulo="Saldo esperado"
-            valor={formatarBRL(centavos(sessao.saldoEsperadoCentavos))}
+            rotulo="Fundo de troco"
+            valor={formatarBRL(centavos(sessao.fundoTrocoCentavos))}
             forte
           />
+          {/*
+            O SALDO ESPERADO NÃO APARECE AQUI, e a ausência é deliberada.
+
+            O fechamento é uma conferência às cegas: a operadora conta a gaveta
+            e só depois vê o esperado. Um "saldo esperado" nesta tela, a um
+            clique do botão de fechar, desfaz o controle inteiro — bastava ler
+            o número aqui e digitá-lo lá, e qualquer erro de troco ou desvio
+            passaria despercebido.
+
+            Quem precisa do número para decidir uma sangria é o gerente, e ele
+            o vê na tela de sangria, que já exige identificação (Fase 7).
+          */}
           <Linha
             rotulo="Aberto desde"
             valor={abertaEm.toLocaleString('pt-BR', {
