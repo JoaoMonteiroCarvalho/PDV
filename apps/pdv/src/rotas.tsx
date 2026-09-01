@@ -25,6 +25,7 @@ import { TelaVendaConcluida } from './paginas/TelaVendaConcluida.js';
 import { TelaCatalogo } from './paginas/TelaCatalogo.js';
 import { TelaEstoque } from './paginas/TelaEstoque.js';
 import { TelaClientes } from './paginas/TelaClientes.js';
+import { TelaRelatorios } from './paginas/TelaRelatorios.js';
 import { TelaProduto } from './paginas/TelaProduto.js';
 import { DesignSystem } from './paginas/DesignSystem.js';
 
@@ -90,7 +91,7 @@ export const roteador = createBrowserRouter([
       { path: 'caixa/movimento', element: <TelaMovimentoCaixa /> },
       { path: 'estoque', element: <TelaEstoque /> },
       { path: 'clientes', element: <TelaClientes /> },
-      { path: 'relatorios', element: <EmConstrucao titulo="Relatórios" fase="Fase 10" /> },
+      { path: 'relatorios', element: <TelaRelatorios /> },
       { path: 'configuracoes', element: <EmConstrucao titulo="Configurações" fase="Fase 11" /> },
       { path: 'design', element: <DesignSystem /> },
     ],

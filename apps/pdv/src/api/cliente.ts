@@ -214,6 +214,16 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  // --- Relatórios ----------------------------------------------------------------
+
+  /** Vendas do período. As datas vão como `YYYY-MM-DD` — dia da loja, não instante. */
+  async relatorioVendas(de: string, ate: string): Promise<RelatorioVendas> {
+    const resposta = await fetch(`${BASE}/relatorios/vendas?de=${de}&ate=${ate}`, {
+      headers: this.cabecalhos(),
+    });
+    return this.json(resposta);
+  }
+
   // --- Clientes e crediário ------------------------------------------------------
 
   async buscarClientes(busca: string): Promise<ClienteResumo[]> {
@@ -341,6 +351,21 @@ export class ClienteApi {
     });
     return this.json(resposta);
   }
+}
+
+export interface RelatorioVendas {
+  de: string;
+  ate: string;
+  resumo: {
+    quantidadeVendas: number;
+    totalCentavos: number;
+    descontoCentavos: number;
+    ticketMedioCentavos: number;
+    pecasVendidas: number;
+  };
+  porDia: { dia: string; quantidade: number; totalCentavos: number }[];
+  porForma: { forma: string; quantidade: number; totalCentavos: number }[];
+  maisVendidos: { descricao: string; sku: string; quantidade: number; totalCentavos: number }[];
 }
 
 export interface ClienteResumo {

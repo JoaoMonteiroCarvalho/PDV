@@ -29,6 +29,7 @@ import {
   obterCliente,
   receberParcela,
 } from './servicos/cliente.js';
+import { ErroRelatorio, gerarRelatorioVendas } from './servicos/relatorio.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import {
@@ -686,6 +687,34 @@ export async function construirServidor(
       return resposta.status(201).send(resultado);
     } catch (erro) {
       return tratarErroCliente(erro, resposta);
+    }
+  });
+
+  // --- Relatórios ------------------------------------------------------------
+
+  /**
+   * Vendas do período.
+   *
+   * O recorte é por DIA DA LOJA, no fuso do servidor. Com corte em UTC, no
+   * Brasil toda venda depois das 21h cairia no dia seguinte e o relatório do
+   * dia fecharia errado sem ninguém entender por quê.
+   */
+  app.get('/relatorios/vendas', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const filtros = z
+      .object({ de: z.string(), ate: z.string() })
+      .safeParse(requisicao.query);
+    if (!filtros.success) {
+      return resposta
+        .status(400)
+        .send({ codigo: 'ENTRADA_INVALIDA', mensagem: 'Informe o período: de e ate.' });
+    }
+    try {
+      return await gerarRelatorioVendas(prisma, filtros.data);
+    } catch (erro) {
+      if (erro instanceof ErroRelatorio) {
+        return resposta.status(400).send({ codigo: erro.codigo, mensagem: erro.message });
+      }
+      throw erro;
     }
   });
 

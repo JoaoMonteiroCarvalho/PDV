@@ -21,6 +21,7 @@ const NAVEGACAO = [
   { para: '/caixa', rotulo: 'Caixa' },
   { para: '/clientes', rotulo: 'Clientes' },
   { para: '/estoque', rotulo: 'Estoque' },
+  { para: '/relatorios', rotulo: 'Relatórios' },
 ] as const;
 
 export function Shell() {

@@ -930,9 +930,88 @@ contrapartida — consultar fiado é raro comparado a vender.
 
 ---
 
+## Fase 10 — Relatórios
+
+`/relatorios`. Responde três perguntas que a dona da loja faz toda semana:
+quanto entrou, em que dia, e o que saiu mais. Nada além disso — um painel com
+quinze indicadores vira um painel que ninguém lê.
+
+Os números vêm do **servidor**, não do catálogo local. Relatório é a única tela
+do sistema em que estar desatualizado é pior do que não abrir: um faturamento
+que ignora vendas ainda na fila de outro terminal seria simplesmente errado.
+
+### O dia da loja, não o dia UTC
+
+O recorte é por data local. Com corte em UTC, no Brasil (UTC−3) **toda venda
+depois das 21h cairia no dia seguinte**, e o relatório do dia não bateria com o
+fechamento do caixa — sem ninguém entender por quê.
+
+O período chega como data (`2026-09-01`), não como instante, e vira
+`[início do primeiro dia, início do dia seguinte ao último)`. Há teste para a
+venda das 22h, para a das 23h59 do último dia (entra) e para a das 00h01 do dia
+seguinte (não entra).
+
+Período invertido é **recusado**, não devolvido vazio: vazio pareceria "não
+vendeu nada", que é uma resposta errada e confiável.
+
+### Venda cancelada não é faturamento
+
+Ela continua no banco — o registro é imutável — mas não infla o relatório.
+
+### Forma de pagamento é líquida do troco
+
+A nota de R$ 100 dada para pagar R$ 50 contaria como cem reais de faturamento
+em dinheiro, e a soma das formas não fecharia com o total das vendas. O teste
+verifica justamente essa igualdade.
+
+### CSV que o Excel em português abre
+
+Três detalhes decidem se o arquivo serve ou vira lixo na mão da contadora:
+
+| detalhe | sem ele |
+|---|---|
+| separador `;` | o Excel pt-BR abre **tudo numa coluna só** |
+| decimal com vírgula | "1234.56" vira texto e a **soma da coluna dá zero** |
+| BOM UTF-8 | "Algodão" vira "AlgodÃ£o" |
+
+Nenhum é preferência estética: é a diferença entre um relatório que a loja usa
+e um que ela abre uma vez e nunca mais. O decimal sai **sem separador de
+milhar** de propósito — "1.234,56" faria algumas configurações lerem o ponto
+como decimal.
+
+Campos são escapados pelo RFC 4180: a observação de uma sangria pode conter
+`;` e partiria a linha em duas colunas.
+
+Período vazio não deixa exportar. Um CSV só com cabeçalho parece download
+quebrado para quem clicou.
+
+### Gráfico em SVG, nunca 3D
+
+Meia dúzia de retângulos não justifica 100 kB de biblioteca num app que precisa
+abrir rápido num mini-PC.
+
+E **nunca 3D**, como a especificação pede — pela razão certa: barra em
+perspectiva é o exemplo clássico de gráfico que engana. A face frontal fica
+mais baixa que o topo real, e comparar duas barras vira adivinhação. Num
+relatório de faturamento isso não é enfeite ruim, é número errado.
+
+Pelo mesmo motivo o eixo **começa no zero**. Cortar para "destacar a diferença"
+faz duas barras parecerem o dobro uma da outra quando a diferença é de 3%.
+
+O SVG é `aria-hidden` e os mesmos números aparecem numa tabela visualmente
+oculta. Quem usa leitor de tela recebe os valores, não a palavra "gráfico".
+
+### O CHECK do banco pegou minha fixture
+
+O teste de integração criava item de venda com preço × quantidade que não
+fechava com o total, e o Postgres recusou pelo `item_venda_total_coerente`.
+Vale registrar: a constraint não está lá para o teste, está para garantir que
+**nenhum caminho** grave item incoerente — e cumpriu o papel contra código meu.
+
+---
+
 ## Fases restantes da interface
 
-10. Relatórios (exportar CSV, gráficos simples — nunca gráfico 3D)
 11. Configurações e usuários (inclui o interruptor do 3D e o texto da
     política de troca)
 
@@ -940,13 +1019,13 @@ contrapartida — consultar fiado é raro comparado a vender.
 
 ## Estado ao final desta sessão
 
-- **707 testes passando**: 442 unitários (105 em `packages/shared`, 7 em
-  `apps/api`, 330 em `apps/pdv`), 141 de integração contra Postgres real, e 124
+- **755 testes passando**: 469 unitários (105 em `packages/shared`, 7 em
+  `apps/api`, 357 em `apps/pdv`), 154 de integração contra Postgres real, e 132
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 9 da interface concluídas: venda, catálogo visual, consulta de
+- Fases 0 a 10 da interface concluídas: venda, catálogo visual, consulta de
   produto com prévia 3D, comprovante discreto, fechamento às cegas, sangria com
-  autorização de gerente, entrada de estoque por XML da NF-e, e clientes com
-  fiado.
+  autorização de gerente, entrada de estoque por XML da NF-e, clientes com
+  fiado e relatórios com exportação CSV.
 - **4 specs E2E seguem pendentes** (devolução e histórico de vendas).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela de histórico, que ainda não tem fase
