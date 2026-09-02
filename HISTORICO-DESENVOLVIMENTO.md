@@ -1010,6 +1010,91 @@ Vale registrar: a constraint não está lá para o teste, está para garantir qu
 
 ---
 
+## Otimização do 3D — medida antes de mexer
+
+A pergunta era "o 3D está pesado". A primeira coisa foi descobrir ONDE, em vez
+de otimizar por intuição.
+
+### O que o build disse
+
+| chunk | tamanho |
+|---|---|
+| three.js (`react-three-fiber.esm-*`) | **852 kB** |
+| app (`index-*`) | 576 kB |
+| `CenaCatalogo` | 10 kB |
+| `PecaAbstrata` — os modelos | **3,6 kB** |
+
+Os modelos são 3,6 kB. **O peso do bundle é a biblioteca**, e 852 kB é
+essencialmente o piso de um `WebGLRenderer` — não há o que cortar ali sem
+trocar de tecnologia. Otimizar os modelos para reduzir download seria trabalho
+no lugar errado.
+
+### Onde o peso realmente estava
+
+Medindo a geometria:
+
+```
+RoundedBox smoothness=3 -> 588 triângulos, 51,5 ms para construir 60
+RoundedBox smoothness=1 -> 108 triângulos,  8,7 ms para construir 60
+BoxGeometry simples     ->  12 triângulos,   2,3 ms para construir 60
+```
+
+O catálogo desenha a peça em 20 cards. Cada card construía as próprias lâminas:
+**60 geometrias e 51,5 ms de CPU** — três frames perdidos numa máquina rápida —
+**toda vez que cards entravam na tela ao rolar**. Era isso que dava a sensação
+de peso, não o download.
+
+### O que mudou
+
+`tres/geometrias.ts` constrói tudo UMA vez, na carga do chunk 3D, e todos os
+cards apontam para os mesmos objetos. Dois níveis de detalhe, porque o tamanho
+na tela é diferente: 300 px na consulta, 132 px no card.
+
+| | antes | depois |
+|---|---|---|
+| triângulos, 20 cards | 35.280 | **6.480** (5,4×) |
+| geometrias construídas ao rolar | 60 por lote | **0** |
+| construção total | 51,5 ms por lote | 15 ms **uma vez** |
+| materiais | até 60 objetos | 1 por cor (~12) |
+| shader do card | Standard (PBR) | **Lambert** |
+| MSAA no canvas do catálogo | ligado | **desligado** |
+
+Lambert em vez de Standard porque o Standard é PBR completo: em tecido fosco a
+132 px a diferença não aparece, mas o custo de fragment shader multiplicado por
+20 viewports numa GPU integrada aparece. Pelo mesmo motivo o MSAA saiu só do
+catálogo — nas cenas de peça única ele continua ligado.
+
+### Uma correção no caminho
+
+Escrevi que `dispose={null}` seria obrigatório em todo mesh para proteger a
+geometria compartilhada. **Estava errado.** Lendo o `removeChild` do R3F:
+
+```js
+if (shouldDispose && child.dispose && child.type !== 'Scene') child.dispose()
+```
+
+`THREE.Mesh` não tem método `dispose`, e geometria/material passados como
+*prop* não são filhos declarativos — o R3F nunca os descarta. O `dispose={null}`
+seria inócuo ali e, pior, impediria o descarte de material declarado como filho
+JSX, vazando um material por desmontagem. A tampa do frasco, que era um
+`<meshLambertMaterial>` inline, passou a vir do mesmo cache.
+
+### O que NÃO foi feito, e por quê
+
+- **Reduzir o bundle do three.** 852 kB é o piso; `ShaderLib` entra inteiro
+  junto do renderer, então trocar de material não corta bytes.
+- **Tirar o 3D do precache do PWA.** Baixaria 852 kB a menos na primeira
+  instalação, mas o app deixaria de funcionar 3D offline antes da primeira
+  visita a cada tela. Para um PDV offline-first, a troca não compensa.
+- **Compartilhar a geometria da caixinha** (login e confirmação). São 1 ou 2
+  instâncias por vez, ~3 ms por montagem. Existe, é pequeno, e não vale a
+  complexidade agora.
+
+O interruptor de 3D continua existindo — mas para máquina sem WebGL e driver
+problemático, não como resposta a "está pesado".
+
+---
+
 ## Fases restantes da interface
 
 11. Configurações e usuários (inclui o interruptor do 3D e o texto da
@@ -1019,8 +1104,8 @@ Vale registrar: a constraint não está lá para o teste, está para garantir qu
 
 ## Estado ao final desta sessão
 
-- **755 testes passando**: 469 unitários (105 em `packages/shared`, 7 em
-  `apps/api`, 357 em `apps/pdv`), 154 de integração contra Postgres real, e 132
+- **764 testes passando**: 478 unitários (105 em `packages/shared`, 7 em
+  `apps/api`, 366 em `apps/pdv`), 154 de integração contra Postgres real, e 132
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
 - Fases 0 a 10 da interface concluídas: venda, catálogo visual, consulta de
   produto com prévia 3D, comprovante discreto, fechamento às cegas, sangria com

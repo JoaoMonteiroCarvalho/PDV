@@ -6,22 +6,27 @@
  * constrangedor com a cliente do outro lado do balcão. E uma silhueta de
  * corpo ainda por cima sugeriria caimento e tamanho que o sistema não sabe.
  *
- * Custo baixo de propósito — isto roda num mini-PC o dia inteiro:
- *   - só primitivas (`RoundedBox`, cilindro), sem malha importada;
- *   - nenhuma textura, nenhum reflexo de ambiente;
- *   - a sombra é um borrão no chão, não sombra projetada.
+ * A geometria e o material vêm de `geometrias.ts`, COMPARTILHADOS. Antes cada
+ * peça construía os próprios — 60 geometrias e 51 ms de CPU cada vez que
+ * cards entravam na tela do catálogo. Agora são 3 construções na vida do app.
  *
- * A cor vem SEMPRE do catálogo, nunca de token de interface. Um sutiã vinho é
- * vinho no tema claro e no escuro.
+ * SOBRE DESCARTE, que é a dúvida óbvia ao compartilhar objetos: o R3F NÃO
+ * descarta geometria e material passados como prop. No `removeChild` dele, o
+ * descarte é `child.dispose && child.type !== 'Scene'` — e `THREE.Mesh` não
+ * tem método `dispose`, então nada acontece. Só é descartado o que é filho
+ * declarativo (`<meshLambertMaterial />` dentro do mesh), que aí é por
+ * instância mesmo.
+ *
+ * Por isso NÃO se usa `dispose={null}` aqui. Ele seria inócuo para os objetos
+ * compartilhados e, pior, impediria o descarte de qualquer material declarado
+ * como filho — vazando um material por desmontagem.
  */
 
-// Import cirurgico: o indice do drei puxa centenas de modulos e estourava a
-// memoria do Node no build. Ver nota em CaixaDaMarca.tsx.
-import { RoundedBox } from '@react-three/drei/core/RoundedBox.js';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import type { Group } from 'three';
 import type { FormaDaPeca } from '../catalogo/formaDaPeca.js';
+import { COR_TAMPA, GEOMETRIAS, materialDaPeca, type NivelDeDetalhe } from './geometrias.js';
 
 /** Segundos de rotação de apresentação antes de a peça parar sozinha. */
 const DURACAO_APRESENTACAO = 4.5;
@@ -73,97 +78,90 @@ export function PecaAbstrata({ forma, cor, interagindo, aoRepousar }: Props) {
 /**
  * Só a geometria, sem animação nenhuma.
  *
- * Separado de `PecaAbstrata` porque o card do catálogo precisa da mesma peça
+ * Separada de `PecaAbstrata` porque o card do catálogo precisa da mesma peça
  * com outro comportamento: lá ela fica parada e só gira quando o mouse passa
- * por cima. Duplicar as formas para isso faria a peça do card divergir da
- * peça da consulta com a primeira alteração.
+ * por cima. Duplicar as formas faria a peça do card divergir da da consulta.
  */
-export function MalhaDaPeca({ forma, cor }: { forma: FormaDaPeca; cor: string }) {
-  return (
-    <>
-      {forma === 'dobrada' && <PecaDobrada cor={cor} />}
-      {forma === 'frasco' && <Frasco cor={cor} />}
-      {forma === 'bloco' && <Bloco cor={cor} />}
-    </>
-  );
+export function MalhaDaPeca({
+  forma,
+  cor,
+  detalhe = 'alto',
+}: {
+  forma: FormaDaPeca;
+  cor: string;
+  detalhe?: NivelDeDetalhe;
+}) {
+  const material = materialDaPeca(cor, detalhe);
+  const geometrias = GEOMETRIAS[detalhe];
+
+  if (forma === 'frasco') {
+    return (
+      <Frasco
+        geometrias={geometrias.frasco}
+        material={material}
+        materialTampa={materialDaPeca(COR_TAMPA, detalhe)}
+      />
+    );
+  }
+  if (forma === 'dobrada') return <PecaDobrada geometrias={geometrias.laminas} material={material} />;
+
+  // Embalagem neutra: o que o sistema mostra quando não sabe o formato.
+  return <mesh geometry={geometrias.bloco} material={material} position={[0, -0.1, 0]} />;
 }
+
+type Material = ReturnType<typeof materialDaPeca>;
 
 /**
  * Três lâminas empilhadas, cada uma girada um pouco — a leitura de tecido
  * dobrado vem do desalinhamento, não de deformar a malha (que custaria caro).
- * A do meio é levemente mais escura, dando profundidade sem luz extra.
  */
-function PecaDobrada({ cor }: { cor: string }) {
+function PecaDobrada({
+  geometrias,
+  material,
+}: {
+  geometrias: (typeof GEOMETRIAS)['alto']['laminas'];
+  material: Material;
+}) {
   return (
     <group position={[0, -0.15, 0]}>
-      <RoundedBox args={[2.1, 0.26, 1.5]} radius={0.12} smoothness={3} position={[0, 0, 0]}>
-        <meshStandardMaterial color={cor} roughness={0.78} metalness={0} />
-      </RoundedBox>
-
-      <RoundedBox
-        args={[2.0, 0.24, 1.42]}
-        radius={0.11}
-        smoothness={3}
+      <mesh geometry={geometrias.base} material={material} />
+      <mesh
+        geometry={geometrias.meio}
+        material={material}
         position={[0.04, 0.27, 0.03]}
         rotation={[0, 0.06, 0.012]}
-      >
-        <meshStandardMaterial color={cor} roughness={0.82} metalness={0} />
-      </RoundedBox>
-
-      <RoundedBox
-        args={[1.88, 0.22, 1.34]}
-        radius={0.1}
-        smoothness={3}
+      />
+      <mesh
+        geometry={geometrias.topo}
+        material={material}
         position={[-0.05, 0.53, -0.02]}
         rotation={[0, -0.05, -0.015]}
-      >
-        <meshStandardMaterial color={cor} roughness={0.74} metalness={0} />
-      </RoundedBox>
+      />
     </group>
   );
 }
 
-/**
- * Frasco: corpo cilíndrico, ombro e tampa. Segmentos baixos (24) porque a
- * peça é vista de longe e girando devagar — 64 segmentos custariam o triplo
- * sem diferença visível nesta escala.
- */
-function Frasco({ cor }: { cor: string }) {
+/** Frasco: corpo cilíndrico, ombro, gargalo e tampa. */
+function Frasco({
+  geometrias,
+  material,
+  materialTampa,
+}: {
+  geometrias: (typeof GEOMETRIAS)['alto']['frasco'];
+  material: Material;
+  materialTampa: Material;
+}) {
   return (
     <group position={[0, -0.55, 0]}>
-      <mesh position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.52, 0.58, 1.0, 24]} />
-        <meshStandardMaterial color={cor} roughness={0.28} metalness={0.06} />
-      </mesh>
-
-      {/* Ombro: cone curto que fecha o corpo até o gargalo. */}
-      <mesh position={[0, 1.08, 0]}>
-        <cylinderGeometry args={[0.2, 0.52, 0.18, 24]} />
-        <meshStandardMaterial color={cor} roughness={0.3} metalness={0.06} />
-      </mesh>
-
-      <mesh position={[0, 1.24, 0]}>
-        <cylinderGeometry args={[0.16, 0.16, 0.16, 20]} />
-        <meshStandardMaterial color={cor} roughness={0.35} metalness={0.04} />
-      </mesh>
-
+      <mesh geometry={geometrias.corpo} material={material} position={[0, 0.5, 0]} />
+      <mesh geometry={geometrias.ombro} material={material} position={[0, 1.08, 0]} />
+      <mesh geometry={geometrias.gargalo} material={material} position={[0, 1.24, 0]} />
       {/*
-        Tampa em tom neutro escuro, não na cor do produto: no frasco real a
-        cor que a cliente vê é a do líquido, e a tampa costuma destoar. Este
-        cinza é fixo e não vem de token de interface.
+        Tampa em tom neutro escuro, não na cor do produto: no frasco real a cor
+        que a cliente vê é a do líquido, e a tampa costuma destoar. Vem do mesmo
+        cache dos outros — nada de material por instância.
       */}
-      <RoundedBox args={[0.42, 0.34, 0.42]} radius={0.06} smoothness={3} position={[0, 1.47, 0]}>
-        <meshStandardMaterial color="#4a4a4f" roughness={0.4} metalness={0.1} />
-      </RoundedBox>
+      <mesh geometry={geometrias.tampa} material={materialTampa} position={[0, 1.47, 0]} />
     </group>
-  );
-}
-
-/** Embalagem neutra: o que o sistema mostra quando não sabe o formato. */
-function Bloco({ cor }: { cor: string }) {
-  return (
-    <RoundedBox args={[1.6, 1.1, 1.0]} radius={0.1} smoothness={3} position={[0, -0.1, 0]}>
-      <meshStandardMaterial color={cor} roughness={0.65} metalness={0.02} />
-    </RoundedBox>
   );
 }

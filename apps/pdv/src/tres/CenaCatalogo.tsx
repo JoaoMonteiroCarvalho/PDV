@@ -89,7 +89,13 @@ export default function CenaCatalogo({ alvos }: { alvos: readonly AlvoPrevia[] }
       frameloop={precisaDesenhar ? 'always' : 'demand'}
       dpr={[1, 1.25]}
       camera={{ position: [0, 1.1, 5.6], fov: 30 }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
+      /*
+        `antialias: false` aqui, ao contrário das outras cenas. MSAA custa por
+        pixel, e este canvas desenha 20 viewports numa GPU integrada. A 132 px,
+        com a peça parada na maior parte do tempo, a serrilha não aparece — o
+        custo, sim.
+      */
+      gl={{ antialias: false, alpha: true, powerPreference: 'low-power' }}
       style={{ width: '100vw', height: '100vh' }}
     >
       <RedesenharAoRolar />
@@ -162,7 +168,11 @@ function PecaDoCard({
 
   return (
     <group ref={grupo} rotation={[0, ANGULO_PARADO, 0]} scale={0.78}>
-      <MalhaDaPeca forma={forma} cor={cor} />
+      {/*
+        Detalhe BAIXO no card: a 132 px, smoothness 3 e 1 são indistinguíveis,
+        e a diferença medida é 588 contra 108 triângulos por lâmina.
+      */}
+      <MalhaDaPeca forma={forma} cor={cor} detalhe="baixo" />
     </group>
   );
 }
