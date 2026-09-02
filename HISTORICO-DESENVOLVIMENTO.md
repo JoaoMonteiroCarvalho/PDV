@@ -1095,22 +1095,120 @@ problemático, não como resposta a "está pesado".
 
 ---
 
-## Fases restantes da interface
+## Fase 11 — Configurações e usuários
 
-11. Configurações e usuários (inclui o interruptor do 3D e o texto da
-    política de troca)
+A última fase da interface, e a que fecha três promessas deixadas por escrito
+no código: o interruptor do 3D (que existia em `capacidade.ts` sem botão
+nenhum), os dados da loja (fixos em `impressao/loja.ts`, com um comentário
+dizendo "provisório, pertence à Fase 11") e a linha de política da loja.
+
+### Três blocos com donos diferentes
+
+A tela separa por DONO, não por assunto, porque é o dono que decide onde o
+dado mora e quem pode mexer:
+
+| bloco | onde mora | quem altera |
+|---|---|---|
+| Este computador (tema, 3D) | `localStorage` da máquina | quem estiver logado |
+| Dados da loja | servidor, tabela `configuracao_loja` | só gerente |
+| Usuários | servidor, tabela `usuario` | só gerente |
+
+O caixa da frente pode querer 3D e o do fundo não — forçar igual para os dois
+seria pior. Já o nome da loja sai impresso em todo comprovante de todo caixa,
+então não pode ser preferência local.
+
+A operadora vê os dados da loja em **somente leitura**, e não escondidos:
+quando a cliente reclama do endereço no papel, é ela quem precisa conferir o
+que está cadastrado.
+
+### `ConfiguracaoLoja` é uma linha só, e o banco garante isso
+
+```sql
+CONSTRAINT "configuracao_loja_linha_unica" CHECK ("id" = 'loja')
+```
+
+Sem o CHECK, uma segunda linha entraria em silêncio e metade dos comprovantes
+sairia com o endereço antigo, dependendo de qual o código lesse primeiro.
+
+### O comprovante não pode esperar a rede
+
+`impressao/loja.ts` guarda a configuração em memória **e** no `localStorage`.
+A venda é impressa inclusive offline, com a cliente esperando o papel — e
+nesse momento não há tempo nem conexão para uma chamada nova. O Shell busca
+uma vez ao entrar e falha em silêncio: se o servidor estiver fora, imprime com
+a última configuração conhecida em vez de interromper a venda.
+
+### A linha da loja SOMA à política, nunca substitui
+
+O campo de política é livre, e a tentação óbvia é usá-lo para escrever "não
+trocamos peça íntima em nenhuma hipótese". Isso seria promessa ilegal. O texto
+legal continua fixo em `politicaTroca.ts` e a linha da loja entra depois dele:
+
+```ts
+// A linha da loja vem POR ÚLTIMO e é adicional, nunca substitui. Se ela
+// pudesse trocar o texto acima, uma configuração descuidada apagaria a
+// garantia de troca por defeito — que é direito e não é negociável.
+```
+
+Há teste com exatamente esse texto no campo, verificando que
+`Defeito de fabricacao: troca garantida.` continua impresso. A tela também
+avisa isso embaixo do campo, para não depender de ninguém ler o código.
+
+### Ninguém se tranca para fora, e ninguém se promove
+
+Três regras no serviço, todas pelo mesmo motivo:
+
+- **Usuário nunca é apagado, só desativado.** Ele assina venda, sangria e
+  auditoria; deletar romperia a chave estrangeira ou apagaria de quem foi a
+  ação.
+- **Ninguém se desativa nem muda o próprio papel.** Numa loja com um gerente
+  só, ele se trancaria para fora e ninguém autorizaria sangria até alguém
+  mexer no banco. O caminho é pedir a outro gerente.
+- **Sempre sobra um administrador ativo.** Desativar ou rebaixar o último
+  gerente é recusado com a instrução: promova outra pessoa antes.
+
+O papel aparece como três opções com a explicação à vista, não uma lista
+suspensa. "GERENTE" não diz a ninguém o que a pessoa passa a poder; quem
+cadastra precisa ler "também autoriza sangria, devolução e desconto acima da
+alçada" **antes** de clicar, não descobrir depois que deu acesso ao cofre.
+
+### Dois testes que passavam pelo motivo errado
+
+O payload de teste usava `{ nome: 'X' }` — um caractere. Isso trombava no
+`min(2)` do nome e devolvia 400 **antes** de a validação sob teste rodar. Dois
+testes que diziam verificar o formato do login e o tamanho da senha estavam,
+na prática, verificando o tamanho do nome. Corrigidos, e acrescentado
+`aceita login com ponto, hífen e sublinhado` como contraprova: sem ela, uma
+regra que recusasse tudo passaria no teste de recusa.
+
+### Escala do desconto, num lugar só
+
+A operadora digita "5", o banco guarda 500 pontos-base. A conversão vive em
+`configuracoes/regras.ts` e tem teste dedicado (`não deixa 0,5% virar 50%`),
+porque errar essa escala uma vez daria a alguém cem vezes a alçada pretendida.
+
+### Prova de ponta a ponta
+
+O teste E2E que importa salva o nome da loja como gerente e **vende em outro
+contexto do navegador**, como operadora. Contexto novo tem `localStorage`
+vazio: o nome no comprovante só pode ter vindo do servidor. Vendendo na mesma
+aba, o teste passaria mesmo que a configuração nunca tivesse saído dali.
+
+Outro: usuário criado na tela consegue **entrar** no sistema. Cadastro que não
+resulta em login é cadastro que só parece ter funcionado.
 
 ---
 
 ## Estado ao final desta sessão
 
-- **764 testes passando**: 478 unitários (105 em `packages/shared`, 7 em
-  `apps/api`, 366 em `apps/pdv`), 154 de integração contra Postgres real, e 132
+- **828 testes passando**: 508 unitários (105 em `packages/shared`, 7 em
+  `apps/api`, 396 em `apps/pdv`), 181 de integração contra Postgres real, e 139
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
-- Fases 0 a 10 da interface concluídas: venda, catálogo visual, consulta de
-  produto com prévia 3D, comprovante discreto, fechamento às cegas, sangria com
-  autorização de gerente, entrada de estoque por XML da NF-e, clientes com
-  fiado e relatórios com exportação CSV.
+- **As 11 fases da interface estão concluídas**: venda, catálogo visual,
+  consulta de produto com prévia 3D, comprovante discreto, fechamento às
+  cegas, sangria com autorização de gerente, entrada de estoque por XML da
+  NF-e, clientes com fiado, relatórios com exportação CSV e configurações com
+  cadastro de usuários.
 - **4 specs E2E seguem pendentes** (devolução e histórico de vendas).
   Não estão quebrados: a funcionalidade existe e tem cobertura de integração
   no backend; o que falta é a tela de histórico, que ainda não tem fase

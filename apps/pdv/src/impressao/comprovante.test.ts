@@ -169,3 +169,34 @@ describe('montarComprovante()', () => {
     }
   });
 });
+
+describe('linha de política cadastrada pela loja', () => {
+  function politica(extra: string | null) {
+    return montarComprovante(venda, { ...dados, politicaDaLoja: extra }, LOJA).join('\n');
+  }
+
+  it('imprime a linha da loja junto do texto legal', () => {
+    const texto = politica('Trocas de segunda a sexta, das 9h as 17h.');
+    expect(texto).toContain('Trocas de segunda a sexta');
+    expect(texto).toContain('Defeito de fabricacao: troca garantida.');
+  });
+
+  it('NÃO deixa a linha da loja substituir a garantia legal', () => {
+    // Este é o teste que impede o campo de virar "não trocamos em hipótese
+    // alguma": o direito continua impresso, esteja lá o que estiver.
+    const texto = politica('Nao trocamos peca intima em nenhuma hipotese.');
+    expect(texto).toContain('Defeito de fabricacao: troca garantida.');
+  });
+
+  it('sem linha cadastrada, o comprovante sai como antes', () => {
+    expect(politica(null)).toBe(politica(''));
+  });
+
+  it('quebra a linha da loja em vez de estourar o papel', () => {
+    const longa =
+      'Trocas somente na loja da matriz, de segunda a sexta das nove as dezessete horas, mediante apresentacao deste comprovante';
+    for (const linha of montarComprovante(venda, { ...dados, politicaDaLoja: longa }, LOJA)) {
+      expect(linha.length).toBeLessThanOrEqual(COLUNAS);
+    }
+  });
+});

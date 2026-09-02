@@ -480,6 +480,33 @@ model RecebimentoParcela {
 }
 
 // ---------------------------------------------------------------------------
+// Configuração da loja
+//
+// Linha ÚNICA, garantida pelo id fixo `'loja'`. Não é tabela de chave-valor
+// genérica de propósito: cada campo aqui tem tipo, é lido por código que sabe
+// o que espera, e o comprovante não pode depender de alguém ter digitado a
+// chave certa numa tela de configuração.
+// ---------------------------------------------------------------------------
+
+model ConfiguracaoLoja {
+  /// Sempre 'loja'. O CHECK abaixo impede uma segunda linha existir.
+  id       String @id @default("loja")
+  nome     String @default("Loja")
+  endereco String?
+  telefone String?
+  /// Só aparece no comprovante se preenchido: imprimir um CNPJ inventado num
+  /// papel que a cliente leva embora é pior do que não imprimir nada.
+  cnpj     String?
+
+  /// Linha extra da política de troca, definida pela loja. As regras legais
+  /// (troca por defeito garantida, restrição de higiene) NÃO vêm daqui — são
+  /// fixas no código, porque não são configuráveis por opinião.
+  politicaTrocaExtra String?
+
+  atualizadoEm DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Auditoria — tudo que envolve dinheiro passa por aqui
 // ---------------------------------------------------------------------------
 

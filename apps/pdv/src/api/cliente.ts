@@ -214,6 +214,65 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  // --- Usuários e configuração da loja --------------------------------------------
+
+  async listarUsuarios(): Promise<UsuarioAdmin[]> {
+    return this.json(await fetch(`${BASE}/usuarios`, { headers: this.cabecalhos() }));
+  }
+
+  async criarUsuario(dados: {
+    nome: string;
+    login: string;
+    senha: string;
+    papel: PapelUsuario;
+    limiteDescontoBps: number;
+  }): Promise<UsuarioAdmin> {
+    return this.json(
+      await fetch(`${BASE}/usuarios`, {
+        method: 'POST',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  async atualizarUsuario(
+    id: string,
+    dados: { nome?: string; papel?: PapelUsuario; limiteDescontoBps?: number; ativo?: boolean },
+  ): Promise<UsuarioAdmin> {
+    return this.json(
+      await fetch(`${BASE}/usuarios/${id}`, {
+        method: 'PATCH',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  async trocarSenhaDe(id: string, senha: string): Promise<{ id: string }> {
+    return this.json(
+      await fetch(`${BASE}/usuarios/${id}/senha`, {
+        method: 'POST',
+        headers: this.cabecalhos(),
+        body: JSON.stringify({ senha }),
+      }),
+    );
+  }
+
+  async obterConfiguracaoLoja(): Promise<ConfiguracaoLoja> {
+    return this.json(await fetch(`${BASE}/configuracao`, { headers: this.cabecalhos() }));
+  }
+
+  async salvarConfiguracaoLoja(dados: ConfiguracaoLojaEntrada): Promise<ConfiguracaoLoja> {
+    return this.json(
+      await fetch(`${BASE}/configuracao`, {
+        method: 'PUT',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
   // --- Relatórios ----------------------------------------------------------------
 
   /** Vendas do período. As datas vão como `YYYY-MM-DD` — dia da loja, não instante. */
@@ -351,6 +410,36 @@ export class ClienteApi {
     });
     return this.json(resposta);
   }
+}
+
+export type PapelUsuario = 'OPERADOR' | 'GERENTE' | 'ADMIN';
+
+export interface UsuarioAdmin {
+  id: string;
+  nome: string;
+  login: string;
+  papel: PapelUsuario;
+  limiteDescontoBps: number;
+  ativo: boolean;
+  criadoEm: string;
+}
+
+export interface ConfiguracaoLoja {
+  id: string;
+  nome: string;
+  endereco: string | null;
+  telefone: string | null;
+  cnpj: string | null;
+  /** Linha extra definida pela loja. As regras legais NÃO vêm daqui. */
+  politicaTrocaExtra: string | null;
+}
+
+export interface ConfiguracaoLojaEntrada {
+  nome: string;
+  endereco?: string | undefined;
+  telefone?: string | undefined;
+  cnpj?: string | undefined;
+  politicaTrocaExtra?: string | undefined;
 }
 
 export interface RelatorioVendas {

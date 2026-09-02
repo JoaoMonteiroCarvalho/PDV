@@ -27,7 +27,7 @@ import { Botao, Cartao, Selo, cx } from '../componentes/base.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { comprovanteEmTexto, montarComprovante } from '../impressao/comprovante.js';
 import { imprimirComprovante } from '../impressao/imprimir.js';
-import { LOJA } from '../impressao/loja.js';
+import { lojaAtual, politicaTrocaDaLoja } from '../impressao/loja.js';
 import { vendaExigeAvisoDeHigiene } from '../impressao/politicaTroca.js';
 import { PalcoEstatico } from '../tres/PalcoEstatico.js';
 import { podeRenderizar3d } from '../tres/capacidade.js';
@@ -56,8 +56,12 @@ export function TelaVendaConcluida() {
     return comprovanteEmTexto(
       montarComprovante(
         venda.calculo,
-        { ...venda.dados, discricao: detalhado ? 'completo' : 'discreto' },
-        LOJA,
+        {
+          ...venda.dados,
+          discricao: detalhado ? 'completo' : 'discreto',
+          politicaDaLoja: politicaTrocaDaLoja(),
+        },
+        lojaAtual(),
       ),
     );
   }, [venda, detalhado]);
@@ -118,8 +122,12 @@ export function TelaVendaConcluida() {
               onClick={() =>
                 imprimirComprovante(
                   venda.calculo,
-                  { ...venda.dados, discricao: detalhado ? 'completo' : 'discreto' },
-                  LOJA,
+                  {
+                    ...venda.dados,
+                    discricao: detalhado ? 'completo' : 'discreto',
+                    politicaDaLoja: politicaTrocaDaLoja(),
+                  },
+                  lojaAtual(),
                 )
               }
             >

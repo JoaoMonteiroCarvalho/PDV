@@ -13,6 +13,7 @@ import { Botao, cx } from '../componentes/base.js';
 import { useSessao } from '../estado/sessaoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
+import { sincronizarLoja } from '../impressao/loja.js';
 
 const NAVEGACAO = [
   { para: '/venda', rotulo: 'Venda' },
@@ -22,6 +23,7 @@ const NAVEGACAO = [
   { para: '/clientes', rotulo: 'Clientes' },
   { para: '/estoque', rotulo: 'Estoque' },
   { para: '/relatorios', rotulo: 'Relatórios' },
+  { para: '/configuracoes', rotulo: 'Configurações' },
 ] as const;
 
 export function Shell() {
@@ -40,6 +42,9 @@ export function Shell() {
    */
   useEffect(() => {
     void sincronizarCaixa();
+    // Os dados da loja saem no comprovante, inclusive offline: busca uma vez
+    // ao entrar e guarda localmente. Falha aqui não interrompe nada.
+    void sincronizarLoja();
     motorSincronizacao.iniciar();
     return () => motorSincronizacao.parar();
   }, [sincronizarCaixa]);

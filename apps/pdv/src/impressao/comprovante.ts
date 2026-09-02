@@ -54,6 +54,8 @@ export interface DadosComprovante {
    * `completo` sai com o nome real — a via detalhada, quando a cliente pede.
    */
   readonly discricao?: NivelDiscricao | undefined;
+  /** Linha extra da política, cadastrada em Configurações. */
+  readonly politicaDaLoja?: string | null | undefined;
 }
 
 const NOME_DA_FORMA: Readonly<Record<string, string>> = {
@@ -174,7 +176,10 @@ export function montarComprovante(
    */
   linhas.push('');
   linhas.push(linha());
-  for (const texto of linhasDaPoliticaTroca(vendaExigeAvisoDeHigiene(dados.itens))) {
+  for (const texto of linhasDaPoliticaTroca(
+    vendaExigeAvisoDeHigiene(dados.itens),
+    dados.politicaDaLoja,
+  )) {
     linhas.push(texto.slice(0, COLUNAS));
   }
 

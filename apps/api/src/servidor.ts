@@ -16,6 +16,12 @@ import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import { esquemaEntradaEstoque } from './esquemas/estoque.js';
 import {
+  esquemaAtualizarUsuario,
+  esquemaConfiguracaoLoja,
+  esquemaCriarUsuario,
+  esquemaTrocarSenha,
+} from './esquemas/administracao.js';
+import {
   esquemaBuscarClientes,
   esquemaCriarCliente,
   esquemaReceberParcela,
@@ -30,6 +36,16 @@ import {
   receberParcela,
 } from './servicos/cliente.js';
 import { ErroRelatorio, gerarRelatorioVendas } from './servicos/relatorio.js';
+import {
+  ErroAdministracao,
+  atualizarUsuario,
+  criarUsuario,
+  listarUsuarios,
+  obterConfiguracaoLoja,
+  podeAdministrar,
+  salvarConfiguracaoLoja,
+  trocarSenha,
+} from './servicos/administracao.js';
 import { esquemaRegistrarVenda } from './esquemas/venda.js';
 import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/devolucao.js';
 import {
@@ -716,6 +732,118 @@ export async function construirServidor(
       }
       throw erro;
     }
+  });
+
+  // --- Usuários e configuração da loja ---------------------------------------
+
+  const STATUS_ADMIN: Readonly<Record<string, number>> = {
+    USUARIO_INEXISTENTE: 404,
+    LOGIN_EM_USO: 409,
+    ULTIMO_ADMINISTRADOR: 409,
+    NAO_PODE_SE_DESATIVAR: 409,
+    NAO_PODE_MUDAR_PROPRIO_PAPEL: 409,
+  };
+
+  function tratarErroAdmin(erro: unknown, resposta: FastifyReply): FastifyReply | never {
+    if (erro instanceof ErroAdministracao) {
+      return resposta
+        .status(STATUS_ADMIN[erro.codigo] ?? 422)
+        .send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  /**
+   * Administrar usuário exige GERENTE ou ADMIN.
+   *
+   * Sem isso, um operador criaria a si mesmo como gerente e a alçada de
+   * desconto e a autorização de sangria deixariam de significar qualquer
+   * coisa.
+   */
+  async function exigirAdministrador(
+    requisicao: FastifyRequest,
+    resposta: FastifyReply,
+  ): Promise<void> {
+    await exigirOperador(requisicao);
+    if (!podeAdministrar(requisicao.user.papel)) {
+      await resposta
+        .status(403)
+        .send({ codigo: 'SEM_PERMISSAO', mensagem: 'Só gerente ou administrador faz isso.' });
+    }
+  }
+
+  app.get('/usuarios', { preHandler: exigirAdministrador }, async () => listarUsuarios(prisma));
+
+  app.post('/usuarios', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarUsuario.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      return resposta.status(201).send(await criarUsuario(prisma, entrada.data));
+    } catch (erro) {
+      return tratarErroAdmin(erro, resposta);
+    }
+  });
+
+  app.patch('/usuarios/:id', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarUsuario.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [
+          ...(parametros.success ? [] : parametros.error.issues),
+          ...(entrada.success ? [] : entrada.error.issues),
+        ],
+      });
+    }
+    try {
+      return await atualizarUsuario(prisma, parametros.data.id, entrada.data, {
+        autorId: requisicao.user.sub,
+      });
+    } catch (erro) {
+      return tratarErroAdmin(erro, resposta);
+    }
+  });
+
+  app.post(
+    '/usuarios/:id/senha',
+    { preHandler: exigirAdministrador },
+    async (requisicao, resposta) => {
+      const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+      const entrada = esquemaTrocarSenha.safeParse(requisicao.body);
+      if (!parametros.success || !entrada.success) {
+        return resposta.status(400).send({
+          codigo: 'ENTRADA_INVALIDA',
+          erros: [
+            ...(parametros.success ? [] : parametros.error.issues),
+            ...(entrada.success ? [] : entrada.error.issues),
+          ],
+        });
+      }
+      try {
+        return await trocarSenha(prisma, parametros.data.id, entrada.data.senha);
+      } catch (erro) {
+        return tratarErroAdmin(erro, resposta);
+      }
+    },
+  );
+
+  /**
+   * A configuração da loja é LIDA por qualquer operador — o comprovante
+   * precisa dela a cada venda — mas só gerente escreve.
+   */
+  app.get('/configuracao', { preHandler: exigirOperador }, async () =>
+    obterConfiguracaoLoja(prisma),
+  );
+
+  app.put('/configuracao', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const entrada = esquemaConfiguracaoLoja.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    return salvarConfiguracaoLoja(prisma, entrada.data);
   });
 
   app.addHook('onClose', async () => {

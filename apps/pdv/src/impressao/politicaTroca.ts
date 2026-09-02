@@ -54,7 +54,10 @@ export const AVISO_NA_TELA =
  * definida, e boa parte delas imprime a página de código errada, trocando
  * acentos por caracteres soltos justo no aviso que mais precisa ser lido.
  */
-export function linhasDaPoliticaTroca(comRestricao: boolean): string[] {
+export function linhasDaPoliticaTroca(
+  comRestricao: boolean,
+  linhaDaLoja?: string | null,
+): string[] {
   const linhas = ['POLITICA DE TROCA'];
 
   if (comRestricao) {
@@ -66,5 +69,30 @@ export function linhasDaPoliticaTroca(comRestricao: boolean): string[] {
   linhas.push('este comprovante.');
   linhas.push('Defeito de fabricacao: troca garantida.');
 
+  /*
+   * A linha da loja vem POR ÚLTIMO e é adicional, nunca substitui. Se ela
+   * pudesse trocar o texto acima, uma configuração descuidada apagaria a
+   * garantia de troca por defeito — que é direito e não é negociável.
+   */
+  if (linhaDaLoja && linhaDaLoja.trim().length > 0) {
+    for (const parte of quebrarEmColunas(linhaDaLoja.trim(), 48)) linhas.push(parte);
+  }
+
   return linhas;
+}
+
+/** Quebra por palavra para não cortar no meio de uma no papel de 48 colunas. */
+function quebrarEmColunas(texto: string, colunas: number): string[] {
+  const partes: string[] = [];
+  let atual = '';
+  for (const palavra of texto.split(/\s+/)) {
+    if (atual.length === 0) atual = palavra.slice(0, colunas);
+    else if (atual.length + 1 + palavra.length <= colunas) atual += ` ${palavra}`;
+    else {
+      partes.push(atual);
+      atual = palavra.slice(0, colunas);
+    }
+  }
+  if (atual.length > 0) partes.push(atual);
+  return partes;
 }

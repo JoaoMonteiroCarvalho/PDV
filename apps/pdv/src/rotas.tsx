@@ -17,6 +17,7 @@ import { useSessao } from './estado/sessaoStore.js';
 import { useCaixa } from './estado/caixaStore.js';
 import { TelaEntrar } from './paginas/TelaEntrar.js';
 import { EmConstrucao } from './paginas/EmConstrucao.js';
+import { TelaConfiguracoes } from './paginas/TelaConfiguracoes.js';
 import { TelaCaixa } from './paginas/TelaCaixa.js';
 import { TelaFecharCaixa } from './paginas/TelaFecharCaixa.js';
 import { TelaMovimentoCaixa } from './paginas/TelaMovimentoCaixa.js';
@@ -92,7 +93,7 @@ export const roteador = createBrowserRouter([
       { path: 'estoque', element: <TelaEstoque /> },
       { path: 'clientes', element: <TelaClientes /> },
       { path: 'relatorios', element: <TelaRelatorios /> },
-      { path: 'configuracoes', element: <EmConstrucao titulo="Configurações" fase="Fase 11" /> },
+      { path: 'configuracoes', element: <TelaConfiguracoes /> },
       { path: 'design', element: <DesignSystem /> },
     ],
   },
