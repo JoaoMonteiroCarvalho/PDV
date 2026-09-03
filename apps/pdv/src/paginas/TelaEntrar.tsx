@@ -15,7 +15,7 @@ import { Suspense, lazy, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
-import { Botao, Campo, Erro } from '../componentes/base.js';
+import { Botao, Campo, Cartao, Erro } from '../componentes/base.js';
 import { useSessao } from '../estado/sessaoStore.js';
 import { PalcoDaMarca } from '../tres/PalcoDaMarca.js';
 import { COR_MARCA, COR_MARCA_SOBRE_ESCURO } from '../tres/formaDaMarca.js';
@@ -92,6 +92,16 @@ export function TelaEntrar() {
         retângulo preto.
       */}
       <section className="relative hidden overflow-hidden bg-accent-soft lg:block">
+        {/*
+          Filete de ouro na emenda dos dois painéis.
+
+          Fica DENTRO do palco, encostado na borda direita, e não como
+          `border-r` da seção: assim ele some nas duas pontas em vez de bater
+          no topo e no rodapé da tela. É o mesmo tratamento do filete que
+          separa símbolo e nome no logo horizontal — o ouro entra como
+          detalhe de 1px, nunca como régua.
+        */}
+        <div className="filete-ouro-vertical absolute inset-y-0 right-0 z-10" aria-hidden />
         {usar3d ? (
           <Suspense fallback={<PalcoDaMarca cor={corDaMarca} />}>
             <CenaLogin cor={corDaMarca} />
@@ -121,40 +131,53 @@ export function TelaEntrar() {
         </div>
       </section>
 
-      <section className="grid place-items-center px-8">
-        <form onSubmit={handleSubmit(submeter)} className="w-full max-w-[320px]">
-          <h1 className="text-[34px]">{saudacao()}</h1>
-          <p className="mt-1 mb-8 text-[15px] text-ink-soft">Identifique-se para abrir o caixa</p>
+      <section className="grid place-items-center px-8 py-10">
+        {/*
+          O formulário num cartão.
 
-          <div className="flex flex-col gap-4">
-            <Campo
-              rotulo="Operadora"
-              autoFocus
-              autoComplete="username"
-              erro={errors.login?.message}
-              {...register('login')}
-            />
-            <Campo
-              rotulo="Senha"
-              type="password"
-              autoComplete="current-password"
-              erro={errors.senha?.message}
-              {...register('senha')}
-            />
+          Era o único bloco do sistema flutuando solto sobre o fundo — em
+          todas as outras telas, conteúdo mora sobre superfície branca com
+          borda e sombra. Sem o cartão a coluna da direita lia como espaço
+          vazio com três campos no meio; com ele, o bloco tem peso e a tela
+          passa a falar a mesma língua do resto.
+        */}
+        <Cartao className="w-full max-w-[380px] p-8">
+          <form onSubmit={handleSubmit(submeter)}>
+            <h1 className="text-[34px]">{saudacao()}</h1>
+            <p className="mt-1 mb-8 text-[15px] text-ink-soft">
+              Identifique-se para abrir o caixa
+            </p>
 
-            {erro && <Erro>{erro}</Erro>}
+            <div className="flex flex-col gap-4">
+              <Campo
+                rotulo="Operadora"
+                autoFocus
+                autoComplete="username"
+                erro={errors.login?.message}
+                {...register('login')}
+              />
+              <Campo
+                rotulo="Senha"
+                type="password"
+                autoComplete="current-password"
+                erro={errors.senha?.message}
+                {...register('senha')}
+              />
 
-            <Botao
-              type="submit"
-              variante="primario"
-              tamanho="grande"
-              disabled={entrando}
-              className="mt-2 w-full"
-            >
-              {entrando ? 'Entrando…' : 'Entrar'}
-            </Botao>
-          </div>
-        </form>
+              {erro && <Erro>{erro}</Erro>}
+
+              <Botao
+                type="submit"
+                variante="primario"
+                tamanho="grande"
+                disabled={entrando}
+                className="mt-2 w-full"
+              >
+                {entrando ? 'Entrando…' : 'Entrar'}
+              </Botao>
+            </div>
+          </form>
+        </Cartao>
       </section>
     </div>
   );

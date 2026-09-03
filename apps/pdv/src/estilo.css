@@ -299,7 +299,13 @@
     display: block;
   }
 
-  /* Filete de ouro: o acento decorativo da marca, com 1px de espessura. */
+  /*
+   * Filete de ouro: o acento decorativo da marca, com 1px de espessura.
+   *
+   * Some nas duas pontas em vez de bater na borda. É como o filete aparece no
+   * próprio logo horizontal — uma linha curta separando símbolo e nome, não
+   * uma régua de ponta a ponta.
+   */
   .filete-ouro {
     background: linear-gradient(
       to right,
@@ -309,5 +315,16 @@
       transparent
     );
     height: 1px;
+  }
+
+  .filete-ouro-vertical {
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      var(--realce) 22%,
+      var(--realce) 78%,
+      transparent
+    );
+    width: 1px;
   }
 }

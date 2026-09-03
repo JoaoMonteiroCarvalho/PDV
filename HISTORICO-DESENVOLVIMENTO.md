@@ -1439,6 +1439,24 @@ pacote entrega. A escolha é feita uma vez, na montagem da tela: o interruptor
 de tema mora dentro do sistema, e para chegar até ele já é preciso estar
 logado.
 
+### O formulário do login ganhou um cartão
+
+A tela parecia vazia, e o diagnóstico não era falta de enfeite: o formulário
+era **o único bloco do sistema flutuando solto sobre o fundo**. Em todas as
+outras telas, conteúdo mora sobre superfície branca com borda e sombra. Sem o
+cartão, a coluna da direita lia como espaço vazio com três campos no meio.
+
+Junto entrou um filete de ouro vertical na emenda dos dois painéis. Ele fica
+DENTRO do palco, encostado na borda, e não como `border-r` da seção: assim
+some nas duas pontas em vez de bater no topo e no rodapé. A 100% ele é quase
+imperceptível — é o que se espera de um filete, e foi conferido ampliado 3×
+para garantir que está lá e na cor certa.
+
+O que foi deliberadamente NÃO adicionado, mesmo com a tela pedindo volume:
+vitrine de produto ou foto rotativa (o login precisa abrir instantâneo, e
+carrossel em balcão é ruído), frase do dia, e relógio correndo — a data
+bastaria, e um relógio vivo redesenha a tela para sempre sem dizer nada novo.
+
 ### Um teste pegou um problema de acessibilidade real
 
 O link do logo nasceu com `aria-label="RM Moda Íntima — ir para a venda"`, e o
