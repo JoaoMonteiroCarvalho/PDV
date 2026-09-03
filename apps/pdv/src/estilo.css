@@ -317,6 +317,31 @@
     height: 1px;
   }
 
+  /*
+   * Moldura de ouro: uma segunda linha, por dentro da borda do cartão.
+   *
+   * É o recurso clássico de papelaria fina — a folha tem a borda dela e um
+   * fio metálico correndo por dentro, com uma margem entre os dois. Uma
+   * borda dourada sozinha, no lugar da borda do cartão, ficaria só uma cor
+   * trocada; são as DUAS linhas com respiro entre elas que fazem o olho ler
+   * "detalhe", e não "borda colorida".
+   *
+   * Desenhada em `::after` para não gastar um elemento no DOM nem entrar no
+   * fluxo — o conteúdo do cartão não muda de lugar por causa dela.
+   */
+  .moldura-ouro {
+    position: relative;
+  }
+
+  .moldura-ouro::after {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    border: 1px solid var(--realce);
+    border-radius: calc(var(--raio) - 9px);
+    pointer-events: none;
+  }
+
   .filete-ouro-vertical {
     background: linear-gradient(
       to bottom,

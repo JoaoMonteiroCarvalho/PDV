@@ -141,12 +141,18 @@ export function TelaEntrar() {
           vazio com três campos no meio; com ele, o bloco tem peso e a tela
           passa a falar a mesma língua do resto.
         */}
-        <Cartao className="w-full max-w-[380px] p-8">
+        <Cartao className="moldura-ouro w-full max-w-[380px] p-9">
           <form onSubmit={handleSubmit(submeter)}>
             <h1 className="text-[34px]">{saudacao()}</h1>
-            <p className="mt-1 mb-8 text-[15px] text-ink-soft">
-              Identifique-se para abrir o caixa
-            </p>
+            <p className="mt-1 text-[15px] text-ink-soft">Identifique-se para abrir o caixa</p>
+
+            {/*
+              O filete separa o cumprimento dos campos. Não é só enfeite: ele
+              divide a parte que se LÊ da parte que se PREENCHE, e é aí que o
+              ouro pode aparecer sem disputar com o botão vinho, que continua
+              sendo a única coisa que se clica.
+            */}
+            <div className="filete-ouro my-7 w-full" aria-hidden />
 
             <div className="flex flex-col gap-4">
               <Campo

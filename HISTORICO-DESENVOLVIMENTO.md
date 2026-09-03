@@ -1448,9 +1448,20 @@ cartão, a coluna da direita lia como espaço vazio com três campos no meio.
 
 Junto entrou um filete de ouro vertical na emenda dos dois painéis. Ele fica
 DENTRO do palco, encostado na borda, e não como `border-r` da seção: assim
-some nas duas pontas em vez de bater no topo e no rodapé. A 100% ele é quase
-imperceptível — é o que se espera de um filete, e foi conferido ampliado 3×
-para garantir que está lá e na cor certa.
+some nas duas pontas em vez de bater no topo e no rodapé.
+
+Esse filete sozinho ficou **discreto demais** — 1px de ouro entre dois tons
+claros e quentes só aparece ampliado. O ouro passou a ter dois lugares onde
+de fato se vê:
+
+- **Moldura no cartão.** Uma segunda linha, por dentro da borda, com 9px de
+  respiro entre as duas. É o recurso de papelaria fina: são as DUAS linhas
+  com folga entre elas que o olho lê como "detalhe". Uma borda dourada
+  sozinha, no lugar da borda do cartão, seria só uma cor trocada. Desenhada
+  em `::after`, então não gasta elemento nem entra no fluxo.
+- **Filete entre o cumprimento e os campos.** Divide a parte que se LÊ da
+  parte que se PREENCHE — e é o ponto onde o ouro pode aparecer sem disputar
+  com o botão vinho, que continua sendo a única coisa clicável da tela.
 
 O que foi deliberadamente NÃO adicionado, mesmo com a tela pedindo volume:
 vitrine de produto ou foto rotativa (o login precisa abrir instantâneo, e
