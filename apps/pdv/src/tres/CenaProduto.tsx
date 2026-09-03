@@ -17,7 +17,7 @@
  * produto só.
  */
 
-// Import cirurgico — ver nota em CaixaDaMarca.tsx.
+// Import cirurgico — ver nota em CenaLogin.tsx.
 import { ContactShadows } from '@react-three/drei/core/ContactShadows.js';
 import { OrbitControls } from '@react-three/drei/core/OrbitControls.js';
 import { Canvas } from '@react-three/fiber';

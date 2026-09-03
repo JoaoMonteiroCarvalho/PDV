@@ -16,19 +16,12 @@ import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { Botao, Campo, Erro } from '../componentes/base.js';
-import { CORES_PRODUTO } from '../design/coresProduto.js';
 import { useSessao } from '../estado/sessaoStore.js';
-import { PalcoEstatico } from '../tres/PalcoEstatico.js';
+import { PalcoDaMarca } from '../tres/PalcoDaMarca.js';
+import { COR_MARCA } from '../tres/formaDaMarca.js';
 import { podeRenderizar3d } from '../tres/capacidade.js';
 
 const CenaLogin = lazy(() => import('../tres/CenaLogin.js'));
-
-/**
- * Cores da embalagem — da paleta de CATÁLOGO, não da interface. A caixinha
- * continua marfim com fita vinho mesmo se alguém trocar o tema do sistema.
- */
-const COR_EMBALAGEM = CORES_PRODUTO.marfim.hex;
-const COR_FITA = CORES_PRODUTO.vinho.hex;
 
 const esquema = z.object({
   login: z.string().min(1, 'Informe o usuário'),
@@ -77,11 +70,11 @@ export function TelaEntrar() {
     <div className="grid h-screen grid-cols-1 bg-bg lg:grid-cols-[1.45fr_1fr]">
       <section className="relative hidden overflow-hidden bg-sunken lg:block">
         {usar3d ? (
-          <Suspense fallback={<PalcoEstatico cor={COR_EMBALAGEM} corFita={COR_FITA} />}>
-            <CenaLogin cor={COR_EMBALAGEM} corFita={COR_FITA} />
+          <Suspense fallback={<PalcoDaMarca cor={COR_MARCA} />}>
+            <CenaLogin cor={COR_MARCA} />
           </Suspense>
         ) : (
-          <PalcoEstatico cor={COR_EMBALAGEM} corFita={COR_FITA} />
+          <PalcoDaMarca cor={COR_MARCA} />
         )}
 
         {usar3d && (

@@ -1199,10 +1199,113 @@ resulta em login é cadastro que só parece ter funcionado.
 
 ---
 
+## A marca da loja em 3D — o objeto do login
+
+A tela de login abria com uma caixinha de presente genérica, criada quando
+ainda não havia identidade visual. A loja tem símbolo próprio — uma folha
+pontuda desenhada a traço, com uma espiral dentro — e ele passou a ser o
+objeto da cena.
+
+### Traço vira tubo, não sólido extrudado
+
+A marca é desenhada a traço. A tradução respeita isso: cada traço vira um
+**tubo de seção redonda**, como um arame dobrado. Extrudar a área fechada
+engrossaria o desenho e mudaria a marca; de frente, o que se vê é exatamente
+o símbolo, e é só ao girar que ele revela volume.
+
+A forma mora em `tres/formaDaMarca.ts`, sem three.js e sem React, e alimenta
+**os dois** desenhos: as curvas da cena 3D e os caminhos do SVG estático. Se
+cada um tivesse a sua cópia, um dia alguém ajustaria a curva de um e não do
+outro, e a loja passaria a ter dois símbolos ligeiramente diferentes dependendo
+do computador.
+
+### Acertar a silhueta custou cinco tentativas
+
+Quatro desenhos a olho saíram errados, cada um de um jeito, e vale registrar
+o que cada erro ensinou:
+
+| tentativa | o que saiu | por quê |
+|---|---|---|
+| 1 | pião — cúpula em cima, bico embaixo | apoios do topo largos e altos |
+| 2 | losango | braços de controle curtos: laterais retas |
+| 3 | escudo | braços longos demais: laterais verticais |
+| 4 | losango de novo | ponta afiada demais para a proporção |
+| 5 | a marca | perfil medido e ajustado numericamente |
+
+O que resolveu foi **medir** a silhueta em sete alturas e ajustar os pontos de
+controle contra essa tabela, em vez de continuar corrigindo por impressão. A
+tabela e os números finais estão no cabeçalho do arquivo.
+
+Duas coisas que só apareceram medindo:
+
+- **Existe um piso para a ponta.** Numa forma convexa com esta proporção
+  (largura 0,73 da altura), o triângulo que vai da ponta até a cintura já abre
+  34,7°. Nada convexo fecha menos. Pedir 27° obriga as laterais a ficarem
+  retas — daí o losango. A barriga e a ponta afiada disputam a mesma
+  proporção; 48° foi onde as duas couberam.
+- **O comprimento do braço de controle é que dá a barriga**, não a posição da
+  ponta. Braço curto no ponto mais largo concentra a curvatura e aparece um
+  vértice; longo demais deixa a lateral reta e vertical por um trecho grande.
+
+### Iluminação refeita para um objeto de traço fino
+
+Com as luzes da caixinha, o vinho da marca lia quase preto. Um tubo de seção
+redonda mostra à câmera principalmente a lateral do cilindro, que fica de
+esguelha para qualquer luz vinda do alto. Entrou uma quarta luz, vinda de
+perto da câmera, e é ela que devolve a cor; as outras continuam dando volume.
+A câmera também desceu: a caixinha pedia ângulo alto para mostrar a tampa, e
+um objeto chapado visto de cima encurta e deforma.
+
+### Um quarto de volta, não uma volta inteira
+
+A caixinha girava 360° porque uma caixa tem quatro lados para mostrar. O
+símbolo é chapado: a meio caminho de uma volta completa ele ficaria de perfil
+e sumiria — a marca da loja piscaria para fora da tela na primeira coisa que a
+operadora vê no dia. Agora ele apenas se vira para a frente e para.
+
+### Espessura do traço
+
+Na marca impressa o traço tem 3,6% da largura da folha. O tubo começou com
+7,6% e engordava a marca em mais do dobro; ficou em 3,8% — a diferença de
+0,2% é a licença que o volume pede para não sumir quando a peça vira de lado.
+
+### A caixinha saiu
+
+`CaixaDaMarca.tsx` ficou órfã e foi removida. A nota sobre import cirúrgico do
+drei, que morava lá e é referenciada pelas quatro cenas, mudou para
+`CenaLogin.tsx`. A caixa de presente continua na tela de venda concluída, onde
+faz sentido — ali é uma embalagem de verdade, não a identidade da loja.
+
+### O antivírus derrubou a tela, e não era bug
+
+Com os arquivos criados, a tela de login ficou **em branco**, sem erro de
+compilação. O console mostrava só "Failed to load resource".
+
+O Kaspersky Endpoint Security desta máquina bloqueia qualquer requisição cuja
+**URL** contenha `simbol` ou `symbol`, devolvendo HTTP 499 com uma página
+própria no lugar do arquivo. Os três arquivos novos se chamavam
+`formaDoSimbolo.ts`, `SimboloDaMarca.tsx` e `PalcoSimbolo.tsx`.
+
+Isolado por teste: o mesmo conteúdo sob outro nome voltava 200; um arquivo
+trivial chamado `testeSimbolo.ts` voltava 499. Bloqueiam `Simbol`, `imbolo` e
+`Symbol`; passam `Simbo` e `Marca`.
+
+Daí os nomes atuais — `formaDaMarca.ts`, `MarcaDaLoja.tsx`, `PalcoDaMarca.tsx`.
+O texto da interface continua dizendo "Símbolo da loja": o filtro é sobre a
+URL, não sobre o conteúdo. Para diagnosticar de novo:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/src/caminho/Arquivo.tsx
+```
+
+499 é o antivírus; não adianta procurar no código.
+
+---
+
 ## Estado ao final desta sessão
 
-- **828 testes passando**: 508 unitários (105 em `packages/shared`, 7 em
-  `apps/api`, 396 em `apps/pdv`), 181 de integração contra Postgres real, e 139
+- **842 testes passando**: 522 unitários (105 em `packages/shared`, 7 em
+  `apps/api`, 410 em `apps/pdv`), 181 de integração contra Postgres real, e 139
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
 - **As 11 fases da interface estão concluídas**: venda, catálogo visual,
   consulta de produto com prévia 3D, comprovante discreto, fechamento às

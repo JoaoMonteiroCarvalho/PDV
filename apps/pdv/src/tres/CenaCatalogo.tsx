@@ -22,7 +22,7 @@
  *     pequenos, e resolução extra aqui não acrescenta nada.
  */
 
-// Import cirurgico — ver nota em CaixaDaMarca.tsx.
+// Import cirurgico — ver nota em CenaLogin.tsx.
 import { View } from '@react-three/drei/web/View.js';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';

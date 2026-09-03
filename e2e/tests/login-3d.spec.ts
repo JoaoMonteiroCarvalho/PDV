@@ -53,8 +53,8 @@ test.describe('quando não há 3D', () => {
     await page.reload();
 
     await expect(page.locator('canvas')).toHaveCount(0);
-    // Fallback elegante: a mesma embalagem em SVG, sem ícone quebrado.
-    await expect(page.getByRole('img', { name: 'Embalagem da marca' })).toBeVisible();
+    // Fallback elegante: o mesmo símbolo em SVG, sem ícone quebrado.
+    await expect(page.getByRole('img', { name: 'Símbolo da loja' })).toBeVisible();
     await expect(page.getByLabel('Operadora')).toBeVisible();
   });
 
@@ -70,7 +70,7 @@ test.describe('quando não há 3D', () => {
 
     await pagina.goto('/entrar');
 
-    await expect(pagina.getByRole('img', { name: 'Embalagem da marca' })).toBeVisible();
+    await expect(pagina.getByRole('img', { name: 'Símbolo da loja' })).toBeVisible();
     await expect(pagina.locator('canvas')).toHaveCount(0);
 
     // O que importa: dá para trabalhar.

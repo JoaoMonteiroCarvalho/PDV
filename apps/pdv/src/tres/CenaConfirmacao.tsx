@@ -15,7 +15,7 @@
  * sem animação nenhuma.
  */
 
-// Import cirurgico — ver nota em CaixaDaMarca.tsx.
+// Import cirurgico — ver nota em CenaLogin.tsx.
 import { ContactShadows } from '@react-three/drei/core/ContactShadows.js';
 import { RoundedBox } from '@react-three/drei/core/RoundedBox.js';
 import { Canvas, useFrame } from '@react-three/fiber';
