@@ -141,20 +141,62 @@ export function TelaEntrar() {
           vazio com três campos no meio; com ele, o bloco tem peso e a tela
           passa a falar a mesma língua do resto.
         */}
-        <Cartao className="moldura-ouro w-full max-w-[380px] p-9">
-          <form onSubmit={handleSubmit(submeter)}>
-            <h1 className="text-[34px]">{saudacao()}</h1>
-            <p className="mt-1 text-[15px] text-ink-soft">Identifique-se para abrir o caixa</p>
+        <Cartao className="moldura-ouro w-full max-w-[390px] elevado-alto">
+          {/*
+            O cartão tem DUAS ZONAS, e o filete de ouro é a costura entre
+            elas: em cima quem recebe (a marca e o cumprimento), embaixo o
+            trabalho (os campos e o botão).
+
+            Antes era um retângulo branco com três controles empilhados —
+            funcionava, mas não tinha arquitetura nenhuma. A divisão dá ao
+            cartão um alto e um baixo, e é isso que faz ele parecer desenhado
+            em vez de montado.
+
+            O conteúdo fica com margem de 9px para encostar exatamente na
+            moldura de ouro, e não por baixo dela: assim a moldura vira a
+            borda das duas zonas, e não uma linha solta boiando sobre o
+            fundo tingido.
+          */}
+          <form onSubmit={handleSubmit(submeter)} className="m-[9px] overflow-hidden rounded-[7px]">
+            <div className="flex flex-col items-center gap-3 bg-accent-soft px-8 pt-7 pb-6 text-center">
+              {/*
+                O símbolo aqui é pequeno e serve de assinatura do cartão — a
+                peça grande continua sendo a do palco, à esquerda. Em telas
+                estreitas o palco some e este vira o único lugar onde a marca
+                aparece no login.
+              */}
+              <img
+                src="/marca/rm-icone-compacto-cor.svg"
+                alt=""
+                className="marca-clara size-10"
+              />
+              <img
+                src="/marca/rm-icone-compacto-branco.svg"
+                alt=""
+                className="marca-escura size-10"
+              />
+
+              <div>
+                <h1 className="text-[30px] leading-none">{saudacao()}</h1>
+                <p className="mt-2 text-[14px] text-ink-soft">
+                  Identifique-se para abrir o caixa
+                </p>
+              </div>
+            </div>
 
             {/*
-              O filete separa o cumprimento dos campos. Não é só enfeite: ele
-              divide a parte que se LÊ da parte que se PREENCHE, e é aí que o
-              ouro pode aparecer sem disputar com o botão vinho, que continua
-              sendo a única coisa que se clica.
-            */}
-            <div className="filete-ouro my-7 w-full" aria-hidden />
+              A costura entre as duas zonas.
 
-            <div className="flex flex-col gap-4">
+              Aqui o ouro é uma linha CHEIA, de ponta a ponta, e não o filete
+              que desvanece nas bordas como no resto do sistema. A diferença
+              tem motivo: lá fora o filete flutua no espaço e precisa das
+              pontas macias para não virar régua; aqui ele é limitado pela
+              moldura dos dois lados, e encostar nela é o que faz a divisão
+              parecer estrutura do cartão em vez de um traço largado no meio.
+            */}
+            <div className="h-px w-full bg-realce" aria-hidden />
+
+            <div className="flex flex-col gap-4 bg-surface px-8 pt-7 pb-8">
               <Campo
                 rotulo="Operadora"
                 autoFocus

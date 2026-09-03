@@ -1463,6 +1463,23 @@ de fato se vê:
   parte que se PREENCHE — e é o ponto onde o ouro pode aparecer sem disputar
   com o botão vinho, que continua sendo a única coisa clicável da tela.
 
+E o cartão passou a ter **duas zonas**: em cima quem recebe — símbolo,
+cumprimento — sobre blush; embaixo o trabalho, sobre branco. Antes era um
+retângulo branco com três controles empilhados: funcionava, mas não tinha
+arquitetura nenhuma.
+
+Duas decisões de execução que mudam bastante o resultado:
+
+- O conteúdo fica com **margem de 9px**, encostando exatamente na moldura de
+  ouro em vez de passar por baixo dela. Assim a moldura vira a borda das duas
+  zonas, e não uma linha solta boiando sobre o fundo tingido.
+- A costura entre as zonas é uma linha **cheia**, de ponta a ponta, e não o
+  filete que desvanece nas bordas usado no resto do sistema. Lá fora o filete
+  flutua no espaço e precisa das pontas macias para não virar régua; aqui ele
+  é limitado pela moldura dos dois lados, e encostar nela é justamente o que
+  faz a divisão parecer estrutura do cartão em vez de um traço largado no
+  meio. Com o filete desvanecido, a divisão ficava solta — dava para ver.
+
 O que foi deliberadamente NÃO adicionado, mesmo com a tela pedindo volume:
 vitrine de produto ou foto rotativa (o login precisa abrir instantâneo, e
 carrossel em balcão é ruído), frase do dia, e relógio correndo — a data
