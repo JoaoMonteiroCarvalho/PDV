@@ -127,7 +127,7 @@ export const CampoDinheiro = forwardRef<HTMLInputElement, Props>(function CampoD
           de largura enquanto a operadora digita.
         */
         className={cx(
-          'rounded-[12px] border bg-surface text-right text-ink tabular-nums transition-colors duration-200',
+          'rounded-[8px] border bg-surface text-right text-ink tabular-nums transition-colors duration-200',
           destaque ? 'h-16 px-5 text-[30px] font-medium' : 'h-12 px-4 text-[16px]',
           erro ? 'border-perigo' : 'border-line focus:border-accent',
           className,

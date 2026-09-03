@@ -103,7 +103,7 @@ function EntradaPorXml({
         fornecedor que não precisam sair daqui.
       </p>
 
-      <label className="mt-4 inline-flex cursor-pointer items-center gap-3 rounded-[12px] border border-dashed border-line px-4 py-3 transition-colors hover:bg-sunken">
+      <label className="mt-4 inline-flex cursor-pointer items-center gap-3 rounded-[8px] border border-dashed border-line px-4 py-3 transition-colors hover:bg-sunken">
         <input
           type="file"
           accept=".xml,text/xml,application/xml"
@@ -203,7 +203,7 @@ function Conferencia({
         </div>
 
         {resumo.pendentes > 0 && (
-          <div className="mt-4 rounded-[12px] border border-alerta/40 bg-alerta/5 px-4 py-3 text-[14px] leading-relaxed text-ink">
+          <div className="mt-4 rounded-[8px] border border-alerta/40 bg-alerta/5 px-4 py-3 text-[14px] leading-relaxed text-ink">
             <strong className="font-medium">
               {resumo.pendentes} {resumo.pendentes === 1 ? 'item não foi' : 'itens não foram'}{' '}
               reconhecido{resumo.pendentes === 1 ? '' : 's'}.
@@ -319,7 +319,7 @@ function LinhaDaNota({
           aria-label={`Peça do item ${linha.item.numeroItem}`}
           value={linha.varianteId ?? ''}
           onChange={(evento) => aoEscolher(evento.target.value || null)}
-          className="min-w-[16rem] flex-1 rounded-[10px] border border-line bg-surface px-3 py-2 text-[13px] text-ink focus:border-accent"
+          className="min-w-[16rem] flex-1 rounded-[8px] border border-line bg-surface px-3 py-2 text-[13px] text-ink focus:border-accent"
         >
           <option value="">— deixar de fora desta entrada —</option>
           {catalogo.map((variante) => (

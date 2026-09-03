@@ -470,7 +470,7 @@ function ModalRecebimento({
               onClick={() => setForma(opcao)}
               aria-pressed={forma === opcao}
               className={cx(
-                'h-11 rounded-[12px] text-[13px] font-medium transition-colors duration-200',
+                'h-11 rounded-[8px] text-[13px] font-medium transition-colors duration-200',
                 forma === opcao
                   ? 'bg-accent text-accent-ink'
                   : 'bg-sunken text-ink-soft hover:bg-line hover:text-ink',

@@ -154,7 +154,7 @@ function CaixaAberto() {
       descricao="O caixa está operando. As vendas em dinheiro entram na gaveta e são conferidas no fechamento."
     >
       <div className="flex flex-col gap-6">
-        <dl className="grid gap-3 rounded-[12px] bg-sunken px-5 py-4">
+        <dl className="grid gap-3 rounded-[8px] bg-sunken px-5 py-4">
           <Linha
             rotulo="Fundo de troco"
             valor={formatarBRL(centavos(sessao.fundoTrocoCentavos))}

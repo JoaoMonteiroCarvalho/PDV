@@ -35,7 +35,7 @@ export function aplicarTema(tema: Tema): void {
   document.documentElement.dataset.theme = tema;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', tema === 'dark' ? '#000000' : '#FBFBFD');
+    ?.setAttribute('content', tema === 'dark' ? '#2B2326' : '#F6EFE9');
   try {
     localStorage.setItem(CHAVE_TEMA, tema);
   } catch {

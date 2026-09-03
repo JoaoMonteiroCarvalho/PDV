@@ -1325,6 +1325,111 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/src/caminho/Arquivo
 
 ---
 
+## Identidade visual — RM Moda Íntima
+
+A loja passou a ter manual de marca, e o sistema foi vestido com ele. A regra
+do trabalho era: **só a camada visual**. Nenhuma rota, regra de negócio,
+consulta ou schema foi tocado.
+
+### O que já estava pronto, e o que não estava
+
+O briefing pedia para "criar um arquivo de tokens e refatorar os hex soltos".
+Metade disso já existia: `estilo.css` já era fonte única de verdade, com papéis
+semânticos e ponte para o Tailwind. Fora dele havia sete arquivos com hex, e
+**cinco deles estavam certos assim**:
+
+| arquivo | é tema? |
+|---|---|
+| `design/coresProduto.ts` | não — é a cor real da peça, dado de catálogo |
+| `impressao/imprimir.ts` | não — CSS do cupom térmico, papel branco |
+| `TelaVendaConcluida.tsx` | não — cor da embalagem 3D, vinda do catálogo |
+| `tres/geometrias.ts`, `PalcoProduto.tsx` | não — cinza de tampa de frasco |
+| `design/tema.ts` | sim — a cor da aba, atualizada |
+| `tres/formaDaMarca.ts` | sim — a cor da marca, agora exata |
+
+O que **não** existia era tipografia. `estilo.css` declarava `'Sora'` e
+`'Karla'`, mas nenhuma das duas era carregada — não havia `@font-face`, nem
+`@import`, nem link no `<head>`. O sistema rodou esse tempo todo no fallback do
+sistema operacional. Esta foi a primeira vez que uma fonte de verdade entrou.
+
+### Três camadas de cor, não duas
+
+Antes havia paleta de interface e paleta de catálogo. Agora são três, e a
+distinção do meio é a que evita confusão:
+
+1. **`--rm-*`** — a marca literal (vinho, ouro, marfim…). Nada na interface usa
+   direto. Trocar a cor da marca um dia mexe só aqui.
+2. **`--bg`, `--ink`, `--accent`…** — os PAPÉIS. "Vinho" é uma cor; "primary" é
+   uma função. É a separação que permite o tema escuro existir.
+3. **`--produto-*`** — as peças. Não muda com o tema e não deriva da marca.
+
+Um detalhe que só aparece quando os três convivem: existe um `--rm-vinho`
+(#7A2E3A, a loja) e um `--produto-vinho` (#7A3129, o tecido). São pigmentos
+diferentes com nome parecido, e é justamente por isso que ficam em camadas
+separadas.
+
+### O vinho age, o ouro decora
+
+O ouro tem 2,4:1 de contraste sobre branco — reprova para qualquer texto. Ele
+entra em filete, selo e no botão de exceção (desconto), com texto em vinho
+profundo. Quem age é o vinho: botão principal, foco, aba ativa, link.
+
+O tema escuro obrigou uma decisão: **o vinho da marca não sobrevive sobre o
+grafite** (2,3:1). Quem assume o papel de `--accent` no escuro é o rosé, da
+mesma família, que chega a 5,4:1.
+
+Pelo mesmo motivo, `--ink-soft` **não** é o cinza da marca. O #8A7B76 sobre o
+marfim dá 3,6:1, e esse token carrega rótulo de campo e descrição de item, que
+se leem o dia inteiro. Escurecido para #6F615C, dá 5,4:1. O cinza da marca
+continua no `--ink-faint`, onde só há dica e placeholder.
+
+### O símbolo 3D passou a ser o símbolo oficial
+
+A rosa da tela de login tinha sido ajustada à mão contra uma imagem da marca.
+Com o arquivo da identidade em mãos, `formaDaMarca.ts` passou a **copiar
+literalmente o `d`** de `rm-icone-cor.svg`, e um leitor mínimo de caminho
+converte aquilo para a forma normalizada. Os testes deixaram de medir estética
+e passaram a medir FIDELIDADE: comparam a contagem de curvas com o arquivo real
+em disco e travam a proporção. Se alguém "melhorar" a curva à mão, fica
+vermelho.
+
+O leitor de caminho aceita só `M`, `C` e `Z` de propósito. Aceitar arcos e
+comandos relativos exigiria um interpretador de SVG de verdade para ler duas
+linhas que nunca mudam — e se a marca um dia trouxer um comando novo, é melhor
+quebrar alto do que desenhar errado calado.
+
+### Duas coisas que só a tela mostrou
+
+**O logo horizontal não cabe na barra.** O manual manda o lockup horizontal no
+cabeçalho, mas a barra do PDV tem 40px de altura. Reduzido a isso, o símbolo
+vira um ponto de 9px e "MODA ÍNTIMA" fica ilegível — foi testado, está no
+antes/depois. A barra é o caso de "espaço pequeno" do próprio manual: entrou o
+símbolo mais o nome em Cormorant, como texto vivo.
+
+**O símbolo oficial reserva dois terços do quadro para margem.** Dentro do
+viewBox de 200×200, o desenho ocupa x 67–133 e y 62–139. Ótimo quando ele
+aparece sozinho e grande; num ícone de 28px sobra quase nada. Foi gerada uma
+versão "compacta" com o viewBox recortado — mesma geometria, mesmo traço,
+conferido por diff. Recortar margem não é distorcer.
+
+### O antivírus, de novo
+
+Os arquivos da marca foram gravados como `rm-simbolo-*.svg`, os nomes do
+pacote de identidade. O cabeçalho apareceu com ícone quebrado: o Kaspersky
+desta máquina bloqueia qualquer URL contendo `simbol`/`symbol` com HTTP 499.
+Já estava documentado neste arquivo e mordeu assim mesmo. Os arquivos servidos
+chamam-se `rm-icone-*.svg`; o conteúdo é idêntico ao oficial.
+
+### Um teste pegou um problema de acessibilidade real
+
+O link do logo nasceu com `aria-label="RM Moda Íntima — ir para a venda"`, e o
+E2E quebrou: `getByRole('link', { name: 'Venda' })` passou a casar com dois
+elementos. Não era o teste sendo chato — dois links com nomes acessíveis que se
+sobrepõem deixam quem usa leitor de tela sem saber qual é qual. O rótulo virou
+"— início".
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em

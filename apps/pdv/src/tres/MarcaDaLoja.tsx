@@ -27,7 +27,6 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import {
-  CatmullRomCurve3,
   CubicBezierCurve3,
   CurvePath,
   SphereGeometry,
@@ -35,20 +34,23 @@ import {
   Vector3,
   type Group,
 } from 'three';
-import { CONTORNO, pontoDaEspiral, pontosDaEspiral } from './formaDaMarca.js';
+import {
+  CONTORNO,
+  ESPIRAL,
+  PONTA_DE_DENTRO,
+  PONTA_DE_FORA,
+  type SegmentoCubico,
+} from './formaDaMarca.js';
 
 /**
  * Espessura do traço, em raio.
  *
- * Na marca impressa o traço tem ~4% da largura do botão, e o tubo respeita
- * isso: 0,026 de raio dá 4,3%. A diferença é a licença que o volume pede para
- * o traço não sumir quando a peça vira de lado. Um tubo mais gordo (0,055,
- * como começou) engorda a marca em mais do dobro e a descaracteriza.
- *
- * O valor acompanha a LARGURA do botão: ao estreitá-lo, o mesmo raio pesa
- * mais e precisa encolher junto.
+ * No arquivo oficial o traço tem 3,2 unidades para um símbolo de 51 de
+ * altura — ou seja, 6,3% da meia-altura. Aqui o raio é 0,03, o que dá 6,0%
+ * de diâmetro: praticamente o mesmo peso, com a folga que o volume pede para
+ * o traço não sumir quando a peça vira de lado.
  */
-const RAIO_DO_TRACO = 0.026;
+const RAIO_DO_TRACO = 0.03;
 
 /**
  * A espiral fica um passo à frente do contorno.
@@ -58,9 +60,22 @@ const RAIO_DO_TRACO = 0.026;
  */
 const AVANCO_DA_ESPIRAL = 0.045;
 
-function contornoEmTubo(): TubeGeometry {
+/**
+ * Monta as cúbicas oficiais como um caminho contínuo do three.js.
+ *
+ * As curvas entram exatamente como estão no arquivo da marca — sem
+ * reamostrar e sem suavizar. Uma versão anterior reconstruía a espiral por
+ * Catmull-Rom sobre pontos amostrados, o que só fazia sentido quando ela era
+ * gerada por fórmula; com o desenho oficial em mãos, aproximar seria trocar
+ * o original por uma cópia pior.
+ */
+function emTubo(
+  segmentos: readonly SegmentoCubico[],
+  divisoes: number,
+  fechado: boolean,
+): TubeGeometry {
   const caminho = new CurvePath<Vector3>();
-  for (const s of CONTORNO) {
+  for (const s of segmentos) {
     caminho.add(
       new CubicBezierCurve3(
         new Vector3(s.de.x, s.de.y, 0),
@@ -70,25 +85,14 @@ function contornoEmTubo(): TubeGeometry {
       ),
     );
   }
-  // `closed` faz o tubo emendar no início sem costura visível nas pontas.
-  return new TubeGeometry(caminho, 140, RAIO_DO_TRACO, 10, true);
+  return new TubeGeometry(caminho, divisoes, RAIO_DO_TRACO, 10, fechado);
 }
 
-function espiralEmTubo(): TubeGeometry {
-  const pontos = pontosDaEspiral(90).map((p) => new Vector3(p.x, p.y, 0));
-  // Catmull-Rom passa por todos os pontos amostrados; com 90 deles a curva
-  // reconstruída é indistinguível da espiral original.
-  const curva = new CatmullRomCurve3(pontos, false, 'catmullrom', 0.5);
-  return new TubeGeometry(curva, 170, RAIO_DO_TRACO, 10, false);
-}
-
-const GEOMETRIA_CONTORNO = contornoEmTubo();
-const GEOMETRIA_ESPIRAL = espiralEmTubo();
+// `closed` no contorno faz o tubo emendar no início sem costura nas pontas.
+const GEOMETRIA_CONTORNO = emTubo(CONTORNO, 140, true);
+const GEOMETRIA_ESPIRAL = emTubo(ESPIRAL, 170, false);
 /** Ponta arredondada: sem ela, a espiral termina num corte reto e seco. */
 const GEOMETRIA_PONTA = new SphereGeometry(RAIO_DO_TRACO, 10, 8);
-
-const PONTA_DE_DENTRO = pontoDaEspiral(0);
-const PONTA_DE_FORA = pontoDaEspiral(1);
 
 /** Segundos de apresentação antes de a peça parar sozinha. */
 const DURACAO_APRESENTACAO = 4.5;
@@ -140,7 +144,13 @@ export function MarcaDaLoja({ cor, aoRepousar, interagindo }: Props) {
   });
 
   return (
-    <group ref={grupo} scale={1.25}>
+    /*
+     * A peça sobe e encolhe para dar lugar ao wordmark no rodapé do palco.
+     * O símbolo oficial é mais largo que a versão anterior, e na escala antiga
+     * a base dele encostava em "RM MODA ÍNTIMA" — o manual pede respiro em
+     * volta da marca, e texto colado é o oposto disso.
+     */
+    <group ref={grupo} scale={0.92} position={[0, 0.28, 0]}>
       <mesh geometry={GEOMETRIA_CONTORNO}>
         <meshStandardMaterial color={cor} roughness={0.45} metalness={0} />
       </mesh>

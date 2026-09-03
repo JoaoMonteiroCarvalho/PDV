@@ -13,8 +13,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#FBFBFD" />
-    <title>PDV — Caixa</title>
+    <meta name="theme-color" content="#F6EFE9" />
+    <title>RM Moda Íntima — Caixa</title>
+
+    <!--
+      Ícone da aba. O `.svg` é o que os navegadores atuais usam e o único que
+      fica nítido em tela de alta densidade; o `.ico` existe para Windows
+      antigo e para o atalho fixado na barra de tarefas.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+    <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
+
+    <!--
+      Fontes da marca.
+
+      `preconnect` abre a conexão com o Google Fonts antes de o CSS ser
+      pedido; sem ele o navegador só descobre o segundo domínio depois de
+      baixar a folha de estilo, e a fonte chega tarde.
+
+      `display=swap` é o que garante que o caixa NUNCA fica com texto
+      invisível esperando a fonte: o sistema desenha na fonte de fallback e
+      troca quando a da marca chega. Numa loja com internet ruim isso é a
+      diferença entre trabalhar e olhar para uma tela em branco.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap"
+    />
   </head>
   <body>
     <div id="raiz"></div>

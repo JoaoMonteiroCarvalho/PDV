@@ -282,7 +282,7 @@ function BotaoCor({
       // nenhuma, dependendo de como o navegador computa o nome.
       aria-label={`Cor ${cor}`}
       className={cx(
-        'flex items-center gap-2 rounded-[12px] border px-3 py-2 text-[14px] transition-colors duration-200',
+        'flex items-center gap-2 rounded-[8px] border px-3 py-2 text-[14px] transition-colors duration-200',
         escolhida ? 'border-accent bg-accent-soft text-accent' : 'border-line hover:bg-sunken',
       )}
     >
@@ -318,7 +318,7 @@ function BotaoTamanho({
       aria-pressed={escolhido}
       aria-label={`Tamanho ${tamanho}${rotuloEstado}`}
       className={cx(
-        'num min-w-[3rem] rounded-[12px] border px-3 py-2 text-[14px] transition-colors duration-200',
+        'num min-w-[3rem] rounded-[8px] border px-3 py-2 text-[14px] transition-colors duration-200',
         escolhido && 'border-accent bg-accent-soft text-accent',
         !escolhido && situacao === 'disponivel' && 'border-line hover:bg-sunken',
         !escolhido && situacao === 'esgotado' && 'border-line text-ink-faint hover:bg-sunken',
@@ -340,14 +340,14 @@ function FichaDaVariante({
 }) {
   if (!variante) {
     return (
-      <div className="mt-6 rounded-[12px] border border-dashed border-line px-4 py-3 text-[14px] text-ink-soft">
+      <div className="mt-6 rounded-[8px] border border-dashed border-line px-4 py-3 text-[14px] text-ink-soft">
         A loja não vende esta combinação. Escolha outra cor ou outro tamanho.
       </div>
     );
   }
 
   return (
-    <dl className="mt-6 grid gap-x-6 gap-y-2 rounded-[12px] bg-sunken px-4 py-3 text-[14px] sm:grid-cols-2">
+    <dl className="mt-6 grid gap-x-6 gap-y-2 rounded-[8px] bg-sunken px-4 py-3 text-[14px] sm:grid-cols-2">
       <Linha rotulo="Preço">{formatarBRL(centavos(variante.precoCentavos))}</Linha>
       <Linha rotulo="Estoque">
         {situacao === 'disponivel' ? (

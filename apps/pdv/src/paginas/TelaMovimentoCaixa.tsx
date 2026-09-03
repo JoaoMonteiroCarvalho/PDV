@@ -147,7 +147,7 @@ export function TelaMovimentoCaixa() {
             value={observacao}
             onChange={(evento) => setObservacao(evento.target.value)}
             placeholder={tipo === 'SANGRIA' ? 'cofre, depósito, pagamento de entrega…' : 'reforço de troco…'}
-            className="h-12 rounded-[12px] border border-line bg-surface px-4 text-[15px] text-ink placeholder:text-ink-faint focus:border-accent"
+            className="h-12 rounded-[8px] border border-line bg-surface px-4 text-[15px] text-ink placeholder:text-ink-faint focus:border-accent"
           />
         </label>
       </Cartao>
@@ -217,7 +217,7 @@ function BotaoTipo({
       onClick={onClick}
       aria-pressed={ativo}
       className={cx(
-        'rounded-[12px] border px-4 py-3 text-left text-[15px] font-medium transition-colors duration-200',
+        'rounded-[8px] border px-4 py-3 text-left text-[15px] font-medium transition-colors duration-200',
         ativo ? 'border-accent bg-accent-soft text-accent' : 'border-line hover:bg-sunken',
       )}
     >
@@ -270,7 +270,7 @@ function AutorizacaoGerente({
 
   if (gerente) {
     return (
-      <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[12px] border border-ok/30 bg-ok/5 px-4 py-3">
+      <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[8px] border border-ok/30 bg-ok/5 px-4 py-3">
         <Selo tom="ok">Autorizado</Selo>
         <span className="flex-1 text-[14px] text-ink">{gerente.nome}</span>
         <Botao variante="discreto" onClick={aoSair} className="h-8 px-3 text-[13px]">
@@ -346,7 +346,7 @@ function ResumoDoEfeito({
   return (
     <dl
       data-testid="efeito-no-caixa"
-      className="mt-5 divide-y divide-line rounded-[12px] border border-line"
+      className="mt-5 divide-y divide-line rounded-[8px] border border-line"
     >
       <Linha rotulo="Na gaveta agora" valor={saldoAtualCentavos} />
       <Linha

@@ -193,7 +193,7 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
           {/* O saldo é o número mais importante da tela e é dimensionado assim. */}
           <div
             className={cx(
-              'mb-5 flex items-baseline justify-between rounded-[14px] px-4 py-3',
+              'mb-5 flex items-baseline justify-between rounded-[16px] px-4 py-3',
               saldo === 0 ? 'bg-ok/10' : 'bg-sunken',
             )}
           >
@@ -211,7 +211,7 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
           </div>
 
           {pagamentos.length > 0 && (
-            <ul className="mb-5 divide-y divide-line rounded-[12px] border border-line">
+            <ul className="mb-5 divide-y divide-line rounded-[8px] border border-line">
               {pagamentos.map((pagamento, indice) => (
                 <li key={indice} className="flex items-center gap-3 px-4 py-2.5">
                   <span className="flex-1 text-[14px]">
@@ -246,7 +246,7 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
                     onClick={() => setForma(opcao.valor)}
                     aria-pressed={forma === opcao.valor}
                     className={cx(
-                      'h-11 rounded-[12px] text-[14px] font-medium transition-colors duration-200',
+                      'h-11 rounded-[8px] text-[14px] font-medium transition-colors duration-200',
                       forma === opcao.valor
                         ? 'bg-accent text-accent-ink'
                         : 'bg-sunken text-ink-soft hover:bg-line hover:text-ink',
@@ -273,7 +273,7 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
                             aria-pressed={parcelas === quantidade}
                             aria-label={`${quantidade}x`}
                             className={cx(
-                              'num h-10 w-12 rounded-[10px] text-[14px] font-medium transition-colors duration-200',
+                              'num h-10 w-12 rounded-[8px] text-[14px] font-medium transition-colors duration-200',
                               parcelas === quantidade
                                 ? 'bg-accent text-accent-ink'
                                 : 'bg-sunken text-ink-soft hover:bg-line hover:text-ink',
@@ -305,7 +305,7 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
               />
 
               {troco > 0 && (
-                <div className="flex items-baseline justify-between rounded-[12px] bg-alerta/10 px-4 py-3">
+                <div className="flex items-baseline justify-between rounded-[8px] bg-alerta/10 px-4 py-3">
                   <span className="text-[14px] text-ink-soft">Troco a devolver</span>
                   {/*
                     O mesmo valor pode coincidir com o total ou com o saldo —
@@ -329,7 +329,7 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
           {exigeAviso && (
             <label
               className={cx(
-                'mt-5 flex cursor-pointer items-start gap-3 rounded-[12px] border px-4 py-3',
+                'mt-5 flex cursor-pointer items-start gap-3 rounded-[8px] border px-4 py-3',
                 avisouTroca ? 'border-line bg-sunken' : 'border-alerta/40 bg-alerta/5',
               )}
             >

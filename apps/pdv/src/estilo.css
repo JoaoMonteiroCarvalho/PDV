@@ -1,38 +1,90 @@
 @import 'tailwindcss';
 
 /* ===========================================================================
- * DESIGN SYSTEM — PDV moda íntima
+ * DESIGN SYSTEM — RM Moda Íntima
  *
  * DOIS SISTEMAS DE COR PARALELOS, e eles nunca se cruzam:
  *
- *   1. PALETA DE INTERFACE (`--bg`, `--ink`, `--accent`...)
- *      Neutra + um único azul de destaque. Muda com o tema.
+ *   1. PALETA DA MARCA (`--rm-*`) e os PAPÉIS que ela cumpre na interface
+ *      (`--bg`, `--ink`, `--accent`...). Muda com o tema.
  *
  *   2. PALETA DE CATÁLOGO (`--produto-*`)
- *      As cores reais das peças. NÃO muda com o tema, nunca deriva de
- *      `--accent`. Um sutiã vinho é vinho no tema claro e no escuro.
+ *      As cores reais das peças. NÃO muda com o tema, nunca deriva da marca.
+ *      Um sutiã vinho é vinho no tema claro e no escuro — e o vinho DELE não
+ *      é o vinho da marca, são dois pigmentos diferentes que por acaso têm
+ *      nome parecido.
  *
  * Misturar os dois é o erro que faz um produto "mudar de cor" quando alguém
- * troca o tema da interface. Ficam separados até no nome do token.
+ * troca o tema. Ficam separados até no nome do token.
  * =========================================================================== */
 
-/* --- 1. Paleta de interface — tema claro (padrão e único ativo) ----------- */
+/* --- 0. Paleta da marca, literal ------------------------------------------
+ *
+ * Os valores exatos do manual da RM. Nada na interface usa estes tokens
+ * diretamente: eles alimentam os PAPÉIS logo abaixo. A distinção importa —
+ * "vinho" é uma cor, "primary" é uma função. Trocar a cor da marca um dia
+ * mexe aqui e em nenhum outro lugar.
+ * ------------------------------------------------------------------------- */
 
 :root {
-  --bg: #fbfbfd;
-  --surface: #ffffff;
-  --surface-sunken: #f5f5f7;
-  --line: #e3e3e7;
-  --ink: #1d1d1f;
-  --ink-soft: #6e6e73;
-  --ink-faint: #a1a1a6;
-  --accent: #0071e3;
-  --accent-ink: #ffffff;
-  --accent-soft: #e8f1fd;
-  --ok: #1e8e5a;
-  --alerta: #b25000;
-  --perigo: #c4341f;
-  --raio: 18px;
+  --rm-vinho: #7a2e3a;
+  --rm-vinho-profundo: #5a1f2a;
+  --rm-ouro: #be9e5d;
+  --rm-ouro-claro: #d8be86;
+  --rm-rose: #c98b94;
+  --rm-blush: #e9d2ca;
+  --rm-marfim: #f6efe9;
+  --rm-grafite: #2b2326;
+  --rm-cinza: #8a7b76;
+  --rm-branco: #ffffff;
+  --rm-borda: #eadfd5;
+
+  --rm-sucesso: #4e7a5a;
+  --rm-atencao: #c08a2e;
+  --rm-erro: #b23a48;
+  --rm-info: #6e5a7a;
+}
+
+/* --- 1. Papéis na interface — tema claro (padrão) -------------------------- */
+
+:root {
+  --bg: var(--rm-marfim);
+  --surface: var(--rm-branco);
+  --surface-sunken: #f0e7df;
+  --line: var(--rm-borda);
+  --ink: var(--rm-grafite);
+
+  /*
+   * `--ink-soft` NÃO é o cinza da marca, e isso é deliberado.
+   *
+   * O #8A7B76 sobre o marfim dá 3,6:1 de contraste — reprova no mínimo de
+   * 4,5:1 para texto corrido, e este token carrega rótulo de campo, nome de
+   * cliente e descrição de item, que se leem o dia inteiro. Escurecido, dá
+   * 5,4:1. O cinza da marca continua abaixo, no papel onde ele é honesto.
+   */
+  --ink-soft: #6f615c;
+  /* Dica, placeholder, texto que não se lê — aqui o cinza da marca cabe. */
+  --ink-faint: var(--rm-cinza);
+
+  /* O vinho é quem AGE: botão principal, link, foco, aba ativa. */
+  --accent: var(--rm-vinho);
+  --accent-forte: var(--rm-vinho-profundo);
+  --accent-ink: var(--rm-branco);
+  --accent-soft: var(--rm-blush);
+
+  /*
+   * O ouro DECORA: filete, selo de destaque, botão de desconto. Nunca área
+   * grande e nunca texto pequeno — ouro sobre branco dá 2,4:1.
+   */
+  --realce: var(--rm-ouro);
+  --realce-ink: var(--rm-vinho-profundo);
+
+  --ok: var(--rm-sucesso);
+  --alerta: var(--rm-atencao);
+  --perigo: var(--rm-erro);
+  --info: var(--rm-info);
+
+  --raio: 16px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -43,21 +95,32 @@
  * Herdar o tema do sistema operacional já causou confusão real: a tela abria
  * escura sem ninguém ter pedido. O app força claro na raiz e só muda se a
  * operadora pedir.
+ *
+ * O vinho da marca NÃO sobrevive aqui: sobre o grafite ele dá 2,3:1 e some.
+ * Quem assume o papel de `--accent` é o rosé, que é da mesma família e chega
+ * a 5,4:1. Igualmente, o ouro escurecido some — entra o ouro claro.
  */
 [data-theme='dark'] {
-  --bg: #000000;
-  --surface: #1d1d1f;
-  --surface-sunken: #161617;
-  --line: #38383a;
-  --ink: #f5f5f7;
-  --ink-soft: #a1a1a6;
-  --ink-faint: #6e6e73;
-  --accent: #2997ff;
-  --accent-ink: #ffffff;
-  --accent-soft: #12233a;
-  --ok: #30d158;
-  --alerta: #ff9f0a;
-  --perigo: #ff453a;
+  --bg: var(--rm-grafite);
+  --surface: #372e31;
+  --surface-sunken: #221c1e;
+  --line: #4a3e42;
+  --ink: var(--rm-marfim);
+  --ink-soft: #c4b3ad;
+  --ink-faint: var(--rm-cinza);
+
+  --accent: var(--rm-rose);
+  --accent-forte: #dda6ad;
+  --accent-ink: var(--rm-grafite);
+  --accent-soft: #3e2a2f;
+
+  --realce: var(--rm-ouro-claro);
+  --realce-ink: var(--rm-grafite);
+
+  --ok: #7fae8b;
+  --alerta: #e0ab54;
+  --perigo: #e07a86;
+  --info: #a894b4;
 }
 
 /* --- 2. Paleta de catálogo — cores reais das peças ------------------------
@@ -92,17 +155,30 @@
   --color-ink-soft: var(--ink-soft);
   --color-ink-faint: var(--ink-faint);
   --color-accent: var(--accent);
+  --color-accent-forte: var(--accent-forte);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-realce: var(--realce);
+  --color-realce-ink: var(--realce-ink);
   --color-ok: var(--ok);
   --color-alerta: var(--alerta);
   --color-perigo: var(--perigo);
+  --color-info: var(--info);
 
   --radius-card: var(--raio);
 
-  --font-titulo: 'Sora', -apple-system, system-ui, sans-serif;
-  --font-corpo: 'Karla', -apple-system, system-ui, sans-serif;
-  --font-numero: 'IBM Plex Mono', ui-monospace, monospace;
+  /*
+   * Display nos títulos, Sans em todo o resto, Script SÓ na assinatura.
+   *
+   * Antes daqui as fontes declaradas ('Sora', 'Karla') nunca chegaram a ser
+   * carregadas — não havia `@font-face` nem link no `<head>`, então o sistema
+   * inteiro rodava no fallback do sistema operacional. Esta é a primeira vez
+   * que uma fonte de verdade entra.
+   */
+  --font-titulo: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-corpo: 'Jost', -apple-system, system-ui, sans-serif;
+  --font-numero: 'Jost', -apple-system, system-ui, sans-serif;
+  --font-assinatura: 'Pinyon Script', 'Apple Chancery', cursive;
 
   --ease-suave: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -121,13 +197,19 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /*
+   * A Cormorant é uma serifada de display: nasceu para tamanho grande e peso
+   * leve. Em 15px com peso 600 ela fecha os contraformas e vira um borrão —
+   * por isso os títulos vêm com peso 500 e um pouco de folga entre letras, o
+   * contrário do que a sans anterior pedia.
+   */
   h1,
   h2,
   h3,
   h4 {
     font-family: var(--font-titulo);
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 500;
+    letter-spacing: 0;
   }
 
   /*
@@ -137,7 +219,7 @@
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 4px;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -154,23 +236,71 @@
   /*
    * Todo número que entra em coluna (preço, código, quantidade) usa largura
    * tabular — sem isso os totais "dançam" ao atualizar e a conferência de
-   * caixa fica desconfortável de ler.
+   * caixa fica desconfortável de ler. A Jost traz o recurso `tnum`, então dá
+   * para manter a sans da marca nos preços sem perder o alinhamento.
    */
   .num {
     font-family: var(--font-numero);
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
-  /* Elevação: sombra difusa e quase imperceptível, só para separar planos. */
+  /* A assinatura da marca, e SÓ ela. Nunca texto corrido. */
+  .assinatura {
+    font-family: var(--font-assinatura);
+    font-weight: 400;
+  }
+
+  /*
+   * Elevação: sombra difusa e quase imperceptível, só para separar planos.
+   * Tingida de grafite em vez de preto puro — sombra neutra sobre fundo
+   * marfim acinzenta o papel e suja a paleta.
+   */
   .elevado {
     box-shadow:
-      0 1px 2px rgb(0 0 0 / 4%),
-      0 8px 24px rgb(0 0 0 / 6%);
+      0 1px 3px rgb(43 35 38 / 8%),
+      0 6px 20px rgb(43 35 38 / 6%);
   }
 
   .elevado-alto {
     box-shadow:
-      0 2px 8px rgb(0 0 0 / 6%),
-      0 24px 48px rgb(0 0 0 / 12%);
+      0 2px 8px rgb(43 35 38 / 10%),
+      0 24px 48px rgb(43 35 38 / 14%);
+  }
+
+  /*
+   * Troca do logo por tema.
+   *
+   * Feita em CSS, não em JavaScript, porque o tema é um atributo no <html> e
+   * pode mudar a qualquer momento: um componente que escolhesse o `src` no
+   * render precisaria assinar essa mudança, e ficaria com o logo errado até
+   * o próximo render. Aqui os dois arquivos ficam no HTML e o CSS mostra um.
+   */
+  .marca-clara {
+    display: block;
+  }
+
+  .marca-escura {
+    display: none;
+  }
+
+  [data-theme='dark'] .marca-clara {
+    display: none;
+  }
+
+  [data-theme='dark'] .marca-escura {
+    display: block;
+  }
+
+  /* Filete de ouro: o acento decorativo da marca, com 1px de espessura. */
+  .filete-ouro {
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--realce) 20%,
+      var(--realce) 80%,
+      transparent
+    );
+    height: 1px;
   }
 }

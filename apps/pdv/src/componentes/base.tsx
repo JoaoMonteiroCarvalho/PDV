@@ -13,13 +13,28 @@ export function cx(...partes: Array<string | false | null | undefined>): string 
   return partes.filter(Boolean).join(' ');
 }
 
-type VarianteBotao = 'primario' | 'neutro' | 'discreto' | 'perigo';
+type VarianteBotao = 'primario' | 'neutro' | 'discreto' | 'destaque' | 'perigo';
 type TamanhoBotao = 'medio' | 'grande';
 
+/*
+ * Três níveis de peso, e a distância entre eles é o que orienta a mão:
+ * o vinho CHEIO é a ação da tela, o vinho de CONTORNO é a alternativa, e o
+ * fantasma é o que quase não se usa. Dois botões cheios lado a lado
+ * anulariam essa hierarquia.
+ *
+ * `hover:brightness` não serve mais: sobre o vinho ele lavava a cor. Agora o
+ * hover troca para o vinho profundo, que é um valor da marca.
+ */
 const VARIANTES: Record<VarianteBotao, string> = {
-  primario: 'bg-accent text-accent-ink hover:brightness-110 active:brightness-95',
-  neutro: 'bg-sunken text-ink hover:bg-line active:brightness-95',
+  primario: 'bg-accent text-accent-ink hover:bg-accent-forte active:bg-accent-forte',
+  neutro: 'border border-accent/45 bg-transparent text-accent hover:bg-accent hover:text-accent-ink',
   discreto: 'bg-transparent text-ink-soft hover:text-ink hover:bg-sunken',
+  /*
+   * Ouro. É o único lugar da interface onde ele preenche área, e serve para
+   * a exceção que precisa ser vista de longe — desconto, cortesia. Texto em
+   * vinho profundo porque branco sobre ouro dá 2,1:1 e some.
+   */
+  destaque: 'bg-realce text-realce-ink hover:brightness-95 active:brightness-90',
   // Destrutivo não é vermelho-cheio: é discreto até o hover, para não convidar
   // ao clique acidental num botão que cancela venda.
   perigo: 'bg-transparent text-perigo hover:bg-perigo hover:text-white',
@@ -44,7 +59,7 @@ export const Botao = forwardRef<HTMLButtonElement, PropsBotao>(function Botao(
     <button
       ref={ref}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-[12px] font-medium',
+        'inline-flex items-center justify-center gap-2 rounded-[8px] font-medium',
         'transition-[filter,background-color,color] duration-200 ease-[var(--ease-suave)]',
         'disabled:opacity-40 disabled:pointer-events-none',
         VARIANTES[variante],
@@ -77,10 +92,18 @@ export const Campo = forwardRef<HTMLInputElement, PropsCampo>(function Campo(
         id={idCampo}
         aria-invalid={erro ? true : undefined}
         className={cx(
-          'h-12 rounded-[12px] border bg-surface px-4 text-[16px] text-ink',
+          'h-12 rounded-[8px] border bg-surface px-4 text-[16px] text-ink',
           'placeholder:text-ink-faint transition-colors duration-200',
           numerico && 'num',
-          erro ? 'border-perigo' : 'border-line focus:border-accent',
+          /*
+           * Foco com anel, não só troca de borda: sobre o marfim uma borda de
+           * 1px mudando de cor é sutil demais para quem opera de pé e com
+           * pressa. O anel usa a mesma cor da borda, então não pisca.
+           */
+          erro
+            ? 'border-perigo focus:ring-2 focus:ring-perigo/30'
+            : 'border-line focus:border-accent focus:ring-2 focus:ring-accent/25',
+          'focus:outline-none',
           className,
         )}
         {...resto}
@@ -120,11 +143,16 @@ export function Selo({
   children: ReactNode;
   tom?: 'neutro' | 'ok' | 'alerta' | 'perigo' | 'accent';
 }) {
+  /*
+   * Pílulas de status do PDV. O fundo é a própria cor a 12% e o texto é ela
+   * cheia — legível sobre marfim e sobre branco, sem precisar de uma variante
+   * por superfície. `accent` (blush com texto vinho) é o tom do fiado.
+   */
   const tons = {
     neutro: 'bg-sunken text-ink-soft',
-    ok: 'bg-ok/10 text-ok',
-    alerta: 'bg-alerta/10 text-alerta',
-    perigo: 'bg-perigo/10 text-perigo',
+    ok: 'bg-ok/12 text-ok',
+    alerta: 'bg-alerta/12 text-alerta',
+    perigo: 'bg-perigo/12 text-perigo',
     accent: 'bg-accent-soft text-accent',
   } as const;
 
@@ -148,7 +176,7 @@ export function Erro({ children, aoTentarNovamente }: { children: ReactNode; aoT
   return (
     <div
       role="alert"
-      className="flex items-start gap-3 rounded-[12px] border border-perigo/25 bg-perigo/5 px-4 py-3"
+      className="flex items-start gap-3 rounded-[8px] border border-perigo/25 bg-perigo/8 px-4 py-3"
     >
       <span className="mt-0.5 text-perigo" aria-hidden>
         !

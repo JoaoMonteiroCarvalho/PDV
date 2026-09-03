@@ -122,7 +122,7 @@ export function TelaFecharCaixa() {
       <Cartao className="mt-6 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-titulo text-[16px] font-medium">O que você contou</h2>
-          <div className="flex gap-1 rounded-[10px] bg-sunken p-1">
+          <div className="flex gap-1 rounded-[8px] bg-sunken p-1">
             <Alternativa ativa={usarDetalhe} onClick={() => setUsarDetalhe(true)}>
               Por cédula
             </Alternativa>
@@ -241,7 +241,7 @@ function GradeDeCedulas({
         return (
           <label
             key={denominacao.valorCentavos}
-            className="flex items-center gap-3 rounded-[12px] border border-line px-3 py-2"
+            className="flex items-center gap-3 rounded-[8px] border border-line px-3 py-2"
           >
             <span className="w-[92px] shrink-0 text-[13px] text-ink-soft">
               {denominacao.rotulo}
@@ -290,7 +290,7 @@ function FilaPendente({
   aoEnviarAgora: () => void;
 }) {
   return (
-    <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[12px] border border-alerta/40 bg-alerta/5 px-4 py-3">
+    <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[8px] border border-alerta/40 bg-alerta/5 px-4 py-3">
       <div className="min-w-[16rem] flex-1 text-[14px] leading-relaxed text-ink">
         <strong className="font-medium">
           {pendentes} {pendentes === 1 ? 'venda ainda não subiu' : 'vendas ainda não subiram'} ao
@@ -314,7 +314,7 @@ function FilaPendente({
  */
 function FilaBloqueada({ bloqueadas }: { bloqueadas: number }) {
   return (
-    <div className="mt-3 rounded-[12px] border border-perigo/30 bg-perigo/5 px-4 py-3 text-[14px] leading-relaxed text-ink">
+    <div className="mt-3 rounded-[8px] border border-perigo/30 bg-perigo/5 px-4 py-3 text-[14px] leading-relaxed text-ink">
       <strong className="font-medium">
         {bloqueadas} {bloqueadas === 1 ? 'venda foi recusada' : 'vendas foram recusadas'} pelo
         servidor.
@@ -352,7 +352,7 @@ function ConfirmacaoFinal({
           Fechar o caixa?
         </h2>
 
-        <dl className="mt-4 space-y-2 rounded-[12px] bg-sunken px-4 py-3 text-[14px]">
+        <dl className="mt-4 space-y-2 rounded-[8px] bg-sunken px-4 py-3 text-[14px]">
           <div className="flex justify-between">
             <dt className="text-ink-soft">Você contou</dt>
             <dd className="num font-medium">{formatarBRL(centavos(valorContado))}</dd>

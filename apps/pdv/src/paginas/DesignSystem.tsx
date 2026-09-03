@@ -14,22 +14,34 @@ export function DesignSystem() {
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
       <header className="mb-12">
-        <p className="text-[13px] font-medium tracking-widest text-ink-faint uppercase">Fase 0</p>
-        <h1 className="mt-2 text-[32px]">Design system</h1>
+        <p className="text-[13px] font-medium tracking-widest text-ink-faint uppercase">
+          RM Moda Íntima
+        </p>
+        <h1 className="mt-2 text-[36px]">Design system</h1>
         <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-soft">
-          Paleta neutra com um único destaque, tipografia com personalidade e a
-          separação entre cor de interface e cor de produto.
+          A identidade da marca aplicada à interface: o vinho age, o ouro
+          decora, e a cor de produto continua sendo cor de produto.
         </p>
       </header>
 
-      <Secao titulo="Tipografia" nota="Sora nos títulos, Karla no corpo, IBM Plex Mono em todo número que alinha em coluna.">
+      <Secao
+        titulo="Tipografia"
+        nota="Cormorant Garamond nos títulos, Jost em tudo o mais, Pinyon Script SÓ na assinatura."
+      >
         <div className="flex flex-col gap-3">
-          <p className="font-titulo text-[32px] font-semibold">Conjunto renda delicada</p>
+          <p className="font-titulo text-[36px]">Conjunto renda delicada</p>
           <p className="max-w-lg text-[15px] leading-relaxed text-ink-soft">
-            Corpo em Karla. Espaço em branco é o material de design mais usado
+            Corpo em Jost. Espaço em branco é o material de design mais usado
             aqui — um card com a peça bem centralizada comunica mais qualidade
             que um card cheio de selos.
           </p>
+          <div className="flex items-center gap-4">
+            <p className="assinatura text-[24px] text-ink">by Regiane Carvalho</p>
+            <p className="text-[13px] text-ink-faint">
+              A script vive só aqui. Em texto corrido ela é ilegível — e num
+              PDV, ilegível custa dinheiro.
+            </p>
+          </div>
           <div className="num flex gap-8 text-[20px]">
             <span>R$ 89,90</span>
             <span>R$ 129,00</span>
@@ -42,7 +54,10 @@ export function DesignSystem() {
         </div>
       </Secao>
 
-      <Secao titulo="Paleta de interface" nota="Neutro dominante e um azul só. Muda com o tema.">
+      <Secao
+        titulo="Paleta de interface"
+        nota="Marfim e branco dominam, o vinho age, o ouro decora. Muda com o tema — no escuro o vinho cede o lugar ao rosé, porque sobre grafite ele não tem contraste."
+      >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Amostra nome="bg" valor="var(--bg)" />
           <Amostra nome="surface" valor="var(--surface)" />
@@ -51,13 +66,23 @@ export function DesignSystem() {
           <Amostra nome="ink" valor="var(--ink)" escura />
           <Amostra nome="ink-soft" valor="var(--ink-soft)" escura />
           <Amostra nome="accent" valor="var(--accent)" escura />
+          <Amostra nome="accent-forte" valor="var(--accent-forte)" escura />
+          <Amostra nome="accent-soft" valor="var(--accent-soft)" />
+          <Amostra nome="realce" valor="var(--realce)" />
           <Amostra nome="ok" valor="var(--ok)" escura />
+          <Amostra nome="perigo" valor="var(--perigo)" escura />
         </div>
+        <div className="filete-ouro mt-8 w-full" aria-hidden />
+        <p className="mt-3 text-[13px] text-ink-faint">
+          O filete acima é o ouro no papel que ele cumpre bem: 1px de detalhe.
+          Em área grande ele vira dourado de embalagem barata, e sobre branco
+          não passa em contraste nenhum.
+        </p>
       </Secao>
 
       <Secao
         titulo="Paleta de catálogo"
-        nota="As cores reais das peças. NÃO mudam com o tema e nunca derivam do azul de destaque — um sutiã vinho é vinho em qualquer tema."
+        nota="As cores reais das peças. NÃO mudam com o tema e nunca derivam da cor da marca. Repare que existe um 'vinho' aqui e um vinho na marca, e eles são pigmentos diferentes: um é a peça, o outro é a loja."
       >
         <div className="flex flex-wrap gap-5">
           {listarCoresProduto().map((cor) => (
@@ -75,11 +100,15 @@ export function DesignSystem() {
         </div>
       </Secao>
 
-      <Secao titulo="Botões" nota="Mesmo raio em botão, card e modal. Destrutivo é discreto até o hover.">
+      <Secao
+        titulo="Botões"
+        nota="Vinho cheio é a ação da tela, vinho de contorno é a alternativa, fantasma quase não se usa. Ouro só na exceção que precisa ser vista de longe. Destrutivo é discreto até o hover."
+      >
         <div className="flex flex-wrap items-center gap-3">
           <Botao variante="primario">Finalizar venda</Botao>
           <Botao variante="neutro">Buscar produto</Botao>
           <Botao variante="discreto">Cancelar</Botao>
+          <Botao variante="destaque">Aplicar desconto</Botao>
           <Botao variante="perigo">Cancelar venda</Botao>
           <Botao variante="primario" tamanho="grande">
             Ação grande

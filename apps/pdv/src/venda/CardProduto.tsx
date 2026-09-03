@@ -92,7 +92,7 @@ function BotaoSimples({ produto, aoAdicionar }: Props) {
       type="button"
       onClick={() => aoAdicionar(variante)}
       className={cx(
-        'h-11 rounded-[12px] text-[15px] font-medium transition-colors duration-200',
+        'h-11 rounded-[8px] text-[15px] font-medium transition-colors duration-200',
         esgotado
           ? 'bg-sunken text-ink-faint hover:bg-line hover:text-ink'
           : 'bg-accent-soft text-accent hover:brightness-95',
@@ -189,7 +189,7 @@ function Celula({
       <div
         aria-label={`${descricao}: não vendido`}
         className={cx(
-          'grid h-9 w-full place-items-center rounded-[9px] border border-dashed border-line',
+          'grid h-9 w-full place-items-center rounded-[8px] border border-dashed border-line',
           ESTILO_CELULA.inexistente,
         )}
       >
@@ -210,7 +210,7 @@ function Celula({
           : `Adicionar ${descricao}, sem saldo registrado`
       }
       className={cx(
-        'num grid h-9 w-full place-items-center rounded-[9px] font-medium',
+        'num grid h-9 w-full place-items-center rounded-[8px] font-medium',
         'transition-[filter,background-color,color] duration-200',
         ESTILO_CELULA[situacao],
       )}
@@ -225,15 +225,15 @@ export function LegendaGrade() {
   return (
     <div className="flex flex-wrap items-center gap-3 text-[12px] text-ink-faint">
       <span className="flex items-center gap-1.5">
-        <span className="h-3.5 w-5 rounded-[5px] bg-accent-soft" aria-hidden />
+        <span className="h-3.5 w-5 rounded-[4px] bg-accent-soft" aria-hidden />
         em estoque
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-3.5 w-5 rounded-[5px] bg-sunken" aria-hidden />
+        <span className="h-3.5 w-5 rounded-[4px] bg-sunken" aria-hidden />
         esgotado, mas a loja vende
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-3.5 w-5 rounded-[5px] border border-dashed border-line" aria-hidden />
+        <span className="h-3.5 w-5 rounded-[4px] border border-dashed border-line" aria-hidden />
         combinação não vendida
       </span>
       <Selo tom="neutro">o número é o saldo</Selo>

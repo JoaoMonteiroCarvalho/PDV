@@ -1,227 +1,199 @@
 /**
- * O símbolo da loja, em números.
+ * A marca da RM, em números.
  *
- * A marca é um traço só: uma ROSA — o botão fechado por fora (o contorno) e as
- * pétalas enroladas por dentro (a espiral). Este módulo guarda a GEOMETRIA dela — sem three.js, sem React —
- * porque a mesma forma precisa sair em dois lugares:
+ * O símbolo é uma rosa desenhada a traço: o botão fechado por fora (o
+ * contorno) e as pétalas enroladas por dentro (a espiral).
  *
- *   - na cena 3D, como curvas que viram tubos;
- *   - no palco estático em SVG, quando não há WebGL.
+ * AS DUAS LINHAS ABAIXO SÃO CÓPIA LITERAL de `public/marca/rm-icone-cor.svg`.
+ * Não são uma reinterpretação nem um ajuste "que ficou parecido": são os
+ * mesmos caracteres que estão no arquivo da identidade, para dar para
+ * comparar lado a lado. Uma versão anterior deste arquivo trazia uma curva
+ * ajustada a olho contra uma imagem da marca, e ela não batia — o manual diz
+ * para não distorcer o símbolo, e a única forma de garantir isso é usar o
+ * desenho original.
  *
- * Se cada um desenhasse a sua versão, um dia alguém ajustaria a curva de um
- * e não do outro, e a loja passaria a ter dois símbolos ligeiramente
- * diferentes dependendo do computador. Por isso a definição mora aqui e os
- * dois consomem daqui.
+ * Daqui saem DOIS consumidores, e é por isso que a forma mora num módulo sem
+ * three.js e sem React:
  *
- * SISTEMA DE COORDENADAS: y para CIMA, origem no centro do botão, meia-altura
- * igual a 1. Assim a forma é independente do tamanho — quem desenha escolhe a
- * escala. O SVG inverte o y na hora de emitir o caminho, porque lá o eixo
- * cresce para baixo.
+ *   - a cena 3D, que transforma cada traço num tubo;
+ *   - o palco estático em SVG, para quando não há WebGL.
+ *
+ * SISTEMA DE COORDENADAS na saída: y para CIMA, origem no centro do símbolo,
+ * meia-altura igual a 1 — independente de tamanho, quem desenha escolhe a
+ * escala. O SVG inverte o y de volta na hora de emitir o caminho.
  */
 
-/**
- * Meia-largura, com meia-altura = 1.
- *
- * O símbolo é uma ROSA — um botão fechado, visto de lado, com as pétalas
- * enroladas no miolo. Isso rege a proporção: botão é estreito. A primeira
- * versão saiu em 0,727 e lia como folha aberta; 0,60 fecha a silhueta.
- */
-export const MEIA_LARGURA = 0.6;
+const CONTORNO_OFICIAL =
+  'M50 22 C 34 30 28 46 34 58 C 39 68 45 73 50 73 C 55 73 61 68 66 58 C 72 46 66 30 50 22 Z';
+
+const ESPIRAL_OFICIAL =
+  'M39 60 C 33 52 35 40 47 38 C 58 36 64 46 58 54 C 53 60 44 58 44 50 C 44 45 50 44 53 48';
 
 /**
- * Cor da marca.
+ * Cor da marca — Vinho Rosé.
  *
- * Não é token de interface nem cor de catálogo — é a identidade da loja, e
- * por isso não muda com o tema nem com o cadastro de produto. Fica fixa nos
- * dois temas, do mesmo jeito que a cor de um produto fica.
+ * Não é token de interface nem cor de catálogo: é a identidade. Fica igual
+ * nos dois temas, do mesmo jeito que a cor de um produto fica.
  */
-export const COR_MARCA = '#7B2D3B';
+export const COR_MARCA = '#7A2E3A';
 
 export interface Ponto {
   readonly x: number;
   readonly y: number;
 }
 
-interface SegmentoCubico {
+export interface SegmentoCubico {
   readonly de: Ponto;
   readonly controle1: Ponto;
   readonly controle2: Ponto;
   readonly para: Ponto;
 }
 
-const w = MEIA_LARGURA;
+// ---------------------------------------------------------------------------
+// Leitura do desenho oficial
+// ---------------------------------------------------------------------------
 
 /**
- * Contorno do botão: quatro cúbicas, duas por lado, espelhadas.
+ * Onde fica o símbolo dentro do sistema de coordenadas do arquivo original.
  *
- * Duas por lado em vez de uma porque os dois extremos precisam ser
- * controlados separadamente. Com uma cúbica só, deixar a ponta de cima
- * afiada achatava a lateral, e encher a lateral arredondava a ponta.
- *
- * A silhueta resultante, em meia-largura por altura:
- *
- *      0,705   0,470        largura máxima em -0,05,
- *      0,455   0,717        logo abaixo do meio
- *      0,195   0,900
- *     -0,065   1,000
- *     -0,325   0,933
- *     -0,584   0,762
- *     -0,844   0,440
- *
- * As laterais são CHEIAS — a curva sobe rápido e se mantém larga por quase
- * toda a altura, fechando só nas duas pontas. Somado à largura pequena, é o
- * que faz ler como botão fechado e não como folha. O contrário (laterais
- * magras, cheias só no meio) dá um losango, que foi o erro das primeiras
- * tentativas.
- *
- * A ponta de cima fecha em 54° e a de baixo em 74°. Parecem ângulos abertos,
- * mas são medidos numa forma estreita: o que se vê é uma ponta bem definida
- * em cima e uma base arredondada embaixo. Essa diferença entre as duas
- * metades é o que dá direção ao botão — iguais, o desenho fica simétrico e
- * sem eixo.
- *
- * SOBRE QUERER A PONTA MAIS AFIADA: existe um piso geométrico. Numa forma
- * convexa com esta proporção, o triângulo que vai da ponta até a cintura já
- * abre 29,7°; nada convexo fecha menos que isso, e chegar perto do piso
- * obriga as laterais a ficarem retas — vira losango. Ponta afiada e lateral
- * cheia disputam a mesma proporção.
- *
- * No encontro dos dois trechos os apoios ficam ambos em `x = w`: a tangente
- * ali é VERTICAL, o que garante que a largura máxima está exatamente na
- * emenda e que ela não vira um vinco. Tirar qualquer um dos dois de `w`
- * produz um bico visível bem no meio da lateral.
+ * O contorno vai de y=22 (ponta de cima) a y=73 (base) e é simétrico em
+ * torno de x=50. Estes três números são o que converte o desenho da marca
+ * para a forma normalizada — e são a ÚNICA coisa aqui que não veio copiada
+ * do arquivo, por isso ficam à vista.
  */
-const LADO_DIREITO: readonly SegmentoCubico[] = [
-  {
-    de: { x: 0, y: 1 },
-    controle1: { x: 0.67 * w, y: 0.71 },
-    controle2: { x: w, y: 0.075 },
-    para: { x: w, y: -0.05 },
-  },
-  {
-    de: { x: w, y: -0.05 },
-    controle1: { x: w, y: -0.395 },
-    controle2: { x: 0.623 * w, y: -0.895 },
-    para: { x: 0, y: -1 },
-  },
-];
+const EIXO_X = 50;
+const CENTRO_Y = 47.5;
+const MEIA_ALTURA = 25.5;
 
-function espelhar(segmento: SegmentoCubico): SegmentoCubico {
-  const trocar = (p: Ponto): Ponto => ({ x: -p.x, y: p.y });
-  // Invertido também no sentido: o lado esquerdo é percorrido de baixo para
-  // cima, fechando o laço. Um contorno que "volta pelo mesmo caminho" faria
-  // o tubo se dobrar sobre si mesmo na cena 3D.
+/**
+ * Lê um `d` de SVG restrito ao que a marca usa: um `M`, uma sequência de `C`
+ * e um `Z` opcional.
+ *
+ * Não é um interpretador de SVG — é de propósito. Aceitar arcos, curvas
+ * relativas e comandos abreviados exigiria um interpretador de verdade para
+ * ler duas linhas que nunca mudam; e se um dia a marca trouxer um comando
+ * novo, é melhor quebrar aqui, alto e claro, do que desenhar errado calado.
+ */
+function lerCaminho(d: string): SegmentoCubico[] {
+  const numeros = (trecho: string): number[] =>
+    trecho
+      .trim()
+      .split(/[\s,]+/)
+      .filter((parte) => parte.length > 0)
+      .map(Number);
+
+  const comandos = d.trim().match(/[MCZ][^MCZ]*/gi);
+  if (!comandos) throw new Error(`Caminho da marca ilegível: ${d}`);
+
+  const segmentos: SegmentoCubico[] = [];
+  let atual: Ponto | null = null;
+
+  for (const comando of comandos) {
+    const tipo = comando[0]!.toUpperCase();
+    const valores = numeros(comando.slice(1));
+
+    if (tipo === 'M') {
+      if (valores.length !== 2) throw new Error(`"M" com ${valores.length} números: ${comando}`);
+      atual = normalizar({ x: valores[0]!, y: valores[1]! });
+    } else if (tipo === 'C') {
+      if (!atual) throw new Error('Caminho da marca começa sem "M".');
+      if (valores.length !== 6) throw new Error(`"C" com ${valores.length} números: ${comando}`);
+      const controle1 = normalizar({ x: valores[0]!, y: valores[1]! });
+      const controle2 = normalizar({ x: valores[2]!, y: valores[3]! });
+      const para = normalizar({ x: valores[4]!, y: valores[5]! });
+      segmentos.push({ de: atual, controle1, controle2, para });
+      atual = para;
+    }
+    // "Z" não vira segmento: no contorno oficial o último `C` já termina no
+    // ponto inicial, então fechar seria empilhar um segmento de comprimento
+    // zero — e um tubo de comprimento zero estoura a geometria no three.js.
+  }
+
+  if (segmentos.length === 0) throw new Error(`Caminho da marca sem curvas: ${d}`);
+  return segmentos;
+}
+
+/** Do sistema do arquivo (y para baixo) para o nosso (y para cima, centrado). */
+function normalizar(p: Ponto): Ponto {
   return {
-    de: trocar(segmento.para),
-    controle1: trocar(segmento.controle2),
-    controle2: trocar(segmento.controle1),
-    para: trocar(segmento.de),
+    x: (p.x - EIXO_X) / MEIA_ALTURA,
+    y: (CENTRO_Y - p.y) / MEIA_ALTURA,
   };
 }
 
-/** O contorno inteiro, em ordem, fechando o laço. */
-export const CONTORNO: readonly SegmentoCubico[] = [
-  ...LADO_DIREITO,
-  ...[...LADO_DIREITO].reverse().map(espelhar),
-];
+export const CONTORNO: readonly SegmentoCubico[] = lerCaminho(CONTORNO_OFICIAL);
+export const ESPIRAL: readonly SegmentoCubico[] = lerCaminho(ESPIRAL_OFICIAL);
 
 // ---------------------------------------------------------------------------
-// Espiral
+// Medidas derivadas
 // ---------------------------------------------------------------------------
 
-/** Onde o miolo da espiral fica, em relação ao centro do botão. */
-export const CENTRO_ESPIRAL: Ponto = { x: -0.044, y: -0.03 };
-const RAIO_INICIAL = 0.135;
-/**
- * O miolo ocupa 76% da meia-largura do botão.
- *
- * Sobra pouca margem de propósito: pétalas enroladas preenchem o botão, não
- * flutuam no meio dele. Com o envelope estreitado, um miolo pequeno deixava
- * um vazio em cima e embaixo que não existe numa rosa.
- */
-const RAIO_FINAL = 0.454;
-
-/**
- * Aperto do miolo.
- *
- * Com o raio crescendo por igual (expoente 1), a espiral vira um caracol:
- * voltas igualmente espaçadas, uma geometria. As pétalas de uma rosa não são
- * assim — elas se apertam no centro e vão abrindo para fora. O expoente 1,35
- * empilha as primeiras voltas perto do miolo e alarga as últimas, e é o que
- * transforma o caracol em pétalas enroladas.
- */
-const APERTO = 1.35;
-/**
- * Voltas e sentido.
- *
- * 1,64 volta no sentido anti-horário coloca a ponta de fora embaixo à
- * esquerda, passando por cima antes — que é o desenho da marca. Fechar duas
- * voltas cheias deixaria as duas pontas alinhadas e a espiral pareceria um
- * caracol simétrico, perdendo o movimento.
- */
-const VOLTAS = 1.64;
-
-/**
- * A espiral do miolo. `t` vai de 0 (ponta de dentro) a 1 (ponta de fora).
- *
- * Base de Arquimedes (raio crescendo com o ângulo) com o aperto acima. A
- * logarítmica pura, de concha de náutilo, abre rápido demais e o miolo some —
- * e é justamente o miolo que faz a leitura de rosa.
- */
-export function pontoDaEspiral(t: number): Ponto {
-  const angulo = t * VOLTAS * Math.PI * 2;
-  const raio = RAIO_INICIAL + (RAIO_FINAL - RAIO_INICIAL) * t ** APERTO;
+function avaliar(s: SegmentoCubico, t: number): Ponto {
+  const u = 1 - t;
+  const eixo = (a: number, b: number, c: number, d: number) =>
+    u ** 3 * a + 3 * u ** 2 * t * b + 3 * u * t ** 2 * c + t ** 3 * d;
   return {
-    x: CENTRO_ESPIRAL.x + Math.cos(angulo) * raio,
-    y: CENTRO_ESPIRAL.y + Math.sin(angulo) * raio,
+    x: eixo(s.de.x, s.controle1.x, s.controle2.x, s.para.x),
+    y: eixo(s.de.y, s.controle1.y, s.controle2.y, s.para.y),
   };
 }
 
-/** Amostra a espiral em `passos + 1` pontos. */
-export function pontosDaEspiral(passos = 120): Ponto[] {
+/** Amostra qualquer caminho em pontos, para medir ou para desenhar. */
+export function amostrar(
+  segmentos: readonly SegmentoCubico[],
+  porSegmento = 48,
+): Ponto[] {
   const pontos: Ponto[] = [];
-  for (let i = 0; i <= passos; i += 1) pontos.push(pontoDaEspiral(i / passos));
+  for (const s of segmentos) {
+    for (let i = 0; i <= porSegmento; i += 1) pontos.push(avaliar(s, i / porSegmento));
+  }
   return pontos;
 }
+
+/**
+ * Meia-largura do símbolo, com meia-altura = 1. Medida, não declarada: sai da
+ * própria curva oficial, então continua certa se o desenho mudar.
+ */
+export const MEIA_LARGURA = Math.max(...amostrar(CONTORNO, 96).map((p) => Math.abs(p.x)));
+
+/** As duas pontas soltas da espiral, onde a cena 3D arredonda o traço. */
+export const PONTA_DE_DENTRO: Ponto = ESPIRAL[ESPIRAL.length - 1]!.para;
+export const PONTA_DE_FORA: Ponto = ESPIRAL[0]!.de;
 
 // ---------------------------------------------------------------------------
 // Saída em SVG
 // ---------------------------------------------------------------------------
 
 /**
- * Converte para o sistema do SVG: y cresce para baixo, origem no canto.
+ * Volta para o sistema do SVG: y cresce para baixo, origem no canto.
  *
- * `escala` é a meia-altura em pixels; `centro` é onde o centro da folha cai
+ * `escala` é a meia-altura em pixels; `centro` é onde o centro do símbolo cai
  * dentro do viewBox.
  */
 function paraSvg(p: Ponto, escala: number, centro: Ponto): string {
-  const x = centro.x + p.x * escala;
-  const y = centro.y - p.y * escala;
-  return `${x.toFixed(2)} ${y.toFixed(2)}`;
+  return `${(centro.x + p.x * escala).toFixed(2)} ${(centro.y - p.y * escala).toFixed(2)}`;
 }
 
-/** O contorno como um `d` de SVG, já fechado. */
-export function caminhoDoContorno(escala: number, centro: Ponto): string {
-  const partes: string[] = [`M ${paraSvg(CONTORNO[0]!.de, escala, centro)}`];
-  for (const s of CONTORNO) {
+function caminho(
+  segmentos: readonly SegmentoCubico[],
+  escala: number,
+  centro: Ponto,
+  fechar: boolean,
+): string {
+  const partes = [`M ${paraSvg(segmentos[0]!.de, escala, centro)}`];
+  for (const s of segmentos) {
     partes.push(
       `C ${paraSvg(s.controle1, escala, centro)}, ${paraSvg(s.controle2, escala, centro)}, ${paraSvg(s.para, escala, centro)}`,
     );
   }
-  partes.push('Z');
+  if (fechar) partes.push('Z');
   return partes.join(' ');
 }
 
-/**
- * A espiral como um `d` de SVG.
- *
- * Sai como polilinha densa, não como curvas: a espiral é uma função, não um
- * punhado de arcos, e aproximá-la por Bézier daria trabalho para ninguém
- * enxergar a diferença num traço de 3 px.
- */
-export function caminhoDaEspiral(escala: number, centro: Ponto, passos = 120): string {
-  const pontos = pontosDaEspiral(passos);
-  return pontos
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${paraSvg(p, escala, centro)}`)
-    .join(' ');
+export function caminhoDoContorno(escala: number, centro: Ponto): string {
+  return caminho(CONTORNO, escala, centro, true);
+}
+
+export function caminhoDaEspiral(escala: number, centro: Ponto): string {
+  return caminho(ESPIRAL, escala, centro, false);
 }

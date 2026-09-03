@@ -283,7 +283,7 @@ function CardCatalogo({
           // rótulo, a peça sumiria para quem usa leitor de tela.
           role={usar3d ? 'img' : undefined}
           aria-label={usar3d ? descricao : undefined}
-          className="h-[132px] w-full overflow-hidden rounded-[10px] bg-sunken"
+          className="h-[132px] w-full overflow-hidden rounded-[8px] bg-sunken"
         >
           {!usar3d && <PalcoProduto forma={forma} cor={tom.hex} descricao={descricao} />}
         </div>

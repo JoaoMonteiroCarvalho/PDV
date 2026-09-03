@@ -77,16 +77,30 @@ export function TelaEntrar() {
           <PalcoDaMarca cor={COR_MARCA} />
         )}
 
-        {usar3d && (
-          <p className="pointer-events-none absolute inset-x-0 bottom-8 text-center text-[12px] text-ink-faint">
-            Arraste para girar
-          </p>
-        )}
+        {/*
+          O wordmark embaixo da peça, não sobre ela.
+
+          O manual pede respiro em volta do símbolo; sobrepor texto ao 3D
+          comeria esse respiro e ainda brigaria com a peça girando. Aqui o
+          bloco fica ancorado no rodapé do palco, com o filete de ouro
+          separando marca e assinatura — que é o papel do ouro na identidade:
+          detalhe, não área.
+        */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-10 flex flex-col items-center gap-3">
+          <p className="font-titulo text-[22px] tracking-[0.18em] text-ink">RM MODA ÍNTIMA</p>
+          <div className="filete-ouro w-40" aria-hidden />
+          {/* Pinyon Script vive SÓ aqui — nunca em texto corrido. */}
+          <p className="assinatura text-[19px] text-ink-soft">by Regiane Carvalho</p>
+
+          {usar3d && (
+            <p className="mt-3 text-[12px] text-ink-faint">Arraste para girar</p>
+          )}
+        </div>
       </section>
 
       <section className="grid place-items-center px-8">
         <form onSubmit={handleSubmit(submeter)} className="w-full max-w-[320px]">
-          <h1 className="text-[26px]">{saudacao()}</h1>
+          <h1 className="text-[34px]">{saudacao()}</h1>
           <p className="mt-1 mb-8 text-[15px] text-ink-soft">Identifique-se para abrir o caixa</p>
 
           <div className="flex flex-col gap-4">

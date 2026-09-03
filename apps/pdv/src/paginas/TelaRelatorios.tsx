@@ -82,7 +82,7 @@ export function TelaRelatorios() {
             value={de}
             max={ate}
             onChange={(evento) => setDe(evento.target.value)}
-            className="num h-11 rounded-[12px] border border-line bg-surface px-3 text-[15px] focus:border-accent"
+            className="num h-11 rounded-[8px] border border-line bg-surface px-3 text-[15px] focus:border-accent"
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -92,7 +92,7 @@ export function TelaRelatorios() {
             value={ate}
             min={de}
             onChange={(evento) => setAte(evento.target.value)}
-            className="num h-11 rounded-[12px] border border-line bg-surface px-3 text-[15px] focus:border-accent"
+            className="num h-11 rounded-[8px] border border-line bg-surface px-3 text-[15px] focus:border-accent"
           />
         </label>
 

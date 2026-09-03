@@ -64,7 +64,7 @@ export function SeletorCliente({ escolhida, aoEscolher }: Props) {
 
   if (escolhida) {
     return (
-      <div className="rounded-[12px] border border-line bg-sunken px-4 py-3">
+      <div className="rounded-[8px] border border-line bg-sunken px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-medium text-ink">{escolhida.nome}</p>
@@ -100,7 +100,7 @@ export function SeletorCliente({ escolhida, aoEscolher }: Props) {
   }
 
   return (
-    <div className="rounded-[12px] border border-line px-4 py-3">
+    <div className="rounded-[8px] border border-line px-4 py-3">
       <Campo
         rotulo="Cliente do fiado"
         placeholder="nome ou CPF"
@@ -124,7 +124,7 @@ export function SeletorCliente({ escolhida, aoEscolher }: Props) {
       )}
 
       {resultados.length > 0 && (
-        <ul className="mt-3 max-h-52 divide-y divide-line overflow-y-auto rounded-[10px] border border-line">
+        <ul className="mt-3 max-h-52 divide-y divide-line overflow-y-auto rounded-[8px] border border-line">
           {resultados.map((cliente) => (
             <li key={cliente.id}>
               <button

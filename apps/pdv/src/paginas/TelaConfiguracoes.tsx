@@ -461,7 +461,7 @@ function EdicaoDeUsuario({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-[14px] bg-sunken p-4">
+    <div className="flex flex-col gap-4 rounded-[16px] bg-sunken p-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo
           rotulo="Nome"
@@ -545,7 +545,7 @@ function FormularioNovoUsuario({ aoCriar }: { aoCriar: () => Promise<void> }) {
 
   return (
     <div
-      className="flex flex-col gap-4 rounded-[14px] border border-line bg-sunken p-4"
+      className="flex flex-col gap-4 rounded-[16px] border border-line bg-sunken p-4"
       data-testid="form-novo-usuario"
     >
       <h3 className="text-[15px] font-medium">Novo usuário</h3>
@@ -622,7 +622,7 @@ function SeletorDePapel({
           <label
             key={papel}
             className={cx(
-              'flex cursor-pointer items-start gap-3 rounded-[12px] border p-3 transition-colors duration-200',
+              'flex cursor-pointer items-start gap-3 rounded-[8px] border p-3 transition-colors duration-200',
               valor === papel ? 'border-accent bg-accent-soft' : 'border-line bg-surface',
               desabilitado && 'cursor-default opacity-60',
             )}

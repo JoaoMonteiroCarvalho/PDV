@@ -52,7 +52,40 @@ export function Shell() {
   return (
     <div className="flex h-screen flex-col bg-bg text-ink">
       <header className="flex shrink-0 items-center gap-4 border-b border-line bg-surface px-5 py-2.5">
-        <span className="font-titulo text-[15px] font-semibold tracking-tight">PDV</span>
+        {/*
+          A marca na barra: SÍMBOLO + nome em texto vivo, não o logo
+          horizontal fechado.
+
+          O manual manda o horizontal no cabeçalho, mas esta barra tem 40px
+          de altura — que é o caso de "espaço pequeno" do próprio manual. O
+          lockup inteiro reduzido a essa altura deixa o símbolo do tamanho de
+          um ponto e "MODA ÍNTIMA" ilegível; foi testado e é o que acontece.
+          Assim o símbolo mantém o tamanho mínimo em que ainda se lê, e o
+          nome vem na Cormorant, que é a fonte da marca.
+
+          O arquivo usado é a versão "compacta": mesma geometria e mesmo
+          traço do símbolo oficial, com o viewBox recortado. O arquivo
+          original reserva dois terços do quadro para margem — ótimo quando
+          ele aparece sozinho e grande, mas num ícone de 28px sobra um
+          desenho de 9px. Recortar margem não é distorcer.
+        */}
+        <a
+          href="/venda"
+          className="flex shrink-0 items-center gap-2.5"
+          /*
+           * O rótulo NÃO pode conter "Venda": há um item de menu com esse
+           * nome, e dois links com nomes acessíveis que se sobrepõem deixam
+           * quem usa leitor de tela sem saber qual é qual (o teste E2E pegou
+           * isso primeiro, batendo em dois elementos).
+           */
+          aria-label="RM Moda Íntima — início"
+        >
+          <img src="/marca/rm-icone-compacto-cor.svg" alt="" className="marca-clara size-7" />
+          <img src="/marca/rm-icone-compacto-branco.svg" alt="" className="marca-escura size-7" />
+          <span className="font-titulo text-[15px] tracking-[0.14em] text-ink">
+            RM MODA ÍNTIMA
+          </span>
+        </a>
 
         <nav className="flex items-center gap-0.5">
           {NAVEGACAO.map((item) => (
@@ -61,7 +94,7 @@ export function Shell() {
               to={item.para}
               className={({ isActive }) =>
                 cx(
-                  'rounded-[10px] px-3 py-1.5 text-[14px] transition-colors duration-200',
+                  'rounded-[8px] px-3 py-1.5 text-[14px] transition-colors duration-200',
                   isActive
                     ? 'bg-accent-soft text-accent font-medium'
                     : 'text-ink-soft hover:bg-sunken hover:text-ink',
