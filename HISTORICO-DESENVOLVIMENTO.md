@@ -1420,6 +1420,25 @@ desta máquina bloqueia qualquer URL contendo `simbol`/`symbol` com HTTP 499.
 Já estava documentado neste arquivo e mordeu assim mesmo. Os arquivos servidos
 chamam-se `rm-icone-*.svg`; o conteúdo é idêntico ao oficial.
 
+### O login foi para a paleta, e não para um bege inventado
+
+O painel do palco usava `--surface-sunken`, que eu havia definido como
+`#f0e7df` — um valor que **não existe no manual**. O login ficava bege sobre
+bege, sem nada da marca no fundo, e o token furava a própria regra do arquivo
+("só entra valor da paleta").
+
+O painel passou a usar o **Blush**, que o manual descreve como "fundo
+delicado" — exatamente o papel dele. E `--surface-sunken` passou a ser a
+Borda da marca.
+
+Junto veio uma regra do manual que estava sendo desrespeitada: **fundo escuro
+pede a versão branca do símbolo**. No tema escuro a rosa continuava vinho
+sobre um painel vinho escuro — 1,4:1 contra o fundo. Não é caso de "clarear o
+vinho", o que seria recolorir a marca; é usar a versão branca que o próprio
+pacote entrega. A escolha é feita uma vez, na montagem da tela: o interruptor
+de tema mora dentro do sistema, e para chegar até ele já é preciso estar
+logado.
+
 ### Um teste pegou um problema de acessibilidade real
 
 O link do logo nasceu com `aria-label="RM Moda Íntima — ir para a venda"`, e o
@@ -1427,6 +1446,15 @@ E2E quebrou: `getByRole('link', { name: 'Venda' })` passou a casar com dois
 elementos. Não era o teste sendo chato — dois links com nomes acessíveis que se
 sobrepõem deixam quem usa leitor de tela sem saber qual é qual. O rótulo virou
 "— início".
+
+### Um teste que estava medindo a coisa errada
+
+`fundacao.spec.ts` verificava que o app não herda o modo escuro do sistema
+operacional comparando o fundo com `rgb(251, 251, 253)` — o hex antigo. Ele
+ficou vermelho na troca da paleta sem que o comportamento sob teste tivesse
+mudado em nada. A asserção passou a **medir a luminosidade** do fundo: é isso
+que "não abre escuro" quer dizer, pega o bug de verdade e sobrevive à próxima
+identidade.
 
 ---
 

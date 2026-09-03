@@ -37,6 +37,16 @@ const ESPIRAL_OFICIAL =
  */
 export const COR_MARCA = '#7A2E3A';
 
+/**
+ * A marca sobre fundo escuro.
+ *
+ * Não é "clarear o vinho" — o manual proíbe recolorir o símbolo. É a versão
+ * BRANCA que o próprio pacote de identidade entrega (`rm-icone-branco.svg`),
+ * prevista justamente para este caso. Sobre o painel escuro do login o vinho
+ * dá 1,4:1 contra o fundo e praticamente desaparece.
+ */
+export const COR_MARCA_SOBRE_ESCURO = '#FFFFFF';
+
 export interface Ponto {
   readonly x: number;
   readonly y: number;

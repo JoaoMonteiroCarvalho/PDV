@@ -23,8 +23,25 @@ test.describe('tema', () => {
     await pagina.goto('/entrar');
 
     await expect(pagina.locator('html')).toHaveAttribute('data-theme', 'light');
-    const fundo = await pagina.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(fundo).toBe('rgb(251, 251, 253)'); // --bg do tema claro
+
+    /*
+     * O que importa é que o fundo seja CLARO, não que ele seja um hex
+     * específico. A versão anterior deste teste fixava `rgb(251, 251, 253)` e
+     * ficou vermelha na troca da paleta da marca — sem que o comportamento
+     * sob teste tivesse mudado em nada. Medir a luminosidade pega o bug de
+     * verdade (a tela abrindo escura) e sobrevive a uma nova identidade.
+     */
+    const luminosidade = await pagina.evaluate(() => {
+      const [r, g, b] = getComputedStyle(document.body)
+        .backgroundColor.match(/\d+/g)!
+        .map(Number) as [number, number, number];
+      const canal = (v: number) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b);
+    });
+    expect(luminosidade).toBeGreaterThan(0.5);
 
     await contexto.close();
   });

@@ -50,7 +50,14 @@
 :root {
   --bg: var(--rm-marfim);
   --surface: var(--rm-branco);
-  --surface-sunken: #f0e7df;
+  /*
+   * Área rebaixada = a Borda da marca. Antes havia aqui um #f0e7df inventado
+   * por mim, que não é cor do manual — e a regra deste arquivo é que só
+   * entra valor da paleta. Borda e fundo rebaixado com o mesmo tom não é
+   * problema: onde os dois se encontram, o bloco continua lendo como área
+   * tingida sobre o branco.
+   */
+  --surface-sunken: var(--rm-borda);
   --line: var(--rm-borda);
   --ink: var(--rm-grafite);
 

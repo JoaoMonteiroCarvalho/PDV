@@ -18,7 +18,8 @@ import { z } from 'zod';
 import { Botao, Campo, Erro } from '../componentes/base.js';
 import { useSessao } from '../estado/sessaoStore.js';
 import { PalcoDaMarca } from '../tres/PalcoDaMarca.js';
-import { COR_MARCA } from '../tres/formaDaMarca.js';
+import { COR_MARCA, COR_MARCA_SOBRE_ESCURO } from '../tres/formaDaMarca.js';
+import { temaSalvo } from '../design/tema.js';
 import { podeRenderizar3d } from '../tres/capacidade.js';
 
 const CenaLogin = lazy(() => import('../tres/CenaLogin.js'));
@@ -46,6 +47,19 @@ export function TelaEntrar() {
   // Decidido uma vez: a capacidade do computador não muda no meio da sessão.
   const usar3d = useMemo(() => podeRenderizar3d(), []);
 
+  /*
+   * Qual versão da marca vai ao palco.
+   *
+   * Regra do manual: fundo escuro pede a versão branca. Lido uma vez, na
+   * montagem, e isso basta — o interruptor de tema mora dentro do sistema, e
+   * para chegar até ele é preciso já estar logado, ou seja, esta tela não
+   * está na frente de ninguém quando o tema muda.
+   */
+  const corDaMarca = useMemo(
+    () => (temaSalvo() === 'dark' ? COR_MARCA_SOBRE_ESCURO : COR_MARCA),
+    [],
+  );
+
   const {
     register,
     handleSubmit,
@@ -68,13 +82,22 @@ export function TelaEntrar() {
 
   return (
     <div className="grid h-screen grid-cols-1 bg-bg lg:grid-cols-[1.45fr_1fr]">
-      <section className="relative hidden overflow-hidden bg-sunken lg:block">
+      {/*
+        Palco em BLUSH, que o manual descreve como "fundo delicado" — é
+        exatamente o papel deste painel. Antes era o cinza rebaixado genérico,
+        e o login ficava bege sobre bege, sem nada da marca no fundo.
+
+        No tema escuro o mesmo token vira o vinho profundo acinzentado, então
+        o painel continua sendo da família da marca em vez de virar um
+        retângulo preto.
+      */}
+      <section className="relative hidden overflow-hidden bg-accent-soft lg:block">
         {usar3d ? (
-          <Suspense fallback={<PalcoDaMarca cor={COR_MARCA} />}>
-            <CenaLogin cor={COR_MARCA} />
+          <Suspense fallback={<PalcoDaMarca cor={corDaMarca} />}>
+            <CenaLogin cor={corDaMarca} />
           </Suspense>
         ) : (
-          <PalcoDaMarca cor={COR_MARCA} />
+          <PalcoDaMarca cor={corDaMarca} />
         )}
 
         {/*
