@@ -1,8 +1,8 @@
 /**
  * O símbolo da loja, em números.
  *
- * A marca é um traço só: uma folha pontuda (o contorno) com uma espiral
- * dentro. Este módulo guarda a GEOMETRIA dela — sem three.js, sem React —
+ * A marca é um traço só: uma ROSA — o botão fechado por fora (o contorno) e as
+ * pétalas enroladas por dentro (a espiral). Este módulo guarda a GEOMETRIA dela — sem three.js, sem React —
  * porque a mesma forma precisa sair em dois lugares:
  *
  *   - na cena 3D, como curvas que viram tubos;
@@ -13,14 +13,20 @@
  * diferentes dependendo do computador. Por isso a definição mora aqui e os
  * dois consomem daqui.
  *
- * SISTEMA DE COORDENADAS: y para CIMA, origem no centro da folha, meia-altura
+ * SISTEMA DE COORDENADAS: y para CIMA, origem no centro do botão, meia-altura
  * igual a 1. Assim a forma é independente do tamanho — quem desenha escolhe a
  * escala. O SVG inverte o y na hora de emitir o caminho, porque lá o eixo
  * cresce para baixo.
  */
 
-/** Meia-largura da folha, com meia-altura = 1. Medida sobre a marca original. */
-export const MEIA_LARGURA = 0.727;
+/**
+ * Meia-largura, com meia-altura = 1.
+ *
+ * O símbolo é uma ROSA — um botão fechado, visto de lado, com as pétalas
+ * enroladas no miolo. Isso rege a proporção: botão é estreito. A primeira
+ * versão saiu em 0,727 e lia como folha aberta; 0,60 fecha a silhueta.
+ */
+export const MEIA_LARGURA = 0.6;
 
 /**
  * Cor da marca.
@@ -46,32 +52,39 @@ interface SegmentoCubico {
 const w = MEIA_LARGURA;
 
 /**
- * Contorno da folha: quatro cúbicas, duas por lado, espelhadas.
+ * Contorno do botão: quatro cúbicas, duas por lado, espelhadas.
  *
  * Duas por lado em vez de uma porque os dois extremos precisam ser
  * controlados separadamente. Com uma cúbica só, deixar a ponta de cima
- * afiada achatava a barriga, e engordar a barriga arredondava a ponta.
+ * afiada achatava a lateral, e encher a lateral arredondava a ponta.
  *
  * A silhueta resultante, em meia-largura por altura:
  *
- *      0,714   0,362        largura máxima em -0,05,
- *      0,455   0,625        logo abaixo do meio
- *      0,195   0,850
+ *      0,705   0,470        largura máxima em -0,05,
+ *      0,455   0,717        logo abaixo do meio
+ *      0,195   0,900
  *     -0,065   1,000
- *     -0,325   0,916
- *     -0,584   0,697
- *     -0,844   0,332
+ *     -0,325   0,933
+ *     -0,584   0,762
+ *     -0,844   0,440
  *
- * A ponta de cima fecha em 48° e a de baixo em 62° — base mais cheia, e é
- * essa diferença entre as duas metades que dá direção à folha. Com as duas
- * iguais o desenho fica simétrico e sem eixo.
+ * As laterais são CHEIAS — a curva sobe rápido e se mantém larga por quase
+ * toda a altura, fechando só nas duas pontas. Somado à largura pequena, é o
+ * que faz ler como botão fechado e não como folha. O contrário (laterais
+ * magras, cheias só no meio) dá um losango, que foi o erro das primeiras
+ * tentativas.
  *
- * SOBRE QUERER A PONTA MAIS AFIADA: existe um piso geométrico. Para uma forma
+ * A ponta de cima fecha em 54° e a de baixo em 74°. Parecem ângulos abertos,
+ * mas são medidos numa forma estreita: o que se vê é uma ponta bem definida
+ * em cima e uma base arredondada embaixo. Essa diferença entre as duas
+ * metades é o que dá direção ao botão — iguais, o desenho fica simétrico e
+ * sem eixo.
+ *
+ * SOBRE QUERER A PONTA MAIS AFIADA: existe um piso geométrico. Numa forma
  * convexa com esta proporção, o triângulo que vai da ponta até a cintura já
- * abre 34,7°; nada convexo fecha menos que isso. Tentar 27°, como foi tentado
- * aqui, obriga as laterais a ficarem retas — e a folha vira um losango. A
- * barriga e a ponta afiada disputam a mesma proporção; 48° foi onde as duas
- * couberam.
+ * abre 29,7°; nada convexo fecha menos que isso, e chegar perto do piso
+ * obriga as laterais a ficarem retas — vira losango. Ponta afiada e lateral
+ * cheia disputam a mesma proporção.
  *
  * No encontro dos dois trechos os apoios ficam ambos em `x = w`: a tangente
  * ali é VERTICAL, o que garante que a largura máxima está exatamente na
@@ -81,14 +94,14 @@ const w = MEIA_LARGURA;
 const LADO_DIREITO: readonly SegmentoCubico[] = [
   {
     de: { x: 0, y: 1 },
-    controle1: { x: 0.46 * w, y: 0.7 },
-    controle2: { x: w, y: 0.06 },
+    controle1: { x: 0.67 * w, y: 0.71 },
+    controle2: { x: w, y: 0.075 },
     para: { x: w, y: -0.05 },
   },
   {
     de: { x: w, y: -0.05 },
-    controle1: { x: w, y: -0.42 },
-    controle2: { x: 0.5 * w, y: -0.81 },
+    controle1: { x: w, y: -0.395 },
+    controle2: { x: 0.623 * w, y: -0.895 },
     para: { x: 0, y: -1 },
   },
 ];
@@ -116,10 +129,28 @@ export const CONTORNO: readonly SegmentoCubico[] = [
 // Espiral
 // ---------------------------------------------------------------------------
 
-/** Onde o miolo da espiral fica, em relação ao centro da folha. */
-export const CENTRO_ESPIRAL: Ponto = { x: -0.05, y: -0.05 };
-const RAIO_INICIAL = 0.143;
-const RAIO_FINAL = 0.48;
+/** Onde o miolo da espiral fica, em relação ao centro do botão. */
+export const CENTRO_ESPIRAL: Ponto = { x: -0.044, y: -0.03 };
+const RAIO_INICIAL = 0.135;
+/**
+ * O miolo ocupa 76% da meia-largura do botão.
+ *
+ * Sobra pouca margem de propósito: pétalas enroladas preenchem o botão, não
+ * flutuam no meio dele. Com o envelope estreitado, um miolo pequeno deixava
+ * um vazio em cima e embaixo que não existe numa rosa.
+ */
+const RAIO_FINAL = 0.454;
+
+/**
+ * Aperto do miolo.
+ *
+ * Com o raio crescendo por igual (expoente 1), a espiral vira um caracol:
+ * voltas igualmente espaçadas, uma geometria. As pétalas de uma rosa não são
+ * assim — elas se apertam no centro e vão abrindo para fora. O expoente 1,35
+ * empilha as primeiras voltas perto do miolo e alarga as últimas, e é o que
+ * transforma o caracol em pétalas enroladas.
+ */
+const APERTO = 1.35;
 /**
  * Voltas e sentido.
  *
@@ -131,14 +162,15 @@ const RAIO_FINAL = 0.48;
 const VOLTAS = 1.64;
 
 /**
- * Espiral de Arquimedes: o raio cresce por igual a cada volta.
+ * A espiral do miolo. `t` vai de 0 (ponta de dentro) a 1 (ponta de fora).
  *
- * É a espiral certa aqui — a logarítmica (concha de náutilo) abre rápido
- * demais e o miolo some. `t` vai de 0 (ponta de dentro) a 1 (ponta de fora).
+ * Base de Arquimedes (raio crescendo com o ângulo) com o aperto acima. A
+ * logarítmica pura, de concha de náutilo, abre rápido demais e o miolo some —
+ * e é justamente o miolo que faz a leitura de rosa.
  */
 export function pontoDaEspiral(t: number): Ponto {
   const angulo = t * VOLTAS * Math.PI * 2;
-  const raio = RAIO_INICIAL + (RAIO_FINAL - RAIO_INICIAL) * t;
+  const raio = RAIO_INICIAL + (RAIO_FINAL - RAIO_INICIAL) * t ** APERTO;
   return {
     x: CENTRO_ESPIRAL.x + Math.cos(angulo) * raio,
     y: CENTRO_ESPIRAL.y + Math.sin(angulo) * raio,

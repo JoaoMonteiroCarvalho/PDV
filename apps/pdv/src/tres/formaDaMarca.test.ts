@@ -98,10 +98,25 @@ describe('contorno da folha', () => {
     expect(Math.abs(cruzado)).toBeLessThan(1e-9);
   });
 
-  it('não fica mais largo do que alto', () => {
+  it('é um botão fechado, não uma folha aberta', () => {
+    // O símbolo é uma rosa em botão. A largura pequena é o que faz ele ler
+    // como fechado; a primeira versão saiu em 0,727 e parecia folha.
     const pontos = pontosDoContorno();
     const largura = Math.max(...pontos.map((p) => p.x)) * 2;
-    expect(largura).toBeLessThan(2);
+    expect(largura).toBeLessThan(1.35);
+  });
+
+  it('tem as laterais cheias, sem afinar no meio do caminho', () => {
+    // Botão fechado é largo por quase toda a altura e fecha só nas pontas.
+    // Se a lateral afinasse cedo, o desenho voltaria a ler como losango.
+    const pontos = pontosDoContorno(200);
+    const larguraEm = (altura: number) =>
+      pontos
+        .filter((p) => Math.abs(p.y - altura) < 0.01)
+        .reduce((maior, p) => Math.max(maior, p.x), 0) / MEIA_LARGURA;
+
+    expect(larguraEm(0.455)).toBeGreaterThan(0.68);
+    expect(larguraEm(-0.584)).toBeGreaterThan(0.72);
   });
 });
 
@@ -132,6 +147,20 @@ describe('espiral', () => {
       expect(Math.abs(p.x)).toBeLessThan(MEIA_LARGURA * 0.85);
       expect(Math.abs(p.y)).toBeLessThan(0.8);
     }
+  });
+
+  it('aperta as voltas no miolo e abre para fora, como pétalas', () => {
+    // Voltas igualmente espaçadas dariam um caracol, uma geometria. A rosa
+    // pede o contrário: pétalas empilhadas no centro, abrindo na borda.
+    const raio = (t: number) => {
+      const p = pontoDaEspiral(t);
+      return Math.hypot(p.x - CENTRO_ESPIRAL.x, p.y - CENTRO_ESPIRAL.y);
+    };
+    // Com voltas uniformes os dois terços cresceriam igual (razão 1,0).
+    // O aperto atual dá 1,84; o limite abaixo separa um do outro com folga.
+    const cresceuNoMiolo = raio(0.33) - raio(0);
+    const cresceuNaBorda = raio(1) - raio(0.67);
+    expect(cresceuNaBorda / cresceuNoMiolo).toBeGreaterThan(1.5);
   });
 
   it('entrega a quantidade de pontos pedida', () => {

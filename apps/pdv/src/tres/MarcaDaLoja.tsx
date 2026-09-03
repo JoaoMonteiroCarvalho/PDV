@@ -1,7 +1,8 @@
 /**
  * O símbolo da loja em 3D — o objeto do login.
  *
- * A marca é desenhada a traço, e a tradução para 3D respeita isso: cada traço
+ * A marca é uma rosa desenhada a traço, e a tradução para 3D respeita isso:
+ * cada traço
  * vira um TUBO de seção redonda, como um arame dobrado. Não é extrusão de
  * área preenchida, que engrossaria a marca e mudaria o desenho; de frente, o
  * que se vê é exatamente o símbolo, e é só ao girar que ele revela volume.
@@ -39,12 +40,15 @@ import { CONTORNO, pontoDaEspiral, pontosDaEspiral } from './formaDaMarca.js';
 /**
  * Espessura do traço, em raio.
  *
- * Na marca impressa o traço tem 3,6% da largura da folha, e o tubo respeita
- * isso: 0,032 de raio dá 3,8% — a diferença de 0,2% é a licença que o volume
- * pede para não sumir quando a peça vira de lado. Um tubo mais gordo (0,055,
+ * Na marca impressa o traço tem ~4% da largura do botão, e o tubo respeita
+ * isso: 0,026 de raio dá 4,3%. A diferença é a licença que o volume pede para
+ * o traço não sumir quando a peça vira de lado. Um tubo mais gordo (0,055,
  * como começou) engorda a marca em mais do dobro e a descaracteriza.
+ *
+ * O valor acompanha a LARGURA do botão: ao estreitá-lo, o mesmo raio pesa
+ * mais e precisa encolher junto.
  */
-const RAIO_DO_TRACO = 0.032;
+const RAIO_DO_TRACO = 0.026;
 
 /**
  * A espiral fica um passo à frente do contorno.
@@ -52,7 +56,7 @@ const RAIO_DO_TRACO = 0.032;
  * De frente não muda nada — é o mesmo símbolo. Ao girar, a separação é o que
  * transforma dois desenhos sobrepostos em duas camadas de verdade.
  */
-const AVANCO_DA_ESPIRAL = 0.055;
+const AVANCO_DA_ESPIRAL = 0.045;
 
 function contornoEmTubo(): TubeGeometry {
   const caminho = new CurvePath<Vector3>();

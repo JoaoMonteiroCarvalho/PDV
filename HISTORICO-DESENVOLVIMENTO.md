@@ -1202,9 +1202,9 @@ resulta em login é cadastro que só parece ter funcionado.
 ## A marca da loja em 3D — o objeto do login
 
 A tela de login abria com uma caixinha de presente genérica, criada quando
-ainda não havia identidade visual. A loja tem símbolo próprio — uma folha
-pontuda desenhada a traço, com uma espiral dentro — e ele passou a ser o
-objeto da cena.
+ainda não havia identidade visual. A loja tem símbolo próprio — uma **rosa**
+desenhada a traço: o botão fechado por fora, as pétalas enroladas por dentro —
+e ele passou a ser o objeto da cena.
 
 ### Traço vira tubo, não sólido extrudado
 
@@ -1232,20 +1232,41 @@ o que cada erro ensinou:
 | 4 | losango de novo | ponta afiada demais para a proporção |
 | 5 | a marca | perfil medido e ajustado numericamente |
 
-O que resolveu foi **medir** a silhueta em sete alturas e ajustar os pontos de
-controle contra essa tabela, em vez de continuar corrigindo por impressão. A
-tabela e os números finais estão no cabeçalho do arquivo.
+O que resolveu foi **medir** a silhueta e ajustar os pontos de controle contra
+essa tabela, em vez de continuar corrigindo por impressão. A tabela e os
+números finais estão no cabeçalho do arquivo.
 
 Duas coisas que só apareceram medindo:
 
-- **Existe um piso para a ponta.** Numa forma convexa com esta proporção
-  (largura 0,73 da altura), o triângulo que vai da ponta até a cintura já abre
-  34,7°. Nada convexo fecha menos. Pedir 27° obriga as laterais a ficarem
-  retas — daí o losango. A barriga e a ponta afiada disputam a mesma
-  proporção; 48° foi onde as duas couberam.
+- **Existe um piso para a ponta.** Numa forma convexa, o triângulo que vai da
+  ponta até a cintura já abre um ângulo mínimo — 29,7° na proporção atual.
+  Nada convexo fecha menos. Pedir menos que isso obriga as laterais a ficarem
+  retas: é exatamente o losango. Ponta afiada e lateral cheia disputam a mesma
+  proporção.
 - **O comprimento do braço de controle é que dá a barriga**, não a posição da
   ponta. Braço curto no ponto mais largo concentra a curvatura e aparece um
   vértice; longo demais deixa a lateral reta e vertical por um trecho grande.
+
+### Depois: fechar o botão
+
+A primeira versão aprovada tinha largura 0,727 da altura e lia como folha
+aberta. O símbolo é uma rosa **em botão**, e botão é estreito — a proporção
+caiu para 0,60.
+
+Só estreitar não bastava: o perfil também teve de ficar mais CHEIO em termos
+relativos. Botão fechado é largo por quase toda a altura e fecha apenas nas
+duas pontas; laterais magras, cheias só no meio, voltam a dar losango. Estreito
+**e** cheio é o que fecha a silhueta.
+
+A espiral mudou junto. Com o raio crescendo por igual ela é um caracol —
+voltas equidistantes, uma geometria. Pétalas não são assim: apertam no centro
+e abrem para fora. O raio passou a crescer com expoente 1,35, o que empilha as
+primeiras voltas no miolo e alarga as últimas. E o miolo cresceu para 76% da
+meia-largura: pétalas enroladas preenchem o botão, não flutuam dentro dele.
+
+Dois testes guardam essa intenção — um exige que a forma continue estreita, o
+outro que as voltas de fora cresçam ao menos 1,5 vez mais que as de dentro
+(com voltas uniformes a razão seria 1,0).
 
 ### Iluminação refeita para um objeto de traço fino
 
@@ -1265,9 +1286,11 @@ operadora vê no dia. Agora ele apenas se vira para a frente e para.
 
 ### Espessura do traço
 
-Na marca impressa o traço tem 3,6% da largura da folha. O tubo começou com
-7,6% e engordava a marca em mais do dobro; ficou em 3,8% — a diferença de
-0,2% é a licença que o volume pede para não sumir quando a peça vira de lado.
+Na marca impressa o traço tem ~4% da largura do botão. O tubo começou com 7,6%
+e engordava a marca em mais do dobro; ficou em 4,3% — a diferença é a licença
+que o volume pede para o traço não sumir quando a peça vira de lado. O valor
+acompanha a largura: ao estreitar o botão, o mesmo raio pesa mais e teve de
+encolher junto.
 
 ### A caixinha saiu
 
@@ -1304,8 +1327,8 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/src/caminho/Arquivo
 
 ## Estado ao final desta sessão
 
-- **842 testes passando**: 522 unitários (105 em `packages/shared`, 7 em
-  `apps/api`, 410 em `apps/pdv`), 181 de integração contra Postgres real, e 139
+- **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em
+  `apps/api`, 412 em `apps/pdv`), 181 de integração contra Postgres real, e 139
   E2E no Playwright. `tsc --strict` limpo nos quatro workspaces.
 - **As 11 fases da interface estão concluídas**: venda, catálogo visual,
   consulta de produto com prévia 3D, comprovante discreto, fechamento às
