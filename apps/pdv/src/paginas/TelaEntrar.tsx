@@ -125,10 +125,6 @@ export function TelaEntrar() {
           <div className="filete-ouro w-40" aria-hidden />
           {/* Pinyon Script vive SÓ aqui — nunca em texto corrido. */}
           <p className="assinatura text-[19px] text-ink-soft">by Regiane Carvalho</p>
-
-          {usar3d && (
-            <p className="mt-3 text-[12px] text-ink-faint">Arraste para girar</p>
-          )}
         </div>
       </section>
 

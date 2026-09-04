@@ -14,7 +14,6 @@ test.describe('cena 3D', () => {
   test('carrega a peça quando a máquina tem WebGL', async ({ page }) => {
     await page.goto('/entrar');
     await expect(page.locator('canvas')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText('Arraste para girar')).toBeVisible();
   });
 
   test('o formulário aparece e recebe foco ANTES da cena carregar', async ({ page }) => {
