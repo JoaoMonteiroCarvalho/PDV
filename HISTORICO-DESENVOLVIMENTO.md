@@ -1485,6 +1485,44 @@ vitrine de produto ou foto rotativa (o login precisa abrir instantâneo, e
 carrossel em balcão é ruído), frase do dia, e relógio correndo — a data
 bastaria, e um relógio vivo redesenha a tela para sempre sem dizer nada novo.
 
+### O cartão virou moldura com medalhão e ramo dourado
+
+A referência trazida pela loja: cartão emoldurado, logo num medalhão
+circular cavalgando a borda de cima, e um ramo botânico dourado descendo
+pela lateral direita.
+
+**O ramo é feito com a própria marca.** As folhas são o contorno do botão de
+rosa; as gavinhas são a espiral que vive dentro dele. Só os caules são traço
+novo, e existem para ligar as peças. Um ramo de banco de imagens ficaria
+bonito e não diria nada — assim o ornamento repete o símbolo sem repetir o
+logo: quem olha rápido vê "um ramo", quem olha duas vezes reconhece a rosa em
+cada folha.
+
+As folhas entram **comprimidas no eixo x** (0,58). O símbolo tem 0,70 de
+meia-largura para 1 de meia-altura, e nessa proporção, reduzido a 15px, ele
+lê como pétala gorda em vez de folha — foi assim na primeira tentativa e
+apareceu na hora. Isso não é distorcer a marca: o símbolo continua intacto no
+medalhão, no cabeçalho e na peça 3D. Aqui ele é a ORIGEM de um motivo
+decorativo, não uma aplicação do logo — a diferença entre citar uma forma e
+usar o logo espremido.
+
+Três decisões que a tela cobrou:
+
+- **O ramo sangra pela direita** (`preserveAspectRatio="xMaxYMid slice"`).
+  Enquadrado inteiro dentro do cartão ele vira figurinha colada no canto.
+- **Os campos param antes dele.** Na primeira versão uma gavinha encostava na
+  borda do campo de senha; campo passando por baixo do desenho fica ilegível
+  justo onde se digita. O ramo é fundo, e fundo não disputa espaço com
+  trabalho.
+- **O botão continua vinho, não ouro como na referência.** Nesta tela o ouro
+  é a cor do enfeite; se virasse também a cor do único botão, a ação deixaria
+  de se distinguir do ornamento — fora que texto branco sobre ouro dá 2,1:1.
+
+A assinatura dentro do cartão só aparece **abaixo de `lg`**. Em tela larga ela
+já está sob o wordmark, à esquerda, e o mesmo texto em script duas vezes na
+mesma tela é o tipo de duplicação que ninguém nota conscientemente mas que faz
+a composição parecer descuidada.
+
 ### Um teste pegou um problema de acessibilidade real
 
 O link do logo nasceu com `aria-label="RM Moda Íntima — ir para a venda"`, e o

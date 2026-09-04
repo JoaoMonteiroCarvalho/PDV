@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { Botao, Campo, Cartao, Erro } from '../componentes/base.js';
+import { OrnamentoFloral } from '../componentes/OrnamentoFloral.js';
 import { useSessao } from '../estado/sessaoStore.js';
 import { PalcoDaMarca } from '../tres/PalcoDaMarca.js';
 import { COR_MARCA, COR_MARCA_SOBRE_ESCURO } from '../tres/formaDaMarca.js';
@@ -141,91 +142,111 @@ export function TelaEntrar() {
           vazio com três campos no meio; com ele, o bloco tem peso e a tela
           passa a falar a mesma língua do resto.
         */}
-        <Cartao className="moldura-ouro w-full max-w-[390px] elevado-alto">
-          {/*
-            O cartão tem DUAS ZONAS, e o filete de ouro é a costura entre
-            elas: em cima quem recebe (a marca e o cumprimento), embaixo o
-            trabalho (os campos e o botão).
+        {/*
+          O cartão é uma moldura com MEDALHÃO no topo e um ramo dourado
+          descendo pela lateral direita.
 
-            Antes era um retângulo branco com três controles empilhados —
-            funcionava, mas não tinha arquitetura nenhuma. A divisão dá ao
-            cartão um alto e um baixo, e é isso que faz ele parecer desenhado
-            em vez de montado.
+          O medalhão fica metade fora do cartão, cavalgando a borda. Isso é o
+          que impede a tela de ser "formulário com logo em cima": a marca
+          entra na composição, não fica empilhada sobre ela.
 
-            O conteúdo fica com margem de 9px para encostar exatamente na
-            moldura de ouro, e não por baixo dela: assim a moldura vira a
-            borda das duas zonas, e não uma linha solta boiando sobre o
-            fundo tingido.
-          */}
-          <form onSubmit={handleSubmit(submeter)} className="m-[9px] overflow-hidden rounded-[7px]">
-            <div className="flex flex-col items-center gap-3 bg-accent-soft px-8 pt-7 pb-6 text-center">
+          O `relative` mora aqui, no invólucro, e não no cartão — o medalhão
+          precisa escapar do `overflow-hidden` que recorta o ramo.
+        */}
+        <div className="relative w-full max-w-[440px]">
+          <Cartao className="moldura-ouro elevado-alto overflow-hidden">
+            <div className="relative m-[9px] overflow-hidden rounded-[7px] bg-surface">
               {/*
-                O símbolo aqui é pequeno e serve de assinatura do cartão — a
-                peça grande continua sendo a do palco, à esquerda. Em telas
-                estreitas o palco some e este vira o único lugar onde a marca
-                aparece no login.
+                O ramo sangra pela direita: `slice` no `preserveAspectRatio`
+                faz o desenho encher a coluna e o excedente ser cortado pela
+                borda, como numa página impressa. Enquadrado inteiro dentro
+                do cartão ele viraria uma figurinha colada no canto.
               */}
-              <img
-                src="/marca/rm-icone-compacto-cor.svg"
-                alt=""
-                className="marca-clara size-10"
-              />
-              <img
-                src="/marca/rm-icone-compacto-branco.svg"
-                alt=""
-                className="marca-escura size-10"
-              />
+              <OrnamentoFloral className="pointer-events-none absolute inset-y-0 right-0 h-full w-[150px]" />
 
-              <div>
-                <h1 className="text-[30px] leading-none">{saudacao()}</h1>
-                <p className="mt-2 text-[14px] text-ink-soft">
-                  Identifique-se para abrir o caixa
+              <form onSubmit={handleSubmit(submeter)} className="relative px-9 pt-14 pb-9">
+                <header className="pr-[106px] text-center">
+                  <h1 className="text-[30px] leading-none">{saudacao()}</h1>
+                  <p className="mt-2 text-[14px] text-ink-soft">
+                    Identifique-se para abrir o caixa
+                  </p>
+                </header>
+
+                {/*
+                  Os controles param antes do ramo. Campo passando por baixo
+                  do desenho ficaria ilegível justo onde se digita — o ramo é
+                  fundo, e fundo não disputa espaço com trabalho.
+                */}
+                <div className="mt-7 flex flex-col gap-4 pr-[106px]">
+                  <Campo
+                    rotulo="Operadora"
+                    autoFocus
+                    autoComplete="username"
+                    erro={errors.login?.message}
+                    {...register('login')}
+                  />
+                  <Campo
+                    rotulo="Senha"
+                    type="password"
+                    autoComplete="current-password"
+                    erro={errors.senha?.message}
+                    {...register('senha')}
+                  />
+
+                  {erro && <Erro>{erro}</Erro>}
+
+                  {/*
+                    O botão continua VINHO, e não ouro como na referência.
+                    Ouro é a cor do enfeite nesta tela inteira; se ele virasse
+                    também a cor do único botão, a ação deixaria de se
+                    distinguir do ornamento. Fora que texto branco sobre ouro
+                    dá 2,1:1 e some.
+                  */}
+                  <Botao
+                    type="submit"
+                    variante="primario"
+                    tamanho="grande"
+                    disabled={entrando}
+                    className="mt-2 w-full"
+                  >
+                    {entrando ? 'Entrando…' : 'Entrar'}
+                  </Botao>
+                </div>
+
+                {/*
+                  A assinatura só aparece quando o palco NÃO está na tela.
+
+                  Em tela larga ela já está lá embaixo do wordmark, à
+                  esquerda, e repetir o mesmo texto em script duas vezes na
+                  mesma tela é o tipo de duplicação que ninguém nota
+                  conscientemente mas que faz a composição parecer descuidada.
+                  Abaixo de `lg` o palco some, e aí o cartão passa a ser o
+                  único lugar onde a marca assina.
+                */}
+                <p className="assinatura mt-8 pr-[106px] text-center text-[17px] text-ink-soft lg:hidden">
+                  by Regiane Carvalho
                 </p>
-              </div>
+              </form>
             </div>
+          </Cartao>
 
-            {/*
-              A costura entre as duas zonas.
-
-              Aqui o ouro é uma linha CHEIA, de ponta a ponta, e não o filete
-              que desvanece nas bordas como no resto do sistema. A diferença
-              tem motivo: lá fora o filete flutua no espaço e precisa das
-              pontas macias para não virar régua; aqui ele é limitado pela
-              moldura dos dois lados, e encostar nela é o que faz a divisão
-              parecer estrutura do cartão em vez de um traço largado no meio.
-            */}
-            <div className="h-px w-full bg-realce" aria-hidden />
-
-            <div className="flex flex-col gap-4 bg-surface px-8 pt-7 pb-8">
-              <Campo
-                rotulo="Operadora"
-                autoFocus
-                autoComplete="username"
-                erro={errors.login?.message}
-                {...register('login')}
-              />
-              <Campo
-                rotulo="Senha"
-                type="password"
-                autoComplete="current-password"
-                erro={errors.senha?.message}
-                {...register('senha')}
-              />
-
-              {erro && <Erro>{erro}</Erro>}
-
-              <Botao
-                type="submit"
-                variante="primario"
-                tamanho="grande"
-                disabled={entrando}
-                className="mt-2 w-full"
-              >
-                {entrando ? 'Entrando…' : 'Entrar'}
-              </Botao>
-            </div>
-          </form>
-        </Cartao>
+          {/*
+            Medalhão: círculo de superfície com aro de ouro, centrado na borda
+            de cima. `-translate-y-1/2` é o que o faz cavalgar a moldura em vez
+            de apoiar nela.
+          */}
+          <div
+            className="absolute top-0 left-1/2 grid size-[86px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-realce bg-surface elevado"
+            aria-hidden
+          >
+            <img src="/marca/rm-icone-compacto-cor.svg" alt="" className="marca-clara size-12" />
+            <img
+              src="/marca/rm-icone-compacto-branco.svg"
+              alt=""
+              className="marca-escura size-12"
+            />
+          </div>
+        </div>
       </section>
     </div>
   );
