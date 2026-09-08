@@ -9,7 +9,7 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { IndicadorConexao } from '../componentes/IndicadorConexao.js';
-import { Botao, cx } from '../componentes/base.js';
+import { Botao, Selo, cx } from '../componentes/base.js';
 import { useSessao } from '../estado/sessaoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
@@ -110,9 +110,19 @@ export function Shell() {
 
         <IndicadorConexao />
 
-        {sessaoCaixa && (
-          <span className="text-[13px] text-ink-faint">Caixa aberto</span>
-        )}
+        {/*
+          Estado do caixa como SELO, igual ao da conexão logo ao lado.
+
+          Os dois dizem a mesma classe de coisa — "em que condição o sistema
+          está agora" — e vinham em formatos diferentes: um era pílula com cor
+          e fundo, o outro texto solto e apagado. Quem olha a barra de estado
+          lê os dois de uma vez; formatos diferentes obrigam a ler duas vezes.
+
+          Tom NEUTRO, não verde. Verde é a cor de "deu certo", e o selo ao lado
+          já usa: dois verdes lado a lado se anulam. Caixa aberto não é sucesso,
+          é o modo em que a loja está — fato, não conquista.
+        */}
+        {sessaoCaixa && <Selo tom="neutro">Caixa aberto</Selo>}
 
         {operadora && (
           <>

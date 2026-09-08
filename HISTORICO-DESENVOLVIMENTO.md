@@ -1630,6 +1630,19 @@ mostrou que a hierarquia estava errada.
 
 ---
 
+## Barra de estado: "Caixa aberto" virou selo
+
+Na barra do topo, "Online" era uma pílula com cor e fundo e "Caixa aberto" era
+texto solto e apagado ao lado. Os dois dizem a mesma classe de coisa — em que
+condição o sistema está agora — e quem olha a barra lê os dois de uma vez;
+formatos diferentes obrigam a ler duas vezes.
+
+O tom é NEUTRO, não verde. Verde é a cor de "deu certo" e o selo da conexão já
+usa: dois verdes lado a lado se anulam. Caixa aberto não é sucesso, é o modo em
+que a loja está — fato, não conquista.
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em
