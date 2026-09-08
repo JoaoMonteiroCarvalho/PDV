@@ -1542,6 +1542,67 @@ identidade.
 
 ---
 
+## Atalho dos mais vendidos na tela de venda
+
+A tela de venda passava o dia com um retângulo enorme vazio e a frase "Pronto
+para vender". Esse espaço passou a trabalhar: as peças que mais saíram nos
+últimos 30 dias viram cards clicáveis, iguais aos do resultado de busca. A
+operadora lança a campeã do mês sem tocar no teclado.
+
+### O ranking é do servidor, mas mora no caixa
+
+Só o servidor conhece o histórico de vendas — mas a tela de venda é a que
+**não pode** depender de rede. A solução é o ranking ser buscado do servidor e
+guardado no banco local: com a internet caída, o atalho continua ali com a
+última lista conhecida. Uma lista de ontem é infinitamente melhor que uma tela
+vazia, e a consulta falha em silêncio.
+
+Revalida a cada 6 horas. Ranking de 30 dias não muda em uma hora, e reconsultar
+a cada abertura da tela transformaria o gesto mais repetido do dia numa chamada
+de rede.
+
+### Ranking de variante virou ranking de produto
+
+O servidor devolve o top 20 por **SKU**, ou seja, por tamanho e cor. Somar as
+linhas do mesmo produto é o que faz uma peça que vendeu 3 P + 3 M + 3 G ficar
+à frente de outra que vendeu 5 num tamanho só. Ranquear pelo SKU campeão diria
+o contrário — e diria errado, porque quem mais saiu da loja foi a primeira.
+
+Empate mantém a ordem que o servidor já deu. `Map` guarda ordem de inserção e
+o `sort` do JS é estável, então dois produtos empatados não trocam de lugar
+entre uma abertura e outra da tela — sem isso o atalho pareceria instável sem
+nada ter mudado na loja.
+
+### Um bug que apareceu ao escrever o teste, não ao usar
+
+O caixa recém-instalado sincroniza o catálogo em segundo plano, e o relatório
+pode chegar **antes** dele. Com o catálogo vazio, nenhum SKU do relatório
+encontra produto, o ranking sai vazio, e a primeira versão gravava esse vazio
+no cache — congelando o atalho pelas 6 horas seguintes. A operadora abriria o
+caixa de manhã e passaria o turno sem ele, sem nada explicando por quê.
+
+A correção distingue dois vazios que pareciam o mesmo:
+
+| situação | o que fazer |
+|---|---|
+| relatório sem nenhuma venda | gravar vazio — é resposta, e apaga ranking velho |
+| relatório com vendas, nenhuma mapeada | **não** gravar — é falta de catálogo |
+
+Falta de catálogo se resolve esperando, e a tela se cura sozinha: `VendaVazia`
+é montada por condição (`termo === ''`), então toda vez que a operadora digita
+e limpa a busca, o atalho tenta de novo. Há teste para os dois vazios,
+justamente porque um deles passaria por acidente se o outro estivesse errado.
+
+### O helper de data saiu de dentro da tela de relatórios
+
+`dataLocal` e `diasAtras` viviam soltos dentro de `TelaRelatorios.tsx`. O
+atalho precisa do mesmo recorte de dia (o servidor trata período como dia civil
+no fuso dele; mandar `toISOString()` faria a venda das 22h cair no relatório de
+amanhã). Duas cópias de uma regra de fuso é o tipo de coisa que só diverge
+quando alguém corrige uma delas — foram para `relatorios/periodo.ts`.
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em

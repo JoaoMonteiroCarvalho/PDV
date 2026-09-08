@@ -22,6 +22,7 @@ import { agruparPorProduto } from '../catalogo/grade.js';
 import { Botao, Campo, Erro, Selo } from '../componentes/base.js';
 import { CardProduto, LegendaGrade } from '../venda/CardProduto.js';
 import { PainelCarrinho } from '../venda/PainelCarrinho.js';
+import { VendaVazia } from '../venda/VendaVazia.js';
 import { ModalFinalizacao, type PlanoCrediario } from '../venda/ModalFinalizacao.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
@@ -225,7 +226,9 @@ export function TelaVenda() {
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {erroBusca && <Erro>{erroBusca}</Erro>}
 
-          {!erroBusca && termo.trim().length === 0 && <Vazio />}
+          {!erroBusca && termo.trim().length === 0 && (
+            <VendaVazia aoAdicionar={adicionarELimparBusca} />
+          )}
 
           {!erroBusca && termo.trim().length > 0 && produtos.length === 0 && !buscando && (
             <p className="py-10 text-center text-[14px] text-ink-faint">
@@ -264,20 +267,6 @@ export function TelaVenda() {
           aoConfirmar={confirmarVenda}
         />
       )}
-    </div>
-  );
-}
-
-function Vazio() {
-  return (
-    <div className="grid h-full place-items-center text-center">
-      <div className="max-w-[380px]">
-        <p className="font-titulo text-[17px] text-ink-soft">Pronto para vender</p>
-        <p className="mt-2 text-[14px] text-ink-faint">
-          Bipe o código de barras ou digite o nome da peça. A grade de tamanho e cor aparece no
-          próprio resultado — não precisa abrir cada variação.
-        </p>
-      </div>
     </div>
   );
 }

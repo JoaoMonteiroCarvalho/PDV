@@ -23,18 +23,7 @@ import {
   nomeDoArquivo,
   type ColunaCsv,
 } from '../relatorios/csv.js';
-
-/** `YYYY-MM-DD` local — o mesmo recorte de dia que o servidor usa. */
-function dataLocal(data: Date): string {
-  const dois = (valor: number) => String(valor).padStart(2, '0');
-  return `${data.getFullYear()}-${dois(data.getMonth() + 1)}-${dois(data.getDate())}`;
-}
-
-function diasAtras(dias: number): string {
-  const data = new Date();
-  data.setDate(data.getDate() - dias);
-  return dataLocal(data);
-}
+import { dataLocal, diasAtras } from '../relatorios/periodo.js';
 
 const NOME_DA_FORMA: Readonly<Record<string, string>> = {
   DINHEIRO: 'Dinheiro',
