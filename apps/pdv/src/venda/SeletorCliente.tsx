@@ -103,6 +103,7 @@ export function SeletorCliente({ escolhida, aoEscolher }: Props) {
     <div className="rounded-[8px] border border-line px-4 py-3">
       <Campo
         rotulo="Cliente do fiado"
+        deBusca
         placeholder="nome ou CPF"
         value={busca}
         onChange={(evento) => setBusca(evento.target.value)}

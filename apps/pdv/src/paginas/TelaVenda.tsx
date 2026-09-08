@@ -214,6 +214,7 @@ export function TelaVenda() {
             <Campo
               ref={campoBusca}
               rotulo="Buscar produto ou bipar código"
+              deBusca
               placeholder="nome, marca, cor, SKU ou código de barras"
               value={termo}
               onChange={(evento) => setTermo(evento.target.value)}

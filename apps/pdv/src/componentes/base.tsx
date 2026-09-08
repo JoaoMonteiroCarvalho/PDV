@@ -77,37 +77,75 @@ export interface PropsCampo extends InputHTMLAttributes<HTMLInputElement> {
   erro?: string | undefined;
   /** Preço, código, quantidade: alinha em coluna com largura tabular. */
   numerico?: boolean;
+  /**
+   * Marca o campo como de BUSCA: desenha a lupa dentro e recua o texto.
+   *
+   * É o único adorno que um campo ganha neste sistema, e existe porque a
+   * lupa responde de longe uma pergunta que o rótulo só responde lendo:
+   * "onde eu digito para achar?". Quem chega novo no balcão acha o campo
+   * sem procurar.
+   */
+  deBusca?: boolean;
+}
+
+/**
+ * Lupa. Desenhada aqui, não importada de biblioteca de ícones: é o único
+ * ícone do sistema, e trazer um pacote inteiro para dois traços custaria
+ * mais em bytes do que o desenho custa em linhas.
+ */
+function IconeLupa({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden focusable="false">
+      <circle cx="8.75" cy="8.75" r="5.25" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12.7 12.7 16.6 16.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 export const Campo = forwardRef<HTMLInputElement, PropsCampo>(function Campo(
-  { rotulo, erro, numerico, className, id, ...resto },
+  { rotulo, erro, numerico, deBusca, className, id, ...resto },
   ref,
 ) {
   const idCampo = id ?? resto.name;
   return (
     <label className="flex flex-col gap-1.5">
       {rotulo && <span className="text-[13px] text-ink-soft">{rotulo}</span>}
-      <input
-        ref={ref}
-        id={idCampo}
-        aria-invalid={erro ? true : undefined}
-        className={cx(
-          'h-12 rounded-[8px] border bg-surface px-4 text-[16px] text-ink',
-          'placeholder:text-ink-faint transition-colors duration-200',
-          numerico && 'num',
+      {/*
+        O invólucro existe só para a lupa ter onde se ancorar. Sem `deBusca`
+        ele não muda nada: o input continua ocupando a largura inteira.
+      */}
+      <div className="relative">
+        {deBusca && (
           /*
-           * Foco com anel, não só troca de borda: sobre o marfim uma borda de
-           * 1px mudando de cor é sutil demais para quem opera de pé e com
-           * pressa. O anel usa a mesma cor da borda, então não pisca.
-           */
-          erro
-            ? 'border-perigo focus:ring-2 focus:ring-perigo/30'
-            : 'border-line focus:border-accent focus:ring-2 focus:ring-accent/25',
-          'focus:outline-none',
-          className,
+            `pointer-events-none` é o que impede a lupa de roubar o clique.
+            Sem isso, clicar exatamente sobre ela não põe o cursor no campo —
+            e no balcão a operadora clica no campo com pressa, sem mirar.
+          */
+          <IconeLupa className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-ink-faint" />
         )}
-        {...resto}
-      />
+        <input
+          ref={ref}
+          id={idCampo}
+          aria-invalid={erro ? true : undefined}
+          className={cx(
+            'h-12 w-full rounded-[8px] border bg-surface text-[16px] text-ink',
+            deBusca ? 'pr-4 pl-11' : 'px-4',
+            'placeholder:text-ink-faint transition-colors duration-200',
+            numerico && 'num',
+            /*
+             * Foco com anel, não só troca de borda: sobre o marfim uma borda
+             * de 1px mudando de cor é sutil demais para quem opera de pé e
+             * com pressa. O anel usa a mesma cor da borda, então não pisca.
+             */
+            erro
+              ? 'border-perigo focus:ring-2 focus:ring-perigo/30'
+              : 'border-line focus:border-accent focus:ring-2 focus:ring-accent/25',
+            'focus:outline-none',
+            className,
+          )}
+          {...resto}
+        />
+      </div>
       {erro && <span className="text-[13px] text-perigo">{erro}</span>}
     </label>
   );

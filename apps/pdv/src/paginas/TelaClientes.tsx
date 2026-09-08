@@ -75,6 +75,7 @@ export function TelaClientes() {
       <div className="mt-5 max-w-md">
         <Campo
           rotulo="Buscar"
+          deBusca
           placeholder="nome ou CPF"
           value={busca}
           onChange={(evento) => setBusca(evento.target.value)}

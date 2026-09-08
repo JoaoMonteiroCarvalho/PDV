@@ -183,6 +183,7 @@ export function TelaCatalogo() {
         <div className="w-full max-w-sm">
           <Campo
             rotulo="Buscar"
+            deBusca
             placeholder="nome, marca, cor ou SKU"
             value={termo}
             onChange={(evento) => setTermo(evento.target.value)}

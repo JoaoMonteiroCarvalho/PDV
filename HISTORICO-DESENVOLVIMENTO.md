@@ -1669,6 +1669,36 @@ aparece forte demais no tema errado.
 
 ---
 
+## Lupa nos campos de busca
+
+O campo de busca da venda não tinha ícone. A lupa responde de longe uma
+pergunta que o rótulo só responde lendo — "onde eu digito para achar?" — e
+quem chega novo no balcão acha o campo sem procurar.
+
+Virou propriedade do primitivo `Campo` (`deBusca`), e foi aplicada aos
+**cinco** campos de busca do sistema: venda, catálogo, clientes, filtro do
+estoque e busca de cliente no fiado. Pôr só no da venda criaria uma
+inconsistência nova onde não havia nenhuma.
+
+Três decisões pequenas que evitam problema:
+
+- **O nome da propriedade é `deBusca`, não `busca`.** No `SeletorCliente`
+  existe uma variável de estado chamada `busca` com o termo digitado, e
+  `<Campo busca value={busca}>` engana quem lê — a primeira parece referência
+  à segunda, mas em JSX é `busca={true}`.
+- **`pointer-events-none` na lupa.** Sem isso, clicar exatamente sobre ela não
+  põe o cursor no campo, e no balcão a operadora clica com pressa, sem mirar.
+- **O ícone é desenhado à mão**, não importado de biblioteca. É o único ícone
+  do sistema; trazer um pacote inteiro para dois traços custaria mais em bytes
+  do que o desenho custa em linhas.
+
+Escolhi lupa e não código de barras. O rótulo já diz "bipar código" e o
+placeholder lista "código de barras", então a leitura do scanner está coberta
+em palavras; a lupa é convenção universal e não precisa ser aprendida, que é
+justamente o que se quer de um ícone numa tela usada com pressa.
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em

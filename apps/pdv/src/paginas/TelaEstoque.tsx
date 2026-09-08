@@ -359,6 +359,7 @@ function ListaDeEstoque({ catalogo }: { catalogo: ItemCatalogo[] }) {
         <div className="w-full max-w-xs">
           <Campo
             rotulo="Filtrar"
+            deBusca
             placeholder="nome ou SKU"
             value={termo}
             onChange={(evento) => setTermo(evento.target.value)}
