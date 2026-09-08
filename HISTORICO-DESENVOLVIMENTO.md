@@ -1603,6 +1603,33 @@ quando alguém corrige uma delas — foram para `relatorios/periodo.ts`.
 
 ---
 
+## A costura de ouro no carrinho, e o que ela denunciou
+
+O rodapé do carrinho tem a mesma estrutura de duas zonas do cartão de login —
+a conta em cima, o resultado embaixo — mas sem nada separando. A ideia era pôr
+ali o mesmo filete de ouro.
+
+Posto entre "Subtotal" e "Total", ele expôs um problema **anterior** a ele:
+sem desconto os dois são o mesmo número, e a linha de ouro ficou separando
+`R$ 279,80` de `R$ 279,80`. Passava despercebido enquanto os dois blocos eram
+uma pilha só; bastou uma linha entre eles para o absurdo ficar visível.
+
+Duas correções saíram disso:
+
+- **Subtotal só aparece quando há desconto**, porque só aí ele é um número
+  diferente do total. (Vale notar: `aplicarDesconto` existe no store, mas
+  nenhuma tela chama — na prática a linha era sempre redundante.)
+- **A costura mudou de lugar.** Foi para o topo do rodapé, onde já havia uma
+  divisão desenhada em cinza neutro: em cima a lista, que se LÊ; embaixo o
+  total e as ações, que se USAM. Não acrescenta elemento nenhum à tela — dá
+  cor de marca a uma linha que já estava lá, e emoldura o número que a cliente
+  pergunta.
+
+É o caso em que o enfeite prestou serviço: ele não melhorou a hierarquia, ele
+mostrou que a hierarquia estava errada.
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em

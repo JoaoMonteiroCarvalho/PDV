@@ -70,24 +70,41 @@ export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-line px-5 py-4">
+      {/*
+        A COSTURA do painel, em ouro — o mesmo recurso que divide as duas
+        zonas do cartão de login. Em cima a lista, que se LÊ; embaixo o total e
+        as ações, que se USAM.
+
+        A divisão já existia, desenhada em cinza neutro. Trocá-la pelo ouro não
+        acrescenta elemento nenhum à tela: dá cor de marca a uma linha que já
+        estava lá, e emoldura o número que a cliente pergunta.
+      */}
+      <footer className="shrink-0 border-t border-realce px-5 py-4">
         {calculo?.ok === false && <Erro>{calculo.mensagem}</Erro>}
 
-        {calculo?.ok && (
+        {/*
+          Subtotal só aparece quando há desconto, porque só aí ele é um número
+          DIFERENTE do total.
+
+          Antes ele vinha sempre, e sem desconto a tela mostrava "R$ 279,80"
+          duas vezes, uma embaixo da outra. Passava despercebido enquanto os
+          dois blocos eram uma pilha só; assim que entrou uma linha separando
+          um do outro, ficou evidente que a linha separava um número dele
+          mesmo. O ruído era antigo — a costura só o denunciou.
+        */}
+        {calculo?.ok && calculo.venda.descontoCentavos > 0 && (
           <dl className="mb-3 space-y-1 text-[14px]">
             <Linha rotulo="Subtotal" valor={calculo.venda.subtotalCentavos} />
-            {calculo.venda.descontoCentavos > 0 && (
-              <Linha rotulo="Desconto" valor={-calculo.venda.descontoCentavos} tom="alerta" />
-            )}
+            <Linha rotulo="Desconto" valor={-calculo.venda.descontoCentavos} tom="alerta" />
           </dl>
         )}
 
         <div className="mb-4 flex items-baseline justify-between">
           <span className="text-[14px] text-ink-soft">Total</span>
           {/*
-            O total repete o subtotal quando não há desconto, então "R$ 89,90"
-            aparece três vezes no painel. O testid marca qual deles é O total —
-            o número que a cliente pergunta.
+            O testid marca qual número é O total. Ainda faz falta: o preço
+            unitário de uma peça só no carrinho tem o mesmo valor, e com
+            desconto o subtotal também aparece logo acima.
           */}
           <span
             data-testid="total-venda"
