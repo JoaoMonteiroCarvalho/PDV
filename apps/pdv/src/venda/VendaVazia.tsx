@@ -20,6 +20,7 @@ import { bancoLocal, type ItemCatalogo } from '../banco/local.js';
 import { atualizarMaisVendidos, lerMaisVendidos } from '../catalogo/maisVendidos.js';
 import type { ProdutoAgrupado } from '../catalogo/grade.js';
 import { CardProduto, LegendaGrade } from './CardProduto.js';
+import { MarcaDagua } from '../componentes/MarcaDagua.js';
 
 export function VendaVazia({
   aoAdicionar,
@@ -51,8 +52,28 @@ export function VendaVazia({
 
   if (populares.length === 0) {
     return (
-      <div className="grid h-full place-items-center text-center">
-        <div className="max-w-[380px]">
+      <div className="relative grid h-full place-items-center text-center">
+        {/*
+          A rosa em marca d'água atrás do texto.
+
+          Opacidade baixíssima de propósito: ela precisa tirar a cara de "tela
+          em branco" sem disputar com a frase que está por cima. Se der para
+          ler o contorno antes de ler o texto, está forte demais.
+
+          DESLOCADA PARA BAIXO, e isso não é ajuste de gosto. Centrada, a
+          espiral — que é a parte densa do desenho — caía bem atrás do texto, e
+          onde uma letra cruzava o traço o contraste do texto secundário descia
+          de 3,6:1 para ~3,2:1. Num token que já é o mais fraco da paleta, isso
+          é caro. Empurrada para 60%, o texto passa a ficar sobre o afunilamento
+          de cima do botão, que é vazio, e a espiral fica logo abaixo dele.
+
+          Só entra AQUI, no vazio de verdade. Com o atalho de mais vendidos na
+          tela, os cards são opacos e a marca apareceria picotada nos vãos
+          entre eles — pior que não ter.
+        */}
+        <MarcaDagua className="pointer-events-none absolute top-[60%] left-1/2 h-[62%] max-h-[440px] -translate-x-1/2 -translate-y-1/2 text-accent opacity-[0.07]" />
+
+        <div className="relative max-w-[380px]">
           <p className="font-titulo text-[17px] text-ink-soft">Pronto para vender</p>
           <p className="mt-2 text-[14px] text-ink-faint">
             Bipe o código de barras ou digite o nome da peça. A grade de tamanho e cor aparece no

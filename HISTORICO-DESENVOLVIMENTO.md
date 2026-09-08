@@ -1643,6 +1643,32 @@ que a loja está — fato, não conquista.
 
 ---
 
+## Marca d'água na área de busca vazia
+
+A área de busca sem nada digitado não tinha identidade nenhuma — texto cinza
+no meio de um retângulo. Entrou a rosa em marca d'água, com as mesmas curvas
+do símbolo oficial, sem reinterpretação: mesmo raciocínio do ramo do login,
+usar a própria marca em vez de enfeite genérico.
+
+**A posição não é ajuste de gosto.** Centrada, a espiral — a parte densa do
+desenho — caía exatamente atrás do texto, e onde uma letra cruzava o traço o
+contraste do texto secundário descia de 3,6:1 para ~3,2:1. Num token que já é
+o mais fraco da paleta, isso é caro. Empurrada para 60% da altura, o texto
+passa a ficar sobre o afunilamento de cima do botão, que é vazio, e a espiral
+fica logo abaixo dele.
+
+Só entra no vazio DE VERDADE. Com o atalho de mais vendidos na tela, os cards
+são opacos e a marca apareceria picotada nos vãos entre eles — pior que não
+ter. Vale registrar a consequência: agora que o atalho existe, este estado é
+raro numa loja que vende, então a marca d'água é embelezamento de exceção, não
+a visão principal da tela.
+
+O componente não define cor nem opacidade — o traço sai em `currentColor` e
+quem usa decide as duas coisas. Uma marca d'água que se pinta sozinha é a que
+aparece forte demais no tema errado.
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em
