@@ -1699,6 +1699,50 @@ justamente o que se quer de um ícone numa tela usada com pressa.
 
 ---
 
+## A prévia 3D do catálogo estava invisível — e o teste passava
+
+Ao olhar a tela de catálogo para sugerir ajustes visuais, todos os oito cards
+mostravam o retângulo do slot **vazio**. Nenhum erro no console, o canvas
+existia (contagem 1), e o teste E2E "cada card tem prévia 3D, servida por UM
+canvas só" estava verde.
+
+### A causa
+
+```
+class="pointer-events-none fixed inset-0 z-10"      ← o que o código pedia
+style="position: relative; pointer-events: auto"    ← o que o R3F grava inline
+```
+
+O `<Canvas>` do react-three-fiber escreve `position: relative` e
+`pointer-events: auto` **inline** no container, e estilo inline vence classe.
+As utilidades do Tailwind eram descartadas em silêncio: o canvas caía no fluxo
+normal, 950 px abaixo da grade, e desenhava as peças fora da vista. A posição
+importa porque é dela que o `View` do drei tira o recorte de cada viewport —
+fora da origem da janela, tudo sai torto.
+
+A correção é passar posição, `inset`, `pointer-events` e `z-index` pelo
+**`style`**, que o R3F mescla DEPOIS dos padrões dele.
+
+### Verificado o que a correção poderia quebrar
+
+Com o canvas fixo em `z-10` e o cabeçalho sem `z-index`, a suspeita era de que
+uma peça vazasse por cima da barra ao rolar. Testado no pior caso — slot com
+metade da altura escondida sob o cabeçalho — e não vaza: o `View` recorta
+corretamente. Nenhuma mudança de `z-index` foi necessária.
+
+### O teste que dava falsa confiança
+
+Contar canvas não bastava, e não é hipótese: o teste passou verde durante todo
+o tempo em que a prévia esteve invisível. Ele ganhou a asserção que faltava —
+o container precisa ser `fixed`, na origem, cobrindo a janela e sem receber
+ponteiro.
+
+Antes de aceitar o teste, a correção foi revertida por um instante para
+confirmar que ele FALHA sem ela: `Expected: "fixed" / Received: "relative"`.
+Teste que não se viu falhar não é teste, é decoração.
+
+---
+
 ## Estado ao final desta sessão
 
 - **844 testes passando**: 524 unitários (105 em `packages/shared`, 7 em

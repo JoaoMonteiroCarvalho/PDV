@@ -60,6 +60,43 @@ test.describe('catálogo visual', () => {
     expect(await cards.count()).toBeGreaterThan(1);
 
     await expect(page.locator('canvas')).toHaveCount(1, { timeout: 20_000 });
+
+    /*
+     * E o canvas precisa estar FIXO cobrindo a janela.
+     *
+     * Contar canvas não bastava, e isso não é hipótese: durante meses este
+     * teste passou verde com a prévia completamente invisível. O `<Canvas>`
+     * do react-three-fiber grava `position: relative` inline no container, e
+     * estilo inline vence classe — as utilidades do Tailwind eram descartadas
+     * em silêncio, o canvas caía no fluxo normal embaixo da grade e desenhava
+     * as peças fora da vista. Um canvas existia; ele só não estava em lugar
+     * nenhum útil.
+     *
+     * A posição é o que o `View` do drei usa para recortar cada viewport no
+     * retângulo do card. Fora da origem da janela, tudo é desenhado torto.
+     */
+    const moldura = await page.evaluate(() => {
+      const container = document.querySelector('canvas')?.parentElement?.parentElement;
+      if (!container) return null;
+      const estilo = getComputedStyle(container);
+      const retangulo = container.getBoundingClientRect();
+      return {
+        posicao: estilo.position,
+        ponteiro: estilo.pointerEvents,
+        x: retangulo.x,
+        y: retangulo.y,
+        cobreJanela:
+          retangulo.width >= window.innerWidth && retangulo.height >= window.innerHeight,
+      };
+    });
+
+    expect(moldura).not.toBeNull();
+    expect(moldura!.posicao).toBe('fixed');
+    expect(moldura!.x).toBe(0);
+    expect(moldura!.y).toBe(0);
+    expect(moldura!.cobreJanela).toBe(true);
+    // Sem isto o canvas cobriria a tela inteira e engoliria o clique nos cards.
+    expect(moldura!.ponteiro).toBe('none');
   });
 
   test('a prévia de cada card é descrita para leitor de tela', async ({ page }) => {

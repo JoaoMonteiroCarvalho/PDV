@@ -84,8 +84,19 @@ export default function CenaCatalogo({ alvos }: { alvos: readonly AlvoPrevia[] }
         transparente fora dos retângulos dos cards, então o texto e os preços
         continuam legíveis por baixo dele; e como não recebe ponteiro, o clique
         atravessa e chega no link do card.
+
+        ISTO PRECISA VIR POR `style`, NÃO POR CLASSE — e a diferença já custou
+        a funcionalidade inteira. O `<Canvas>` do react-three-fiber escreve
+        `position: relative` e `pointer-events: auto` INLINE no container, e
+        estilo inline vence classe. Com as utilidades do Tailwind aqui, o
+        `fixed` era silenciosamente descartado: o canvas caía no fluxo normal,
+        embaixo da grade, e desenhava as peças 950 px fora da vista. Nenhum
+        erro no console, o teste de "existe um canvas só" passando, e todo
+        card com o retângulo vazio.
+
+        O `style` do R3F é mesclado DEPOIS dos padrões dele, então o que
+        estiver aqui manda.
       */
-      className="pointer-events-none fixed inset-0 z-10"
       frameloop={precisaDesenhar ? 'always' : 'demand'}
       dpr={[1, 1.25]}
       camera={{ position: [0, 1.1, 5.6], fov: 30 }}
@@ -96,7 +107,14 @@ export default function CenaCatalogo({ alvos }: { alvos: readonly AlvoPrevia[] }
         custo, sim.
       */
       gl={{ antialias: false, alpha: true, powerPreference: 'low-power' }}
-      style={{ width: '100vw', height: '100vh' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        pointerEvents: 'none',
+        zIndex: 10,
+      }}
     >
       <RedesenharAoRolar />
 
