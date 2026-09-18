@@ -1,32 +1,32 @@
-# PDV — moda íntima
+# PDV — ponto de venda web, offline-first
 
-Ponto de venda web, offline-first, para loja de moda íntima com roupa feminina,
-pijama, moda praia, perfumaria e sexshop.
+Sistema de ponto de venda para varejo físico, construído para continuar
+vendendo com a internet fora do ar e para tratar dinheiro com o rigor que
+sistema financeiro exige.
+
+O domínio é varejo de vestuário: catálogo grande, produto com grade de
+tamanho × cor, crediário próprio, sessão de caixa com sangria e fechamento.
+Nada aqui é genérico por acidente — cada decisão abaixo resolve um problema
+concreto de balcão.
 
 **Esta versão não emite documento fiscal.** Imprime comprovante de venda **não
-fiscal**. O módulo fiscal está preparado no schema (campos nuláveis) e desligado
-por configuração — nenhum cálculo de venda depende dele.
+fiscal**. O módulo fiscal está preparado no schema (campos nuláveis) e
+desligado por configuração — nenhum cálculo de venda depende dele.
 
-## Contexto operacional
+## Premissas do projeto
 
 | Item | Definição |
 |---|---|
-| Caixas simultâneos | 1 |
 | SKUs | mais de 10.000 (tamanho × cor conta como SKU) |
 | Internet | estável — offline é rede de segurança, não modo padrão |
 | Cartão | maquininha **separada**, sem integração com o PDV |
-| Impressora | ainda não adquirida — comprovante 80mm via impressão do navegador |
-| Regime tributário | **a definir com o contador** |
-| Operações v1 | crediário/fiado, desconto com alçada, sessão de caixa |
+| Impressora | comprovante 80mm via impressão do navegador |
+| Operações | crediário, desconto com alçada, sessão de caixa, devolução parcial |
 
-### Pendências de negócio
-
-- **Regime tributário indefinido.** Não bloqueia nada nesta versão. Os campos
-  fiscais (`ncm`, `cest`, `origem`, `situacaoTributaria`) existem, são nuláveis
-  e não são lidos. `situacaoTributaria` é string livre de propósito: serve para
-  CSOSN (Simples Nacional) ou CST (Lucro Presumido) sem exigir remodelagem.
-  **Nenhuma premissa fiscal foi inventada.**
-- **UF não informada.** Só será necessária quando a NFC-e for ligada.
+Os campos fiscais (`ncm`, `cest`, `origem`, `situacaoTributaria`) existem, são
+nuláveis e não são lidos. `situacaoTributaria` é string livre de propósito:
+serve para CSOSN (Simples Nacional) ou CST (Lucro Presumido) sem exigir
+remodelagem. **Nenhuma premissa fiscal foi inventada.**
 
 ## Stack
 
@@ -34,8 +34,8 @@ por configuração — nenhum cálculo de venda depende dele.
 - **Backend:** Node.js + Fastify + TypeScript, REST validada com Zod
 - **Banco:** PostgreSQL + Prisma, migrations versionadas
 - **Estado do caixa:** IndexedDB via Dexie.js
-- **Testes:** Vitest (unitário) + Playwright (E2E do fluxo de venda)
-- **Empacotamento:** Docker Compose
+- **Testes:** Vitest (unitário e integração) + Playwright (E2E)
+- **Infra local:** Postgres em container via Docker Compose
 
 ## Decisões de engenharia
 
@@ -65,7 +65,8 @@ instala triggers que rejeitam `UPDATE` e `DELETE` em `Venda`, `ItemVenda`,
 script rodado direto no `psql` também é barrado.
 
 A mesma migration adiciona *checks* que impedem venda com total incoerente
-(`total = subtotal - desconto`) chegar ao banco.
+(`total = subtotal - desconto`) chegar ao banco. Um bug de cálculo que
+escapasse dos testes falharia ao tentar persistir.
 
 ### Estoque é livro-razão
 
@@ -76,23 +77,48 @@ custo unitário e referência ao documento que o originou.
 ### Catálogo com variantes
 
 `Produto` é o item comercial; `Variante` é o que tem preço, código de barras e
-estoque. Lingerie e pijama têm várias variantes (tamanho × cor); perfume e item
-de sexshop têm uma só. O caixa sempre vende uma `Variante` — sem tabelas
+estoque. Peças de vestuário têm várias variantes (tamanho × cor); acessórios e
+itens avulsos têm uma só. O caixa sempre vende uma `Variante` — sem tabelas
 paralelas por tipo de produto.
 
 `Variante.atualizadoEm` é indexado porque, com mais de 10 mil SKUs, a
 sincronização precisa ser incremental (só o que mudou), nunca catálogo inteiro.
 
-### Segredos
+### Autorização de gerente é um token assinado, não um identificador
 
-Nada de credencial no código. Tudo em `.env`, que é ignorado pelo git.
-`.env.example` documenta cada variável.
+Operações sensíveis — devolução, sangria, suprimento, desconto acima da alçada
+— exigem que um gerente libere na hora. O desenho ingênuo (e a primeira versão
+deste projeto) autentica o gerente numa telinha e envia o **id** dele junto da
+operação. Isso não prova nada: qualquer operador autenticado pode montar a
+requisição à mão com o id de um gerente e registrar uma devolução
+"autorizada" sem que ninguém tenha digitado senha.
+
+A versão atual emite, em `POST /sessao/autorizar`, um JWT assinado de vida
+curta. Quem autorizou é lido **da assinatura**, nunca do corpo da requisição —
+forjar exige o segredo do servidor. Um campo `tipo` separa token de sessão de
+token de autorização nos dois sentidos: o token de 12 h do gerente não vira
+liberação permanente, e o token de autorização não navega o sistema.
+
+A venda aceita token expirado **de propósito**: ela fecha offline e pode subir
+horas depois, e recusar pelo prazo descartaria venda já paga e impressa. O que
+impede forjar é a assinatura, não o prazo.
+
+### Segredos e superfície de ataque
+
+Nada de credencial no código. Tudo em `.env`, ignorado pelo git;
+`.env.example` documenta cada variável. Senha com scrypt da biblioteca padrão
+(sem dependência nativa, que seria atrito num PC de loja), comparação em tempo
+constante e mensagem única para login inexistente e senha errada — não se
+entrega ao atacante quais logins existem.
+
+CORS com allowlist explícita (`ORIGENS_PERMITIDAS`) e rate limit global, bem
+mais apertado nas rotas que recebem senha.
 
 ## Rodando
 
 ```bash
 npm install
-cp .env.example .env         # POSTGRES_PASSWORD, JWT_SEGREDO e as duas DATABASE_URL
+cp .env.example .env         # POSTGRES_PASSWORD, JWT_SEGREDO e as DATABASE_URL
 npm run db:up                # Postgres em container
 npm run db:migrate           # migrations do banco de desenvolvimento
 npm run db:migrate:teste     # migrations do banco de teste
@@ -103,108 +129,71 @@ npm run dev -w @pdv/caixa    # Caixa -> http://localhost:5173
 
 npm test                     # unitarios (nao precisam de banco)
 npm run test:integracao      # contra o Postgres real
+npm run test:e2e             # Playwright
 ```
 
 Usuarios do seed (**apenas desenvolvimento**): `ana`/`caixa123` (operadora, ate
 5% de desconto), `bia`/`gerente123` (gerente), `admin`/`admin123`.
 
-O seed imprime o id da sessao de caixa aberta. Cole no console do navegador uma
-vez, ate a tela de abertura de caixa existir:
-`localStorage.setItem('pdv.sessaoCaixaId', '<id>')`.
-
 > **Porta 5433, nao 5432.** E comum a maquina ja ter um PostgreSQL nativo na
 > 5432. Com os dois na mesma porta, quem atende vira loteria e o sintoma e
 > "authentication failed" intermitente.
 
-> **Dois bancos.** `pdv` para desenvolvimento, `pdv_teste` para os testes de
-> integracao, que dao TRUNCATE em tudo a cada caso.
+> **Bancos separados.** `pdv` para desenvolvimento, `pdv_teste` para os testes
+> de integracao (que dao TRUNCATE a cada caso) e `pdv_e2e` para o Playwright.
 
 ## O caixa (PWA)
 
-Instalavel, roda em tela cheia. Continua vendendo com a internet caida:
+Instalável, roda em tela cheia. Continua vendendo com a internet caída:
 
-- **Catalogo em IndexedDB**, sincronizado por paginacao de chave. Depois da
-  primeira carga, so baixa o que mudou — com +10 mil SKUs, carga completa a
+- **Catálogo em IndexedDB**, sincronizado por paginação de chave. Depois da
+  primeira carga, só baixa o que mudou — com +10 mil SKUs, carga completa a
   cada 10 minutos deixaria o caixa lento na hora do movimento.
-- **Busca local** por codigo de barras, SKU ou texto, sem acento e conjuntiva
-  ("renda preto" nao traz tudo que e renda mais tudo que e preto). Os tokens
-  sao calculados na gravacao, nao a cada tecla.
+- **Busca local** por código de barras, SKU ou texto, sem acento e conjuntiva
+  ("renda preto" não traz tudo que é renda mais tudo que é preto). Os tokens
+  são calculados na gravação, não a cada tecla.
 - **Venda gravada localmente primeiro**, com UUID gerado no cliente antes de
-  qualquer rede, e enfileirada para envio.
-- **Fila com espera exponencial e jitter**. Erro transitorio (offline, 5xx,
-  timeout, token expirado) retenta; recusa por regra de negocio (4xx) vira
-  pendencia VISIVEL, nunca descarte silencioso — a venda existe no mundo real.
+  qualquer rede, e enfileirada para envio. Esse UUID é a chave de idempotência:
+  o mesmo envio repetido nunca gera duas vendas.
+- **Fila com espera exponencial e jitter**. Erro transitório (offline, 5xx,
+  timeout, token expirado) retenta; recusa por regra de negócio (4xx) vira
+  pendência VISÍVEL, nunca descarte silencioso — a venda existe no mundo real.
 - **Indicador de status** permanente: online/offline, quantas vendas aguardam
-  sincronizacao, quantas travaram, quantos produtos ha no caixa.
+  sincronização, quantas travaram, quantos produtos há no caixa.
 - **Comprovante 80mm** impresso localmente, sempre, sem depender de resposta do
   servidor.
 
-### O mesmo calculo nos dois lados
+### O mesmo cálculo nos dois lados
 
-`calcularVenda` vive em `packages/shared` e e executado **identico** no caixa e
-no servidor. Se o caixa tivesse a propria conta de rateio de desconto, o total
-impresso no comprovante poderia divergir do gravado no banco, e a loja so
+`calcularVenda` vive em `packages/shared` e é executado **idêntico** no caixa e
+no servidor. Se o caixa tivesse a própria conta de rateio de desconto, o total
+impresso no comprovante poderia divergir do gravado no banco, e a loja só
 descobriria no fechamento.
 
 ## Abertura, sangria e fechamento de caixa
 
-O `localStorage.setItem('pdv.sessaoCaixaId', ...)` manual saiu do fluxo.
-Agora, ao abrir o caixa:
-
 1. **Primeiro acesso no computador**: a tela pede o ID do terminal (uma vez
-   so, fica salvo local).
-2. **Sem sessao aberta nesse terminal**: tela de abertura — define o fundo de
+   só, fica salvo local).
+2. **Sem sessão aberta nesse terminal**: tela de abertura — define o fundo de
    troco e chama `POST /sessoes-caixa`.
-3. **Com sessao aberta**: tela de caixa aberto, com sangria, suprimento e
+3. **Com sessão aberta**: tela de caixa aberto, com sangria, suprimento e
    fechamento.
 
-**Sangria e suprimento nao tem alcada de valor** — ao contrario do desconto de
-venda, que o operador concede sozinho ate um limite. Toda sangria, mesmo de
-R$ 1,00, exige que um GERENTE se autentique ali na hora (login e senha
-proprios, sem trocar a sessao do operador que esta vendendo). E o ponto
-classico de fraude interna que a auditoria cobre sem excecao.
+**Sangria e suprimento não têm alçada de valor** — ao contrário do desconto de
+venda, que o operador concede sozinho até um limite. Toda sangria, mesmo de
+R$ 1,00, exige que um gerente se autentique ali na hora, sem trocar a sessão do
+operador que está vendendo. É o ponto clássico de fraude interna que a
+auditoria cobre sem exceção.
 
-**O fechamento nunca e bloqueado por divergencia.** A loja precisa poder
-encerrar o caixa fisico mesmo que a gaveta nao bata — mas a diferenca vira
+**O fechamento nunca é bloqueado por divergência.** A loja precisa poder
+encerrar o caixa físico mesmo que a gaveta não bata — mas a diferença vira
 `RegistroAuditoria` sempre que for diferente de zero.
 
-## Testes de ponta a ponta (Playwright)
+## Devolução
 
-Cobrem o fluxo real, clicando na tela — não só chamando funções isoladas:
-
-```bash
-npm run test:e2e          # roda toda a suíte E2E (Chromium)
-npm run test -w @pdv/e2e -- --ui     # modo interativo
-```
-
-Rodam contra um **quarto banco**, `pdv_e2e`, exclusivo deles: o `globalSetup`
-recria e semeia esse banco do zero a cada execução (`e2e/seed-e2e.ts`), então
-os testes nunca dependem de estado deixado por uma rodada anterior. A API e o
-PWA sobem em portas próprias (3334/5174), diferentes das de desenvolvimento
-(3333/5173) — dá para rodar o E2E com `npm run dev` já aberto.
-
-**O E2E encontrou um bug real de produção**, não só validou o que já estava
-certo: `saldoAPagar` comparava o total da venda contra o valor BRUTO recebido
-em dinheiro, sem descontar o troco. Pagar R$ 100,00 por uma venda de R$ 89,90
-gera R$ 10,10 de troco — o saldo ficava em `-10,10` (nunca zero) e o botão
-"Finalizar e imprimir", que exige saldo exato, nunca habilitava. Nenhum teste
-unitário cobria pagamento em dinheiro com troco; o E2E, ao clicar de verdade
-nos botões, expôs a composição errada entre `saldoAPagar` e `calcularTroco`.
-Corrigido para usar o líquido (recebido − troco), com dois testes unitários
-novos cobrindo exatamente esse caso.
-
-**Também revelou uma navegação impossível na UI**: o botão "Caixa" (para
-voltar da venda e conferir/fechar o caixa) levava a uma tela que detectava a
-sessão já aberta e pulava de volta para a venda no mesmo instante — a tela de
-sangria/fechamento nunca chegava a aparecer. Corrigido distinguindo, no
-`App.tsx`, "acabei de entrar, pule para a venda se já houver sessão" de
-"cliquei em Caixa de propósito, quero ver a gestão mesmo com sessão aberta".
-
-## Cancelamento / devolução
-
-Devolução é **por item, com quantidade parcial** — o caso real de moda íntima:
+Devolução é **por item, com quantidade parcial** — o caso real do balcão:
 cliente compra 3 peças, devolve 1. A venda original **nunca é alterada**; o
-banco impede fisicamente qualquer `UPDATE` nela (e agora também em
+banco impede fisicamente qualquer `UPDATE` nela (e também em
 `ItemCancelamento`, que entra no mesmo regime de imutabilidade).
 
 Isso exigiu remodelar o schema: `Cancelamento` deixou de ser 1:1 com `Venda`
@@ -214,10 +203,6 @@ um documento — uma venda pode ter várias devoluções ao longo do tempo, e
 Nenhuma devolução consegue ultrapassar o disponível (vendido − já devolvido
 antes), verificado tanto pelo serviço quanto pela view `DevolucaoPorItem`.
 
-**Devolução exige gerente, sem alçada de valor** — mesma disciplina de
-sangria/suprimento: mesmo devolver R$ 5,00 exige login e senha de um GERENTE
-digitados na hora, sem trocar a sessão do operador que está atendendo.
-
 **A forma de estorno decide o que acontece no caixa**: dinheiro e PIX saem da
 gaveta na hora (`MovimentoCaixa` negativo); cartão não pode ser estornado
 automaticamente — a maquininha opera separada do PDV — e vira só um registro
@@ -226,48 +211,73 @@ informativo; vale-troca não mexe em caixa nenhum.
 **Localização da venda**: o operador digita o número impresso no comprovante,
 ou o código curto do UUID quando a venda ainda está na fila offline (o número
 sequencial só existe depois que o servidor confirma — o código de 8
-caracteres é impresso sempre, mesmo sem rede). Também dá para localizar sem
-digitar nada: veja Histórico de vendas abaixo.
+caracteres é impresso sempre, mesmo sem rede).
 
 ## Histórico de vendas
 
-Resolve o caso em que o operador não tem o comprovante em mãos (cliente sem
-nota, nota rasgada ou perdida). `GET /vendas` lista as vendas **da sessão de
-caixa atual** — não mistura turnos — com busca por nome de cliente e
-paginação. Cada linha mostra um indicador `temDevolucao`, calculado a partir
-da existência de `Cancelamento` vinculado, para o operador ver de relance
-quais vendas já tiveram alguma devolução sem abrir cada uma.
+Resolve o caso em que o operador não tem o comprovante em mãos. `GET /vendas`
+lista as vendas **da sessão de caixa atual** — não mistura turnos — com busca
+por nome de cliente e paginação. Cada linha mostra um indicador `temDevolucao`
+para o operador ver de relance quais vendas já tiveram devolução.
 
-Clicar em "Devolver" numa linha da lista leva **direto** para a tela de
-devolução com a venda já resolvida — sem digitar de novo o número que acabou
-de aparecer na tela.
+Clicar em "Devolver" numa linha leva **direto** para a tela de devolução com a
+venda já resolvida — sem digitar de novo o número que acabou de aparecer.
 
 A paginação aqui é por **offset**, diferente da paginação por chave do
-catálogo: aceitável porque o volume por sessão de caixa é baixo e vendas
-nunca são editadas, só inseridas em ordem — não há o risco de deslocamento de
-página que a paginação por chave existe para evitar.
+catálogo: aceitável porque o volume por sessão de caixa é baixo e vendas nunca
+são editadas, só inseridas em ordem — não há o risco de deslocamento de página
+que a paginação por chave existe para evitar.
 
-## Estado atual
+## Testes
 
-| Modulo | Situacao |
+```bash
+npm test                  # unitarios, sem banco
+npm run test:integracao   # contra Postgres real
+npm run test:e2e          # Playwright (Chromium)
+```
+
+| Camada | Testes |
 |---|---|
-| Aritmetica monetaria | pronta — 26 testes |
-| Regras da venda (calculo, rateio, alcada, pagamento, parcelas) | pronta — 30 testes |
-| Regras de caixa (abertura, sangria/suprimento, fechamento) | pronta — 14 testes |
-| Regras de devolucao (parcial, alcada de gerente, forma de estorno) | pronta — 20 testes |
-| Autenticacao (scrypt + JWT) | pronta — 7 testes |
-| Schema, imutabilidade e ledger | verificados contra Postgres real — 16 testes |
-| API — vendas e catalogo | verificada de ponta a ponta — 39 testes |
-| API — sessao de caixa (abrir, sangria, suprimento, fechar) | verificada de ponta a ponta — 17 testes |
-| API — devolucao (parcial, busca por numero/codigo, alcada) | verificada de ponta a ponta — 23 testes |
-| API — historico de vendas (filtro, busca, paginacao) | verificada de ponta a ponta — 10 testes |
-| Seed | 8 produtos, 60 variantes, sessao de caixa aberta |
-| Banco local do caixa (IndexedDB) | pronto |
-| Fila de sincronizacao | pronta — 25 testes |
-| Carrinho | pronto — 23 testes (2 novos: saldo com troco) |
-| Sincronizacao e busca do catalogo | pronta — 17 testes |
-| Comprovante 80mm | pronto — 12 testes |
-| Tela de venda + abertura/fechamento de caixa + devolucao + historico + PWA instalavel | verificada de ponta a ponta — **9 testes Playwright** |
+| Unitários (`packages/shared`) — dinheiro, venda, caixa, devolução, CPF | 105 |
+| Unitários (`apps/api`) — autenticação | 7 |
+| Unitários (`apps/pdv`) — carrinho, fila, catálogo, comprovante, telas | 456 |
+| Integração (`apps/api`) — contra Postgres real, todas as rotas | 184 |
+| E2E (Playwright) — fluxo real, clicando na tela | 149 |
+| **Total** | **901** |
 
-**279 testes de API/unitarios** (174 unitarios + 105 de integracao) **+ 9
-testes E2E**, `tsc --strict` limpo nos quatro workspaces.
+`tsc --strict` limpo nos quatro workspaces.
+
+O E2E roda contra um banco exclusivo, recriado e semeado do zero a cada
+execução (`e2e/seed-e2e.ts`), então nunca depende de estado deixado por uma
+rodada anterior. A API e o PWA sobem em portas próprias (3334/5174),
+diferentes das de desenvolvimento — dá para rodar o E2E com `npm run dev` já
+aberto.
+
+### O E2E encontrou bugs reais, não só validou o que já estava certo
+
+**Saldo com troco:** `saldoAPagar` comparava o total da venda contra o valor
+BRUTO recebido em dinheiro, sem descontar o troco. Pagar R$ 100,00 por uma
+venda de R$ 89,90 gera R$ 10,10 de troco — o saldo ficava em `-10,10` (nunca
+zero) e o botão "Finalizar e imprimir", que exige saldo exato, nunca
+habilitava. Nenhum teste unitário cobria pagamento em dinheiro com troco; o
+E2E, ao clicar de verdade nos botões, expôs a composição errada entre
+`saldoAPagar` e `calcularTroco`.
+
+**Navegação impossível:** o botão "Caixa" levava a uma tela que detectava a
+sessão já aberta e pulava de volta para a venda no mesmo instante — a tela de
+sangria/fechamento nunca chegava a aparecer. Corrigido distinguindo "acabei de
+entrar, pule para a venda se já houver sessão" de "cliquei em Caixa de
+propósito, quero ver a gestão mesmo com sessão aberta".
+
+## Limitações conhecidas
+
+- **Sem emissão fiscal.** Comprovante não fiscal apenas; ligar NFC-e exige
+  certificado digital e contrato com SEFAZ ou gateway.
+- **Impressora térmica não validada em hardware.** A impressão passa pelo
+  diálogo do sistema operacional (`window.print()` com `@page`), o que funciona
+  com qualquer driver, mas largura de coluna e corte de papel só se confirmam
+  imprimindo de verdade. O que falta checar está em
+  `CHECKLIST-IMPRESSAO-TERMICA.md`.
+- **Sem CI.** Os testes rodam localmente; não há pipeline bloqueando merge.
+- **`servidor.ts` concentra todas as rotas.** Funciona e está coberto por
+  testes, mas pede divisão em plugins por domínio.
