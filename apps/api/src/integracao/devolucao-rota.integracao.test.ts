@@ -104,6 +104,21 @@ async function autenticar(): Promise<string> {
   return resposta.json().token as string;
 }
 
+/**
+ * Token assinado de liberação de gerente.
+ *
+ * A rota não aceita mais o id de quem autorizou vindo no corpo: só um token
+ * que o próprio servidor emitiu contra senha.
+ */
+async function autorizar(login: string, senha = 'caixa123'): Promise<string> {
+  const resposta = await app.inject({
+    method: 'POST',
+    url: '/sessao/autorizar',
+    payload: { login, senha },
+  });
+  return resposta.json().tokenAutorizacao as string;
+}
+
 function devolver(corpo: Record<string, unknown>) {
   return app.inject({
     method: 'POST',
@@ -254,7 +269,7 @@ describe('devolução parcial de item — o caso real: 1 de 3 peças', () => {
       motivo: 'Cliente devolveu 1 peça',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     expect(resposta.statusCode).toBe(201);
@@ -274,7 +289,7 @@ describe('devolução parcial de item — o caso real: 1 de 3 peças', () => {
       motivo: 'Devolução',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     const movimento = await prisma.movimentoCaixa.findFirstOrThrow({
@@ -288,7 +303,7 @@ describe('devolução parcial de item — o caso real: 1 de 3 peças', () => {
       motivo: 'Devolução no cartão',
       formaEstorno: 'CARTAO',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     const movimentos = await prisma.movimentoCaixa.count({
@@ -302,7 +317,7 @@ describe('devolução parcial de item — o caso real: 1 de 3 peças', () => {
       motivo: 'Vale-troca',
       formaEstorno: 'VALE_TROCA',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     const movimentos = await prisma.movimentoCaixa.count({
@@ -316,7 +331,7 @@ describe('devolução parcial de item — o caso real: 1 de 3 peças', () => {
       motivo: 'Cliente não gostou',
       formaEstorno: 'PIX',
       itens: [{ itemVendaId, quantidade: 2 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     const auditoria = await prisma.registroAuditoria.findFirstOrThrow({
@@ -336,7 +351,7 @@ describe('devoluções múltiplas — nunca ultrapassa o disponível', () => {
       motivo: 'Primeira devolução',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(primeira.statusCode).toBe(201);
 
@@ -344,7 +359,7 @@ describe('devoluções múltiplas — nunca ultrapassa o disponível', () => {
       motivo: 'Segunda devolução',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 2 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(segunda.statusCode).toBe(201);
 
@@ -363,7 +378,7 @@ describe('devoluções múltiplas — nunca ultrapassa o disponível', () => {
       motivo: 'Primeira devolução',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 2 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     // Só resta 1 disponível; tenta devolver 2 de novo.
@@ -371,7 +386,7 @@ describe('devoluções múltiplas — nunca ultrapassa o disponível', () => {
       motivo: 'Segunda tentativa além do disponível',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 2 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     expect(resposta.statusCode).toBe(422);
@@ -387,7 +402,9 @@ describe('autorização de gerente — sem alçada de valor', () => {
       motivo: 'Tentativa sem gerente',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.operadora,
+      // A operadora não consegue token: /sessao/autorizar recusa quem não
+      // tem alçada antes mesmo de chegar aqui.
+      tokenAutorizacao: (await autorizar('ana')) ?? 'sem-token',
     });
 
     expect(resposta.statusCode).toBe(403);
@@ -397,7 +414,22 @@ describe('autorização de gerente — sem alçada de valor', () => {
     expect(await saldoDe(IDS.variante)).toBe(7);
   });
 
-  it('recusa com 400 quando autorizadoPorId não é enviado — obrigatório no esquema', async () => {
+  it('recusa autorização forjada: UUID de gerente no lugar do token não passa', async () => {
+    // O desenho antigo aceitava exatamente isto — e o UUID da gerente é
+    // visível para qualquer administrador em GET /usuarios.
+    const resposta = await devolver({
+      motivo: 'Autorização forjada',
+      formaEstorno: 'DINHEIRO',
+      itens: [{ itemVendaId, quantidade: 1 }],
+      tokenAutorizacao: IDS.gerente,
+    });
+
+    expect(resposta.statusCode).toBe(403);
+    expect(resposta.json().codigo).toBe('AUTORIZADOR_SEM_PERMISSAO');
+    expect(await prisma.cancelamento.count()).toBe(0);
+  });
+
+  it('recusa com 400 quando o token não é enviado — obrigatório no esquema', async () => {
     const resposta = await app.inject({
       method: 'POST',
       url: `/vendas/${vendaId}/devolucao`,
@@ -414,7 +446,7 @@ describe('validação de itens', () => {
       motivo: 'Tentativa acima do vendido',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 4 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(resposta.statusCode).toBe(422);
     expect(resposta.json().codigo).toBe('QUANTIDADE_MAIOR_QUE_DISPONIVEL');
@@ -425,7 +457,7 @@ describe('validação de itens', () => {
       motivo: 'Item de outra venda',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId: '88888888-8888-4888-8888-888888888888', quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(resposta.statusCode).toBe(404);
     expect(resposta.json().codigo).toBe('ITEM_INEXISTENTE');
@@ -436,7 +468,7 @@ describe('validação de itens', () => {
       motivo: 'Sem itens',
       formaEstorno: 'DINHEIRO',
       itens: [],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(resposta.statusCode).toBe(400);
   });
@@ -453,7 +485,7 @@ describe('sessão de caixa da venda original', () => {
       motivo: 'Sessão fechada',
       formaEstorno: 'DINHEIRO',
       itens: [{ itemVendaId, quantidade: 1 }],
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     expect(resposta.statusCode).toBe(409);

@@ -35,6 +35,21 @@ import {
 } from '@pdv/shared';
 import type { EntradaRegistrarVenda } from '../esquemas/venda.js';
 
+/**
+ * A venda como o serviço a recebe: com a identidade de quem liberou desconto
+ * já resolvida.
+ *
+ * A rota recebe um token assinado e o traduz em id antes de chegar aqui, para
+ * que o serviço nunca precise decidir se confia num identificador que veio do
+ * corpo da requisição — ver `autorizacao.ts`.
+ */
+export type VendaParaRegistrar = Omit<EntradaRegistrarVenda, 'tokenAutorizacao' | 'itens'> & {
+  readonly autorizadoPorId?: string | undefined;
+  readonly itens: readonly (Omit<EntradaRegistrarVenda['itens'][number], 'tokenAutorizacao'> & {
+    readonly autorizadoPorId?: string | undefined;
+  })[];
+};
+
 export interface ResultadoRegistroVenda {
   readonly vendaId: string;
   readonly numero: number;
@@ -45,7 +60,7 @@ export interface ResultadoRegistroVenda {
 
 export async function registrarVenda(
   prisma: PrismaClient,
-  entrada: EntradaRegistrarVenda,
+  entrada: VendaParaRegistrar,
   contexto: { operadorId: string },
 ): Promise<ResultadoRegistroVenda> {
   // --- Caminho de idempotência: barato e antes de qualquer trabalho ---------

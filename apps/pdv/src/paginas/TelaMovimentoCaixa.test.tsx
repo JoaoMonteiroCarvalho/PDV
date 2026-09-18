@@ -39,8 +39,13 @@ function montar() {
   );
 }
 
+/** Token opaco para a tela: ela só o repassa, quem o valida é o servidor. */
+const TOKEN_AUTORIZACAO = 'token-de-autorizacao-assinado';
+
 async function autorizarComo(operador: Operador) {
-  vi.spyOn(clienteApi, 'entrarSemTrocarSessao').mockResolvedValue({ operador });
+  vi
+    .spyOn(clienteApi, 'entrarSemTrocarSessao')
+    .mockResolvedValue({ operador, tokenAutorizacao: TOKEN_AUTORIZACAO });
   await userEvent.type(screen.getByLabelText('Gerente'), 'bia');
   await userEvent.type(screen.getByLabelText('Senha'), 'gerente123');
   await userEvent.click(screen.getByRole('button', { name: 'Autorizar' }));
@@ -89,7 +94,7 @@ describe('TelaMovimentoCaixa — autorização', () => {
   it('autentica a gerente SEM derrubar a sessão da operadora', async () => {
     const semTrocar = vi
       .spyOn(clienteApi, 'entrarSemTrocarSessao')
-      .mockResolvedValue({ operador: GERENTE });
+      .mockResolvedValue({ operador: GERENTE, tokenAutorizacao: TOKEN_AUTORIZACAO });
     const entrar = vi.spyOn(clienteApi, 'entrar');
     montar();
 
@@ -215,7 +220,7 @@ describe('TelaMovimentoCaixa — registro', () => {
       tipo: 'SANGRIA',
       valorCentavos: 10_000,
       observacao: 'Cofre da loja',
-      autorizadoPorId: 'ger-1',
+      tokenAutorizacao: TOKEN_AUTORIZACAO,
     });
   });
 

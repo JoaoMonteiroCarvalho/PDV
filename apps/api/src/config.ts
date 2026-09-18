@@ -23,6 +23,27 @@ const esquemaAmbiente = z.object({
     .min(32, 'JWT_SEGREDO precisa de ao menos 32 caracteres — gere com: openssl rand -hex 32'),
 
   /**
+   * Origens que podem falar com a API, separadas por vírgula.
+   *
+   * Sem allowlist, qualquer página aberta no navegador do caixa consegue
+   * disparar requisições autenticadas contra a API (o navegador anexa a
+   * credencial sozinho). Numa máquina de loja, que também navega na internet,
+   * isso é exposição real — não teoria.
+   *
+   * O padrão cobre as portas de desenvolvimento e de E2E. Em produção, defina
+   * explicitamente o endereço do PWA.
+   */
+  ORIGENS_PERMITIDAS: z
+    .string()
+    .default('http://localhost:5173,http://localhost:5174')
+    .transform((valor) =>
+      valor
+        .split(',')
+        .map((origem) => origem.trim())
+        .filter((origem) => origem.length > 0),
+    ),
+
+  /**
    * Módulo fiscal. Esta versão NÃO emite NFC-e: imprime comprovante não
    * fiscal. A flag existe para que ligar o fiscal seja configuração, não
    * refatoração. Enquanto false, nada no caminho da venda a consulta.

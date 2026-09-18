@@ -85,10 +85,3 @@ export async function verificarSenha(senha: string, hashArmazenado: string): Pro
 
   return derivada.length === esperado.length && timingSafeEqual(derivada, esperado);
 }
-
-/** Conteúdo do token. Fica pequeno de propósito: o resto se consulta no banco. */
-export interface TokenOperador {
-  readonly sub: string;
-  readonly nome: string;
-  readonly papel: 'OPERADOR' | 'GERENTE' | 'ADMIN';
-}

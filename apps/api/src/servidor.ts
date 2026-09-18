@@ -6,11 +6,20 @@
  * Nenhuma regra de dinheiro mora aqui.
  */
 
+import fastifyCors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { Prisma, PrismaClient } from '@prisma/client';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { type TokenOperador, verificarSenha } from './autenticacao.js';
+import { verificarSenha } from './autenticacao.js';
+import {
+  VALIDADE_AUTORIZACAO,
+  ehPapelAutorizador,
+  ehTokenDeAutorizacao,
+  ehTokenDeSessao,
+  type TokenOperador,
+} from './autorizacao.js';
 import { carregarConfiguracao, type Configuracao } from './config.js';
 import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
@@ -101,13 +110,94 @@ export async function construirServidor(
     genReqId: (requisicao) => (requisicao.headers['x-request-id'] as string) ?? crypto.randomUUID(),
   });
 
+  /**
+   * Allowlist de origem. Sem isto, qualquer página aberta no navegador do
+   * caixa consegue disparar requisições autenticadas contra a API.
+   */
+  await app.register(fastifyCors, {
+    origin: configuracao.ORIGENS_PERMITIDAS,
+    credentials: true,
+  });
+
+  /**
+   * Teto global de requisições.
+   *
+   * O hash scrypt já torna cada tentativa de senha cara (~100ms), mas sem
+   * limite de taxa nada impede milhares de tentativas em sequência. O login
+   * tem limite próprio, bem mais apertado, declarado na rota.
+   */
+  await app.register(fastifyRateLimit, {
+    max: 300,
+    timeWindow: '1 minute',
+    // Em teste o limite atrapalharia os casos que disparam muitas requisições
+    // em sequência; a proteção é de produção, não de suíte.
+    global: configuracao.NODE_ENV !== 'test',
+  });
+
   await app.register(fastifyJwt, {
     secret: configuracao.JWT_SEGREDO,
     sign: { expiresIn: '12h' }, // cobre um turno inteiro de loja
   });
 
-  async function exigirOperador(requisicao: FastifyRequest): Promise<void> {
+  /**
+   * Limite específico das rotas que recebem senha.
+   *
+   * Vale por login+IP: travar só por IP puniria a loja inteira, que sai por
+   * um NAT só, quando uma única conta está sob ataque.
+   */
+  const limiteDeSenha = {
+    max: configuracao.NODE_ENV === 'test' ? 10_000 : 10,
+    timeWindow: '1 minute',
+    keyGenerator: (requisicao: FastifyRequest) => {
+      const corpo = requisicao.body as { login?: unknown } | undefined;
+      const login = typeof corpo?.login === 'string' ? corpo.login : 'desconhecido';
+      return `${requisicao.ip}:${login}`;
+    },
+  };
+
+  /**
+   * Exige sessão de trabalho válida.
+   *
+   * Recusa explicitamente um token de autorização pontual: ele prova que uma
+   * gerente liberou UMA operação, não que ela está operando o sistema.
+   */
+  async function exigirOperador(
+    requisicao: FastifyRequest,
+    resposta: FastifyReply,
+  ): Promise<void> {
     await requisicao.jwtVerify();
+    if (ehTokenDeSessao(requisicao.user)) return;
+
+    await resposta
+      .status(401)
+      .send({ codigo: 'TOKEN_INVALIDO', mensagem: 'Faça login novamente para continuar.' });
+  }
+
+  /**
+   * Lê a identidade de quem autorizou a operação a partir do token assinado.
+   *
+   * A identidade NUNCA vem do corpo da requisição: é exatamente isso que
+   * permitia forjar uma autorização sabendo o UUID de uma gerente. Aqui só
+   * passa quem apresentou um token que o próprio servidor emitiu, contra
+   * senha, minutos atrás.
+   */
+  function identificarAutorizador(
+    tokenAutorizacao: string,
+    opcoes: { readonly aceitarExpirado?: boolean } = {},
+  ): string | null {
+    try {
+      const token = app.jwt.verify<TokenOperador>(tokenAutorizacao, {
+        // A venda fecha offline e pode subir horas depois, quando o prazo de
+        // 15 minutos já passou. O que impede forjar é a ASSINATURA; recusar
+        // pelo prazo só descartaria uma venda já paga e impressa. Devolução e
+        // sangria são online e imediatas, e mantêm o prazo.
+        ignoreExpiration: opcoes.aceitarExpirado === true,
+      });
+      return ehTokenDeAutorizacao(token) ? token.sub : null;
+    } catch {
+      // Assinatura inválida, expirado ou malformado — tudo é a mesma recusa.
+      return null;
+    }
   }
 
   // --- Saúde ---------------------------------------------------------------
@@ -125,7 +215,7 @@ export async function construirServidor(
     senha: z.string().min(1),
   });
 
-  app.post('/sessao/login', async (requisicao, resposta) => {
+  app.post('/sessao/login', { config: { rateLimit: limiteDeSenha } }, async (requisicao, resposta) => {
     const entrada = esquemaLogin.safeParse(requisicao.body);
     if (!entrada.success) {
       return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
@@ -144,7 +234,12 @@ export async function construirServidor(
       return resposta.status(401).send({ codigo: 'CREDENCIAIS_INVALIDAS', mensagem: 'Login ou senha incorretos.' });
     }
 
-    const token = app.jwt.sign({ sub: usuario.id, nome: usuario.nome, papel: usuario.papel });
+    const token = app.jwt.sign({
+      sub: usuario.id,
+      nome: usuario.nome,
+      papel: usuario.papel,
+      tipo: 'SESSAO',
+    });
     return {
       token,
       operador: {
@@ -155,6 +250,61 @@ export async function construirServidor(
       },
     };
   });
+
+  // --- Autorização pontual de gerente --------------------------------------
+
+  /**
+   * Emite um token de autorização de vida curta, sem trocar a sessão do caixa.
+   *
+   * Usada quando a operadora está no meio de uma devolução ou sangria e chama
+   * a gerente para liberar: a gerente digita a senha dela, o servidor devolve
+   * um token assinado, e a operação segue com a operadora ainda logada.
+   *
+   * O token que sai daqui NÃO serve para navegar o sistema (`tipo` o separa da
+   * sessão de trabalho) e vale minutos, não o turno.
+   */
+  app.post(
+    '/sessao/autorizar',
+    { config: { rateLimit: limiteDeSenha } },
+    async (requisicao, resposta) => {
+      const entrada = esquemaLogin.safeParse(requisicao.body);
+      if (!entrada.success) {
+        return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+      }
+
+      const usuario = await prisma.usuario.findUnique({
+        where: { login: entrada.data.login },
+        select: { id: true, nome: true, papel: true, senhaHash: true, ativo: true },
+      });
+
+      const senhaConfere =
+        usuario !== null && usuario.ativo && (await verificarSenha(entrada.data.senha, usuario.senhaHash));
+      if (!usuario || !senhaConfere) {
+        return resposta
+          .status(401)
+          .send({ codigo: 'CREDENCIAIS_INVALIDAS', mensagem: 'Login ou senha incorretos.' });
+      }
+
+      // Senha certa mas sem alçada: a mensagem pode ser específica, porque a
+      // identidade já foi provada — não há o que enumerar aqui.
+      if (!ehPapelAutorizador(usuario.papel)) {
+        return resposta.status(403).send({
+          codigo: 'AUTORIZADOR_SEM_PERMISSAO',
+          mensagem: 'Esta pessoa não tem perfil de gerente para autorizar a operação.',
+        });
+      }
+
+      const tokenAutorizacao = app.jwt.sign(
+        { sub: usuario.id, nome: usuario.nome, papel: usuario.papel, tipo: 'AUTORIZACAO' },
+        { expiresIn: VALIDADE_AUTORIZACAO },
+      );
+
+      return {
+        tokenAutorizacao,
+        operador: { id: usuario.id, nome: usuario.nome, papel: usuario.papel },
+      };
+    },
+  );
 
   // --- Venda ---------------------------------------------------------------
 
@@ -177,8 +327,29 @@ export async function construirServidor(
       });
     }
 
+    /*
+     * Token de liberação de desconto → identidade de quem liberou.
+     *
+     * Token ausente ou inválido vira "sem autorização", não erro imediato: a
+     * regra de alçada em `@pdv/shared` é quem decide se o desconto passava sem
+     * gerente. Assim uma autorização forjada cai exatamente onde deveria —
+     * DESCONTO_ACIMA_DA_ALCADA —, sem inventar um caminho de erro paralelo.
+     */
+    const autorizadorDe = (token: string | undefined): string | undefined =>
+      token ? (identificarAutorizador(token, { aceitarExpirado: true }) ?? undefined) : undefined;
+
+    const { tokenAutorizacao, itens, ...dadosVenda } = entrada.data;
+    const venda = {
+      ...dadosVenda,
+      autorizadoPorId: autorizadorDe(tokenAutorizacao),
+      itens: itens.map(({ tokenAutorizacao: tokenDoItem, ...item }) => ({
+        ...item,
+        autorizadoPorId: autorizadorDe(tokenDoItem),
+      })),
+    };
+
     try {
-      const resultado = await registrarVenda(prisma, entrada.data, {
+      const resultado = await registrarVenda(prisma, venda, {
         operadorId: requisicao.user.sub,
       });
       return resposta.status(resultado.jaEstavaRegistrada ? 200 : 201).send(resultado);
@@ -354,10 +525,19 @@ export async function construirServidor(
           erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
         });
       }
+      const { tokenAutorizacao, ...dadosDevolucao } = entrada.data;
+      const autorizadoPorId = identificarAutorizador(tokenAutorizacao);
+      if (autorizadoPorId === null) {
+        return resposta.status(403).send({
+          codigo: 'AUTORIZADOR_SEM_PERMISSAO',
+          mensagem: 'Autorização de gerente inválida ou expirada. Peça a liberação novamente.',
+        });
+      }
+
       try {
         const resultado = await registrarDevolucao(
           prisma,
-          { vendaId: parametros.data.id, ...entrada.data },
+          { vendaId: parametros.data.id, ...dadosDevolucao, autorizadoPorId },
           { operadorId: requisicao.user.sub },
         );
         return resposta.status(201).send(resultado);
@@ -549,10 +729,19 @@ export async function construirServidor(
           erros: [...(parametros.success ? [] : parametros.error.issues), ...(entrada.success ? [] : entrada.error.issues)],
         });
       }
+      const { tokenAutorizacao, ...dadosMovimento } = entrada.data;
+      const autorizadoPorId = identificarAutorizador(tokenAutorizacao);
+      if (autorizadoPorId === null) {
+        return resposta.status(403).send({
+          codigo: 'AUTORIZADOR_SEM_PERMISSAO',
+          mensagem: 'Autorização de gerente inválida ou expirada. Peça a liberação novamente.',
+        });
+      }
+
       try {
         const movimento = await registrarMovimentoManual(
           prisma,
-          { sessaoCaixaId: parametros.data.id, ...entrada.data },
+          { sessaoCaixaId: parametros.data.id, ...dadosMovimento, autorizadoPorId },
           { operadorId: requisicao.user.sub },
         );
         return resposta.status(201).send(movimento);
@@ -764,7 +953,16 @@ export async function construirServidor(
     requisicao: FastifyRequest,
     resposta: FastifyReply,
   ): Promise<void> {
-    await exigirOperador(requisicao);
+    await requisicao.jwtVerify();
+    // A checagem de sessão é repetida aqui em vez de delegada a
+    // `exigirOperador` porque um hook precisa responder no máximo uma vez:
+    // encadear os dois faria a rota enviar 401 e 403 para a mesma requisição.
+    if (!ehTokenDeSessao(requisicao.user)) {
+      await resposta
+        .status(401)
+        .send({ codigo: 'TOKEN_INVALIDO', mensagem: 'Faça login novamente para continuar.' });
+      return;
+    }
     if (!podeAdministrar(requisicao.user.papel)) {
       await resposta
         .status(403)

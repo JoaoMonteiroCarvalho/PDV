@@ -19,6 +19,17 @@ export interface Operador {
   limiteDescontoBps: number;
 }
 
+/**
+ * Gerente que liberou uma operação, com a prova assinada dessa liberação.
+ *
+ * As telas guardam isto junto: o nome, para mostrar quem autorizou, e o token,
+ * que é o que o servidor de fato aceita. Guardar só o id não autoriza nada.
+ */
+export interface AutorizacaoGerente {
+  readonly operador: Operador;
+  readonly tokenAutorizacao: string;
+}
+
 export interface RespostaEnvio {
   status: number | null;
   mensagem?: string | undefined;
@@ -82,13 +93,20 @@ export class ClienteApi {
   /**
    * Autentica um gerente SEM substituir a sessão do operador logado no caixa.
    *
-   * Usado na liberação de sangria/suprimento: o operador continua sendo quem
-   * está vendendo, o gerente só prova identidade para autorizar aquela
-   * operação pontual. Trocar o token aqui deslogaria o operador no meio do
-   * expediente.
+   * Usado na liberação de sangria/suprimento e devolução: o operador continua
+   * sendo quem está vendendo, o gerente só prova identidade para autorizar
+   * aquela operação pontual. Trocar o token aqui deslogaria o operador no meio
+   * do expediente.
+   *
+   * Devolve um `tokenAutorizacao` assinado pelo servidor, de vida curta, que a
+   * operação seguinte precisa enviar. O id do gerente sozinho não autoriza
+   * nada: o servidor lê quem autorizou da assinatura do token.
    */
-  async entrarSemTrocarSessao(login: string, senha: string): Promise<{ operador: Operador }> {
-    const resposta = await fetch(`${BASE}/sessao/login`, {
+  async entrarSemTrocarSessao(
+    login: string,
+    senha: string,
+  ): Promise<{ operador: Operador; tokenAutorizacao: string }> {
+    const resposta = await fetch(`${BASE}/sessao/autorizar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login, senha }),
@@ -97,8 +115,7 @@ export class ClienteApi {
       const corpo = await resposta.json().catch(() => ({}));
       throw new ErroApi(resposta.status, corpo.codigo ?? 'CREDENCIAIS_INVALIDAS', corpo.mensagem ?? 'Não foi possível autenticar o gerente.');
     }
-    const dados = (await resposta.json()) as { operador: Operador };
-    return { operador: dados.operador };
+    return (await resposta.json()) as { operador: Operador; tokenAutorizacao: string };
   }
 
   sair(): void {
@@ -192,7 +209,7 @@ export class ClienteApi {
 
   async registrarMovimentoCaixa(
     sessaoCaixaId: string,
-    dados: { tipo: 'SANGRIA' | 'SUPRIMENTO'; valorCentavos: number; observacao?: string | undefined; autorizadoPorId: string },
+    dados: { tipo: 'SANGRIA' | 'SUPRIMENTO'; valorCentavos: number; observacao?: string | undefined; tokenAutorizacao: string },
   ): Promise<{ id: string }> {
     const resposta = await fetch(`${BASE}/sessoes-caixa/${sessaoCaixaId}/movimentos`, {
       method: 'POST',
@@ -400,7 +417,7 @@ export class ClienteApi {
       motivo: string;
       formaEstorno: 'DINHEIRO' | 'PIX' | 'CARTAO' | 'VALE_TROCA';
       itens: { itemVendaId: string; quantidade: number }[];
-      autorizadoPorId: string;
+      tokenAutorizacao: string;
     },
   ): Promise<{ cancelamentoId: string; totalCentavos: number }> {
     const resposta = await fetch(`${BASE}/vendas/${vendaId}/devolucao`, {

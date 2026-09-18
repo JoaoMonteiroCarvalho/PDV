@@ -123,6 +123,16 @@ async function semear(): Promise<void> {
   });
 }
 
+/** Token assinado de liberação de gerente — ver `autorizacao.ts` na API. */
+async function autorizar(login: string, senha = 'caixa123'): Promise<string> {
+  const resposta = await app.inject({
+    method: 'POST',
+    url: '/sessao/autorizar',
+    payload: { login, senha },
+  });
+  return resposta.json().tokenAutorizacao as string;
+}
+
 async function autenticar(): Promise<string> {
   const resposta = await app.inject({
     method: 'POST',
@@ -366,7 +376,7 @@ describe('desconto com alçada', () => {
   it('libera com gerente e registra o fato na auditoria', async () => {
     const venda = vendaBase({
       descontoSobreTotalCentavos: 2000,
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
       pagamentos: [{ forma: 'DEBITO', valorCentavos: 6990, trocoCentavos: 0 }],
     });
     const resposta = await enviarVenda(venda);
@@ -379,16 +389,20 @@ describe('desconto com alçada', () => {
     expect(auditoria.autorizadoPorId).toBe(IDS.gerente);
   });
 
-  it('recusa autorizador que não é gerente', async () => {
+  it('autorização forjada vale como nenhuma: UUID de gerente não libera desconto', async () => {
+    // O desenho antigo aceitava o UUID direto no corpo. Agora um valor que
+    // não é token assinado simplesmente não autoriza, e o desconto cai na
+    // alçada da operadora — que não cobre estes 2000.
     const resposta = await enviarVenda(
       vendaBase({
         descontoSobreTotalCentavos: 2000,
-        autorizadoPorId: IDS.operadora, // ela mesma
+        tokenAutorizacao: IDS.gerente,
         pagamentos: [{ forma: 'DEBITO', valorCentavos: 6990, trocoCentavos: 0 }],
       }),
     );
     expect(resposta.statusCode).toBe(403);
-    expect(resposta.json().codigo).toBe('AUTORIZADOR_SEM_PERMISSAO');
+    expect(resposta.json().codigo).toBe('DESCONTO_ACIMA_DA_ALCADA');
+    expect(await prisma.venda.count()).toBe(0);
   });
 });
 

@@ -2,8 +2,8 @@
 
 Este arquivo registra o que foi construído, as decisões tomadas e o porquê,
 sessão por sessão. Existe para que o trabalho possa ser retomado em qualquer
-máquina (o histórico de conversa do Claude Code fica local ao notebook onde
-foi feito — este arquivo é o que viaja pelo Git).
+máquina: as anotações de bancada ficam locais ao notebook onde o trabalho foi
+feito — este arquivo é o que viaja pelo Git.
 
 Para o estado técnico atual (como rodar, testes, arquitetura), veja o
 [README.md](./README.md). Este documento é sobre **como chegamos até aqui**.

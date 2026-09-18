@@ -13,7 +13,8 @@ export const esquemaMovimentoManual = z.object({
   tipo: z.enum(['SANGRIA', 'SUPRIMENTO']),
   valorCentavos: centavosPositivos,
   observacao: z.string().max(500).optional(),
-  autorizadoPorId: z.string().uuid(),
+  /** Token assinado de `POST /sessao/autorizar` — ver esquemas/devolucao.ts. */
+  tokenAutorizacao: z.string().min(1, 'Autorização de gerente é obrigatória'),
 });
 export type EntradaMovimentoManual = z.infer<typeof esquemaMovimentoManual>;
 

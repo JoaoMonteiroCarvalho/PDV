@@ -26,6 +26,7 @@ import {
   clienteApi,
   type DisponivelParaDevolucao,
   type ItemDisponivelParaDevolucao,
+  type AutorizacaoGerente,
   type Operador,
 } from '../api/cliente.js';
 import {
@@ -219,12 +220,16 @@ function FormularioDevolucao({
   const [marcados, setMarcados] = useState<Map<string, number>>(new Map());
   const [motivo, setMotivo] = useState('');
   const [formaEstorno, setFormaEstorno] = useState<FormaEstorno>('DINHEIRO');
-  const [gerente, setGerente] = useState<Operador | null>(null);
+  const [autorizacao, setAutorizacao] = useState<AutorizacaoGerente | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const totalCentavos = useMemo(() => totalADevolverCentavos(itens, marcados), [itens, marcados]);
-  const podeConfirmar = podeConfirmarDevolucao({ totalCentavos, motivo, gerenteId: gerente?.id ?? null });
+  const podeConfirmar = podeConfirmarDevolucao({
+    totalCentavos,
+    motivo,
+    gerenteId: autorizacao?.operador.id ?? null,
+  });
 
   function mudarQuantidade(item: ItemDisponivelParaDevolucao, delta: number) {
     setMarcados((atual) => {
@@ -236,7 +241,7 @@ function FormularioDevolucao({
   }
 
   async function confirmar() {
-    if (!gerente || !podeConfirmar) return;
+    if (!autorizacao || !podeConfirmar) return;
     setErro(null);
     setEnviando(true);
     try {
@@ -244,7 +249,7 @@ function FormularioDevolucao({
         motivo: motivo.trim(),
         formaEstorno,
         itens: itensParaEnviar(marcados),
-        autorizadoPorId: gerente.id,
+        tokenAutorizacao: autorizacao.tokenAutorizacao,
       });
       aoConcluir(resultado.totalCentavos);
     } catch (falha) {
@@ -313,7 +318,11 @@ function FormularioDevolucao({
         </div>
       </Cartao>
 
-      <AutorizacaoGerenteDevolucao gerente={gerente} aoAutenticar={setGerente} aoSair={() => setGerente(null)} />
+      <AutorizacaoGerenteDevolucao
+        autorizacao={autorizacao}
+        aoAutenticar={setAutorizacao}
+        aoSair={() => setAutorizacao(null)}
+      />
 
       {erro && (
         <div className="mt-4">
@@ -392,12 +401,12 @@ function LinhaItem({
  * (`entrarSemTrocarSessao`).
  */
 function AutorizacaoGerenteDevolucao({
-  gerente,
+  autorizacao,
   aoAutenticar,
   aoSair,
 }: {
-  gerente: Operador | null;
-  aoAutenticar: (operador: Operador) => void;
+  autorizacao: AutorizacaoGerente | null;
+  aoAutenticar: (autorizacao: AutorizacaoGerente) => void;
   aoSair: () => void;
 }) {
   const [login, setLogin] = useState('');
@@ -410,12 +419,15 @@ function AutorizacaoGerenteDevolucao({
     setErro(null);
     setVerificando(true);
     try {
-      const { operador } = await clienteApi.entrarSemTrocarSessao(login.trim(), senha);
+      const { operador, tokenAutorizacao } = await clienteApi.entrarSemTrocarSessao(
+        login.trim(),
+        senha,
+      );
       if (!ehPapelAutorizador(operador.papel)) {
         setErro(`${operador.nome} não tem perfil de gerente e não pode autorizar.`);
         return;
       }
-      aoAutenticar(operador);
+      aoAutenticar({ operador, tokenAutorizacao });
       setLogin('');
       setSenha('');
     } catch (falha) {
@@ -425,11 +437,11 @@ function AutorizacaoGerenteDevolucao({
     }
   }
 
-  if (gerente) {
+  if (autorizacao) {
     return (
       <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[8px] border border-ok/30 bg-ok/5 px-4 py-3">
         <Selo tom="ok">Autorizado</Selo>
-        <span className="flex-1 text-[14px] text-ink">{gerente.nome}</span>
+        <span className="flex-1 text-[14px] text-ink">{autorizacao.operador.nome}</span>
         <Botao variante="discreto" onClick={aoSair} className="h-8 px-3 text-[13px]">
           Trocar
         </Botao>

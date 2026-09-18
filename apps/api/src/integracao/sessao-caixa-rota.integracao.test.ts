@@ -54,6 +54,22 @@ async function autenticar(): Promise<string> {
   return resposta.json().token as string;
 }
 
+/**
+ * Token assinado de liberação de gerente.
+ *
+ * A rota não aceita mais o id de quem autorizou vindo no corpo: só um token
+ * que o próprio servidor emitiu contra senha. Um teste que montasse o id à
+ * mão estaria exercitando justamente o buraco que foi fechado.
+ */
+async function autorizar(login: string, senha = 'caixa123'): Promise<string> {
+  const resposta = await app.inject({
+    method: 'POST',
+    url: '/sessao/autorizar',
+    payload: { login, senha },
+  });
+  return resposta.json().tokenAutorizacao as string;
+}
+
 function abrir(fundoTrocoCentavos = 20_000) {
   return app.inject({
     method: 'POST',
@@ -158,19 +174,51 @@ describe('sangria e suprimento — sempre exigem gerente', () => {
       tipo: 'SANGRIA',
       valorCentavos: 5000,
     });
-    // autorizadoPorId é obrigatório no esquema: nem chega à regra de negócio.
+    // tokenAutorizacao é obrigatório no esquema: nem chega à regra de negócio.
     expect(resposta.statusCode).toBe(400);
   });
 
   it('bloqueia com 403 quando o autorizador não é gerente', async () => {
     const sessao = await abrir();
+    // A operadora nem consegue token: /sessao/autorizar recusa quem não tem
+    // alçada, então o que chega à rota de movimento é uma string vazia.
     const resposta = await movimentar(sessao.json().id, {
       tipo: 'SANGRIA',
       valorCentavos: 5000,
-      autorizadoPorId: IDS.operadora, // ela mesma, não é gerente
+      tokenAutorizacao: (await autorizar('ana')) ?? 'sem-token',
     });
     expect(resposta.statusCode).toBe(403);
     expect(resposta.json().codigo).toBe('AUTORIZADOR_SEM_PERMISSAO');
+  });
+
+  it('recusa autorização forjada: id de gerente no lugar do token não passa', async () => {
+    const sessao = await abrir();
+    // Este é o ataque que o desenho antigo permitia: saber o UUID da gerente
+    // (exposto em GET /usuarios) bastava para "autorizar" uma sangria.
+    const resposta = await movimentar(sessao.json().id, {
+      tipo: 'SANGRIA',
+      valorCentavos: 5000,
+      tokenAutorizacao: IDS.gerente,
+    });
+    expect(resposta.statusCode).toBe(403);
+    expect(resposta.json().codigo).toBe('AUTORIZADOR_SEM_PERMISSAO');
+  });
+
+  it('recusa o token de SESSÃO da gerente como autorização', async () => {
+    const sessao = await abrir();
+    // A gerente logada no caixa tem um token de 12h no localStorage. Se ele
+    // servisse de autorização, seria uma liberação permanente sem senha.
+    const login = await app.inject({
+      method: 'POST',
+      url: '/sessao/login',
+      payload: { login: 'bia', senha: 'caixa123' },
+    });
+    const resposta = await movimentar(sessao.json().id, {
+      tipo: 'SANGRIA',
+      valorCentavos: 5000,
+      tokenAutorizacao: login.json().token,
+    });
+    expect(resposta.statusCode).toBe(403);
   });
 
   it('não existe piso de isenção — até valor pequeno exige gerente', async () => {
@@ -178,7 +226,7 @@ describe('sangria e suprimento — sempre exigem gerente', () => {
     const resposta = await movimentar(sessao.json().id, {
       tipo: 'SANGRIA',
       valorCentavos: 1,
-      autorizadoPorId: IDS.operadora,
+      tokenAutorizacao: 'token-invalido',
     });
     expect(resposta.statusCode).toBe(403);
   });
@@ -189,7 +237,7 @@ describe('sangria e suprimento — sempre exigem gerente', () => {
       tipo: 'SANGRIA',
       valorCentavos: 5000,
       observacao: 'Depósito no banco',
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(resposta.statusCode).toBe(201);
 
@@ -211,7 +259,7 @@ describe('sangria e suprimento — sempre exigem gerente', () => {
     const resposta = await movimentar(sessao.json().id, {
       tipo: 'SUPRIMENTO',
       valorCentavos: 10_000,
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(resposta.statusCode).toBe(201);
 
@@ -226,7 +274,7 @@ describe('sangria e suprimento — sempre exigem gerente', () => {
     const resposta = await movimentar(sessao.json().id, {
       tipo: 'SANGRIA',
       valorCentavos: 5000,
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     expect(resposta.statusCode).toBe(409);
     expect(resposta.json().codigo).toBe('SESSAO_FECHADA');
@@ -266,12 +314,12 @@ describe('fechamento de sessão', () => {
     await movimentar(sessao.json().id, {
       tipo: 'SANGRIA',
       valorCentavos: 5000,
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
     await movimentar(sessao.json().id, {
       tipo: 'SUPRIMENTO',
       valorCentavos: 2000,
-      autorizadoPorId: IDS.gerente,
+      tokenAutorizacao: await autorizar('bia'),
     });
 
     // Esperado: 20000 (fundo) - 5000 (sangria) + 2000 (suprimento) = 17000

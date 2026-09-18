@@ -22,8 +22,8 @@ export const esquemaItemVenda = z.object({
   quantidade: z.number().int().positive(),
   precoUnitarioCentavos: centavosNaoNegativos,
   descontoCentavos: centavosNaoNegativos.default(0),
-  /** Gerente que liberou desconto acima da alçada neste item específico. */
-  autorizadoPorId: z.string().uuid().optional(),
+  /** Token de gerente que liberou desconto acima da alçada neste item. */
+  tokenAutorizacao: z.string().min(1).optional(),
 });
 
 export const esquemaPagamentoVenda = z.object({
@@ -59,8 +59,15 @@ export const esquemaRegistrarVenda = z
     itens: z.array(esquemaItemVenda).min(1, 'Venda precisa de ao menos um item'),
     descontoSobreTotalCentavos: centavosNaoNegativos.default(0),
     pagamentos: z.array(esquemaPagamentoVenda).min(1, 'Venda precisa de ao menos um pagamento'),
-    /** Gerente que liberou desconto acima da alçada no total da venda. */
-    autorizadoPorId: z.string().uuid().optional(),
+    /**
+     * Token de gerente que liberou desconto acima da alçada no total.
+     *
+     * Diferente da devolução, aqui o token pode chegar EXPIRADO: a venda é
+     * fechada offline e pode subir horas depois. A rota valida a assinatura
+     * (que é o que impede forjar), não o prazo — recusar por validade
+     * descartaria uma venda já paga e impressa.
+     */
+    tokenAutorizacao: z.string().min(1).optional(),
     crediario: esquemaCrediario.optional(),
   })
   .refine(
@@ -77,11 +84,3 @@ export const esquemaRegistrarVenda = z
   });
 
 export type EntradaRegistrarVenda = z.infer<typeof esquemaRegistrarVenda>;
-
-export const esquemaCancelarVenda = z.object({
-  motivo: z.string().min(3, 'Informe o motivo do cancelamento').max(500),
-  /** Cancelamento SEMPRE exige gerente identificado. Sem exceção. */
-  autorizadoPorId: z.string().uuid(),
-});
-
-export type EntradaCancelarVenda = z.infer<typeof esquemaCancelarVenda>;

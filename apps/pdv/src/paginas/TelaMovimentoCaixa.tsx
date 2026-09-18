@@ -20,7 +20,7 @@
 import { formatarBRL, centavos } from '@pdv/shared';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { clienteApi, type Operador } from '../api/cliente.js';
+import { clienteApi, type AutorizacaoGerente, type Operador } from '../api/cliente.js';
 import {
   efeitoNoSaldo,
   ehPapelAutorizador,
@@ -39,7 +39,7 @@ export function TelaMovimentoCaixa() {
   const [tipo, setTipo] = useState<TipoMovimento>('SANGRIA');
   const [valorCentavos, setValorCentavos] = useState(0);
   const [observacao, setObservacao] = useState('');
-  const [gerente, setGerente] = useState<Operador | null>(null);
+  const [autorizacao, setAutorizacao] = useState<AutorizacaoGerente | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [registrado, setRegistrado] = useState<{ tipo: TipoMovimento; valorCentavos: number } | null>(
@@ -77,17 +77,17 @@ export function TelaMovimentoCaixa() {
   }
 
   // O saldo só é conhecido pela tela depois que a gerente entra.
-  const saldoEsperado = gerente ? sessao.saldoEsperadoCentavos : null;
+  const saldoEsperado = autorizacao ? sessao.saldoEsperadoCentavos : null;
   const impedimentos = impedimentosDoMovimento({
     tipo,
     valorCentavos,
     observacao,
     saldoEsperadoCentavos: saldoEsperado,
-    gerenteAutenticada: gerente !== null,
+    gerenteAutenticada: autorizacao !== null,
   });
 
   async function registrar() {
-    if (!gerente || !sessao) return;
+    if (!autorizacao || !sessao) return;
     setErro(null);
     setEnviando(true);
     try {
@@ -95,7 +95,7 @@ export function TelaMovimentoCaixa() {
         tipo,
         valorCentavos,
         observacao: observacao.trim() || undefined,
-        autorizadoPorId: gerente.id,
+        tokenAutorizacao: autorizacao.tokenAutorizacao,
       });
       // O saldo da gaveta mudou: sem isto, um segundo movimento seria
       // validado contra um número velho.
@@ -153,12 +153,12 @@ export function TelaMovimentoCaixa() {
       </Cartao>
 
       <AutorizacaoGerente
-        gerente={gerente}
-        aoAutenticar={setGerente}
-        aoSair={() => setGerente(null)}
+        autorizacao={autorizacao}
+        aoAutenticar={setAutorizacao}
+        aoSair={() => setAutorizacao(null)}
       />
 
-      {gerente && saldoEsperado !== null && (
+      {autorizacao && saldoEsperado !== null && (
         <ResumoDoEfeito
           tipo={tipo}
           valorCentavos={valorCentavos}
@@ -229,16 +229,17 @@ function BotaoTipo({
 /**
  * Identificação da gerente.
  *
- * Usa `entrarSemTrocarSessao`: a operadora continua logada. O token da gerente
- * é descartado — só o `id` dela é usado, e o servidor revalida o papel.
+ * Usa `entrarSemTrocarSessao`: a operadora continua logada. Guarda o token
+ * assinado que o servidor devolveu — é ele, não o id da gerente, que autoriza
+ * o movimento; ver `autorizacao.ts` na API.
  */
 function AutorizacaoGerente({
-  gerente,
+  autorizacao,
   aoAutenticar,
   aoSair,
 }: {
-  gerente: Operador | null;
-  aoAutenticar: (operador: Operador) => void;
+  autorizacao: AutorizacaoGerente | null;
+  aoAutenticar: (autorizacao: AutorizacaoGerente) => void;
   aoSair: () => void;
 }) {
   const [login, setLogin] = useState('');
@@ -251,14 +252,17 @@ function AutorizacaoGerente({
     setErro(null);
     setVerificando(true);
     try {
-      const { operador } = await clienteApi.entrarSemTrocarSessao(login.trim(), senha);
+      const { operador, tokenAutorizacao } = await clienteApi.entrarSemTrocarSessao(
+        login.trim(),
+        senha,
+      );
       if (!ehPapelAutorizador(operador.papel)) {
         // Credencial correta, papel errado: dizer isso é mais útil que
         // "credenciais inválidas", e não vaza nada que a pessoa não saiba.
         setErro(`${operador.nome} não tem perfil de gerente e não pode autorizar.`);
         return;
       }
-      aoAutenticar(operador);
+      aoAutenticar({ operador, tokenAutorizacao });
       setLogin('');
       setSenha('');
     } catch (falha) {
@@ -268,11 +272,11 @@ function AutorizacaoGerente({
     }
   }
 
-  if (gerente) {
+  if (autorizacao) {
     return (
       <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[8px] border border-ok/30 bg-ok/5 px-4 py-3">
         <Selo tom="ok">Autorizado</Selo>
-        <span className="flex-1 text-[14px] text-ink">{gerente.nome}</span>
+        <span className="flex-1 text-[14px] text-ink">{autorizacao.operador.nome}</span>
         <Botao variante="discreto" onClick={aoSair} className="h-8 px-3 text-[13px]">
           Trocar
         </Botao>
