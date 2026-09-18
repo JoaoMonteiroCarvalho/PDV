@@ -26,7 +26,7 @@ desligado por configuração — nenhum cálculo de venda depende dele.
 Os campos fiscais (`ncm`, `cest`, `origem`, `situacaoTributaria`) existem, são
 nuláveis e não são lidos. `situacaoTributaria` é string livre de propósito:
 serve para CSOSN (Simples Nacional) ou CST (Lucro Presumido) sem exigir
-remodelagem. **Nenhuma premissa fiscal foi inventada.**
+remodelagem.
 
 ## Stack
 
