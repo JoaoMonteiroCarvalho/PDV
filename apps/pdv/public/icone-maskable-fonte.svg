@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!--
+    Versão "maskable" do ícone — mesmo símbolo, safe zone maior.
+
+    Ícone maskable é recortado pelo SISTEMA OPERACIONAL em formas variadas
+    (círculo no Android puro, squircle em launchers customizados, quadrado
+    de cantos arredondados) SEM que o app saiba qual forma foi escolhida. A
+    especificação (web.dev/maskable-icon) pede que o conteúdo relevante
+    fique dentro de um círculo centrado de 80% do lado (raio 40%) — fora
+    disso pode ser cortado.
+
+    A diferença para `icone-fonte.svg`: o símbolo aqui ocupa uma fração
+    menor da tela (a mesma arte, escala reduzida), com mais fundo marfim ao
+    redor. Usar o MESMO arquivo para os dois propósitos — como o manifest
+    fazia antes desta revisão — arrisca cortar o símbolo na máscara circular.
+  -->
+  <rect width="200" height="200" fill="#f6efe9" />
+  <g transform="translate(58 51) scale(0.84)" fill="#7a2e3a">
+    <path
+      fill-rule="evenodd"
+      d="M50 22
+         C34 30 28 46 34 58
+         C39 68 45 73 50 73
+         C55 73 61 68 66 58
+         C72 46 66 30 50 22
+         Z
+         M50 30.5
+         C60.5 37 65 46.5 61 54
+         C57.5 60.5 53 65 50 65
+         C47 65 42.5 60.5 39 54
+         C35 46.5 39.5 37 50 30.5
+         Z"
+    />
+    <path
+      fill="none"
+      stroke="#7a2e3a"
+      stroke-width="4.4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      d="M39 60 C33 52 35 40 47 38 C58 36 64 46 58 54 C53 60 44 58 44 50 C44 45 50 44 53 48"
+    />
+  </g>
+</svg>

@@ -6,131 +6,127 @@
  * compra várias peças iguais e devolve só uma.
  */
 
-/*
- * PENDENTE — aguardando reconstrucao da interface.
+import { expect, test, type Page } from '@playwright/test';
+import {
+  DADOS_E2E,
+  esperarCatalogoSincronizado,
+  garantirTerminalFechado,
+  irParaVenda,
+} from '../fixtures.js';
+
+/**
+ * Extrai o identificador que a tela de devolução aceita.
  *
- * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
- * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
- * por teste de integracao no backend. O que sumiu foi a tela.
- *
- * Volta a rodar quando Fase 5 entregar: devolução.
- * Deixar como skip e registro de divida, nao conserto.
+ * A venda ainda não sincronizou no instante da impressão ("Venda: pendente"),
+ * então o comprovante não tem número sequencial — só o código curto do UUID,
+ * impresso sozinho numa linha em maiúsculo (8 caracteres hexadecimais). É
+ * esse código curto que a busca da devolução usa nesse caso.
  */
+function extrairIdentificadorDaVenda(textoComprovante: string): string {
+  const codigoCurto = /^\s*([0-9A-F]{8})\s*$/m.exec(textoComprovante);
+  if (codigoCurto) return codigoCurto[1]!;
 
-import { expect, test } from '@playwright/test';
-import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
+  const numero = /Venda:\s*(\d+)/.exec(textoComprovante);
+  if (numero) return numero[1]!;
 
-test.beforeEach(async () => {
-  await garantirTerminalFechado();
-});
+  throw new Error(`identificador da venda não encontrado em: ${textoComprovante}`);
+}
 
-test.skip('vende 2 unidades, devolve 1 e a outra continua disponível para devolução futura', async ({
-  page,
-  context,
-}) => {
-  await irParaTelaCaixa(page);
+async function venderEObterIdentificador(page: Page, quantidade: 1 | 2): Promise<string> {
+  const busca = page.getByLabel(/Buscar produto/);
+  for (let i = 0; i < quantidade; i += 1) {
+    await busca.fill('perfume');
+    await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  }
 
-  await page.getByPlaceholder('0,00').fill('200,00');
-  await page.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
-  await esperarCatalogoSincronizado(page, 2);
+  await page.getByRole('complementary').getByRole('button', { name: 'Finalizar' }).click();
+  const modal = page.getByRole('dialog');
+  await modal.getByRole('button', { name: 'Débito' }).click();
+  await modal.getByRole('button', { name: 'Lançar pagamento' }).click();
+  await modal.getByRole('button', { name: 'Confirmar venda' }).click();
+  await expect(page).toHaveURL(/\/venda\/concluida/);
 
-  // --- Venda de 2 unidades ---------------------------------------------
-  const busca = page.getByPlaceholder(/Bipe o código de barras/);
-  const itemDaBusca = page.getByRole('button', { name: new RegExp(DADOS_E2E.produto.nome) });
-  await busca.fill('camiseta');
-  await itemDaBusca.click();
-  await busca.fill('camiseta');
-  await itemDaBusca.click();
+  const textoComprovante = await page.getByLabel('Comprovante da venda').innerText();
+  return extrairIdentificadorDaVenda(textoComprovante);
+}
 
-  await expect(page.locator('.itens .valor')).toHaveText('R$ 100,00');
+test.describe('devolução', () => {
+  test.beforeEach(async () => {
+    await garantirTerminalFechado();
+  });
 
-  await page.getByPlaceholder(/Falta/).fill('100,00');
-  await page.getByRole('button', { name: 'Débito' }).click();
+  test('vende 2 unidades, devolve 1 e a outra continua disponível', async ({ page }) => {
+    await irParaVenda(page);
+    await esperarCatalogoSincronizado(page, 4);
 
-  const [janelaImpressao] = await Promise.all([
-    context.waitForEvent('page'),
-    page.getByRole('button', { name: 'Finalizar e imprimir' }).click(),
-  ]);
-  await janelaImpressao.waitForLoadState();
-  const textoComprovante = await janelaImpressao.locator('pre').innerText();
-  await janelaImpressao.close();
+    // --- Venda de 2 unidades do perfume (produto sem grade) -----------------
+    const identificador = await venderEObterIdentificador(page, 2);
 
-  // A venda ainda não sincronizou no instante da impressão ("Venda: pendente"),
-  // então a busca usa o código curto do UUID, impresso sozinho numa linha —
-  // 8 caracteres hexadecimais, sempre em maiúsculo.
-  const codigoMatch = /^\s*([0-9A-F]{8})\s*$/m.exec(textoComprovante);
-  expect(codigoMatch).not.toBeNull();
-  const codigoVenda = codigoMatch![1];
+    // --- Devolução de 1 das 2 unidades --------------------------------------
+    await page.goto('/devolucao');
+    await expect(page.getByRole('heading', { name: 'Devolução' })).toBeVisible();
 
-  await expect(page.getByText(/Venda de R\$ 100,00 finalizada/)).toBeVisible();
+    await page.getByLabel(/Número ou código da venda/).fill(identificador);
+    await page.getByRole('button', { name: 'Buscar venda' }).click();
 
-  // --- Devolução de 1 das 2 unidades -------------------------------------
-  await page.getByRole('button', { name: 'Devolução' }).click();
-  await expect(page.getByRole('heading', { name: 'Devolução' })).toBeVisible();
+    await expect(page.getByText(/^Devolução/)).toBeVisible();
+    await expect(page.getByText(/disponível 2/)).toBeVisible();
 
-  await page.getByPlaceholder('Ex.: 42 ou ABC12345').fill(codigoVenda!);
-  await page.getByRole('button', { name: 'Buscar venda' }).click();
+    await page.getByRole('button', { name: /Aumentar quantidade/ }).click();
+    await expect(page.getByText('Total a devolver')).toBeVisible();
+    await expect(page.getByText('R$ 120,00')).toBeVisible();
 
-  await expect(page.getByText(/Venda #\d+/)).toBeVisible();
-  await expect(page.getByText(/disponível 2/)).toBeVisible();
+    await page.getByPlaceholder('Ex.: peça com defeito').fill('Cliente comprou o tamanho errado');
+    await page.getByLabel('Login do gerente').fill(DADOS_E2E.gerente.login);
+    await page.getByLabel('Senha do gerente').fill(DADOS_E2E.gerente.senha);
+    await page.getByRole('button', { name: 'Autorizar' }).click();
+    await expect(page.getByText('Autorizado')).toBeVisible();
 
-  // Incrementa a quantidade a devolver para 1.
-  await page.locator('.itens-devolucao li').getByRole('button', { name: '+' }).click();
-  await expect(page.getByText('Total a devolver: R$ 50,00')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmar devolução' }).click();
 
-  await page.getByPlaceholder('Ex.: peça com defeito').fill('Cliente comprou o tamanho errado');
-  await page.locator('label', { hasText: 'Login do gerente' }).locator('input').fill(DADOS_E2E.gerente.login);
-  await page.locator('label', { hasText: 'Senha do gerente' }).locator('input').fill(DADOS_E2E.gerente.senha);
-  await page.getByRole('button', { name: 'Confirmar devolução' }).click();
+    await expect(page.getByText('Devolução registrada')).toBeVisible();
+    await expect(page.getByText('R$ 120,00')).toBeVisible();
 
-  await expect(page.getByText(/Devolução de R\$ 50,00 registrada/)).toBeVisible();
-  await page.getByRole('button', { name: 'Ok' }).click();
+    // --- Confere que só 1 unidade foi devolvida, a outra continua disponível ---
+    await page.getByRole('button', { name: 'Outra devolução' }).click();
+    await page.getByLabel(/Número ou código da venda/).fill(identificador);
+    await page.getByRole('button', { name: 'Buscar venda' }).click();
 
-  // Volta pra tela de venda.
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
+    await expect(page.getByText(/já devolvido 1/)).toBeVisible();
+    await expect(page.getByText(/disponível 1/)).toBeVisible();
+  });
 
-  // --- Confere que só 1 unidade foi devolvida, a outra continua disponível ---
-  await page.getByRole('button', { name: 'Devolução' }).click();
-  await page.getByPlaceholder('Ex.: 42 ou ABC12345').fill(codigoVenda!);
-  await page.getByRole('button', { name: 'Buscar venda' }).click();
+  test('devolução exige gerente válido — operador comum é recusado', async ({ page }) => {
+    await irParaVenda(page);
+    await esperarCatalogoSincronizado(page, 4);
 
-  await expect(page.getByText(/já devolvido 1/)).toBeVisible();
-  await expect(page.getByText(/disponível 1/)).toBeVisible();
-});
+    const identificador = await venderEObterIdentificador(page, 1);
 
-test.skip('devolução exige gerente válido — operador comum é recusado', async ({ page, context }) => {
-  await irParaTelaCaixa(page);
-  await page.getByPlaceholder('0,00').fill('100,00');
-  await page.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
-  await esperarCatalogoSincronizado(page, 2);
+    await page.goto('/devolucao');
+    await page.getByLabel(/Número ou código da venda/).fill(identificador);
+    await page.getByRole('button', { name: 'Buscar venda' }).click();
 
-  const busca = page.getByPlaceholder(/Bipe o código de barras/);
-  await busca.fill('camiseta');
-  await page.getByRole('button', { name: new RegExp(DADOS_E2E.produto.nome) }).click();
+    await page.getByRole('button', { name: /Aumentar quantidade/ }).click();
+    await page.getByPlaceholder('Ex.: peça com defeito').fill('Teste sem gerente');
+    // Credenciais do OPERADOR, não do gerente.
+    await page.getByLabel('Login do gerente').fill(DADOS_E2E.operador.login);
+    await page.getByLabel('Senha do gerente').fill(DADOS_E2E.operador.senha);
+    await page.getByRole('button', { name: 'Autorizar' }).click();
 
-  await page.getByPlaceholder(/Falta/).fill('50,00');
-  await page.getByRole('button', { name: 'Débito' }).click();
+    await expect(page.getByText(/não tem perfil de gerente/i)).toBeVisible();
+    // Sem autorização, o botão de confirmar continua bloqueado.
+    await expect(page.getByRole('button', { name: 'Confirmar devolução' })).toBeDisabled();
+  });
 
-  const [janelaImpressao] = await Promise.all([
-    context.waitForEvent('page'),
-    page.getByRole('button', { name: 'Finalizar e imprimir' }).click(),
-  ]);
-  const texto = await janelaImpressao.locator('pre').innerText();
-  await janelaImpressao.close();
-  const codigoVenda = /^\s*([0-9A-F]{8})\s*$/m.exec(texto)![1];
+  test('venda inexistente mostra erro, não tela em branco', async ({ page }) => {
+    const { loginOperador, configurarTerminal } = await import('../fixtures.js');
+    await loginOperador(page);
+    await configurarTerminal(page);
+    await page.goto('/devolucao');
 
-  await page.getByRole('button', { name: 'Devolução' }).click();
-  await page.getByPlaceholder('Ex.: 42 ou ABC12345').fill(codigoVenda!);
-  await page.getByRole('button', { name: 'Buscar venda' }).click();
+    await page.getByLabel(/Número ou código da venda/).fill('999999');
+    await page.getByRole('button', { name: 'Buscar venda' }).click();
 
-  await page.locator('.itens-devolucao li').getByRole('button', { name: '+' }).click();
-  await page.getByPlaceholder('Ex.: peça com defeito').fill('Teste sem gerente');
-  // Credenciais do OPERADOR, não do gerente.
-  await page.locator('label', { hasText: 'Login do gerente' }).locator('input').fill(DADOS_E2E.operador.login);
-  await page.locator('label', { hasText: 'Senha do gerente' }).locator('input').fill(DADOS_E2E.operador.senha);
-  await page.getByRole('button', { name: 'Confirmar devolução' }).click();
-
-  await expect(page.getByText(/não tem perfil de gerente/i)).toBeVisible();
+    await expect(page.getByRole('alert')).toBeVisible();
+  });
 });

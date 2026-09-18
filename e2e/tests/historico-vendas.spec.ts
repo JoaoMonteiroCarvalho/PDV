@@ -6,106 +6,94 @@
  * sessão atual e clica em "Devolver" direto dali.
  */
 
-/*
- * PENDENTE — aguardando reconstrucao da interface.
- *
- * Este spec exercita a UI ANTIGA (dark, sem rotas), removida na Fase 0.
- * Ele nao esta "quebrado": a funcionalidade continua existindo e coberta
- * por teste de integracao no backend. O que sumiu foi a tela.
- *
- * Volta a rodar quando Fase 5 entregar: histórico de vendas.
- * Deixar como skip e registro de divida, nao conserto.
- */
-
 import { expect, test } from '@playwright/test';
-import { DADOS_E2E, esperarCatalogoSincronizado, garantirTerminalFechado, irParaTelaCaixa } from '../fixtures.js';
+import {
+  DADOS_E2E,
+  esperarCatalogoSincronizado,
+  garantirTerminalFechado,
+  irParaVenda,
+} from '../fixtures.js';
 
-test.beforeEach(async () => {
-  await garantirTerminalFechado();
-});
+test.describe('histórico de vendas', () => {
+  test.beforeEach(async () => {
+    await garantirTerminalFechado();
+  });
 
-test.skip('lista a venda no histórico e devolve direto pela lista, sem digitar número', async ({
-  page,
-  context,
-}) => {
-  await irParaTelaCaixa(page);
+  test('lista a venda da sessão atual, com operador e total', async ({ page }) => {
+    await irParaVenda(page);
 
-  await page.getByPlaceholder('0,00').fill('100,00');
-  await page.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
-  await esperarCatalogoSincronizado(page, 2);
+    await page.getByLabel(/Buscar produto/).fill('perfume');
+    await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
+    await expect(page.getByTestId('total-venda')).toHaveText('R$ 120,00');
 
-  // --- Venda -------------------------------------------------------------
-  const busca = page.getByPlaceholder(/Bipe o código de barras/);
-  await busca.fill('camiseta');
-  await page.getByRole('button', { name: new RegExp(DADOS_E2E.produto.nome) }).click();
+    await page.getByRole('complementary').getByRole('button', { name: 'Finalizar' }).click();
+    const modal = page.getByRole('dialog');
+    await modal.getByRole('button', { name: 'Débito' }).click();
+    await modal.getByRole('button', { name: 'Lançar pagamento' }).click();
+    await modal.getByRole('button', { name: 'Confirmar venda' }).click();
+    await expect(page).toHaveURL(/\/venda\/concluida/);
 
-  await page.getByPlaceholder(/Falta/).fill('50,00');
-  await page.getByRole('button', { name: 'Débito' }).click();
+    await page.getByRole('link', { name: 'Histórico' }).click();
+    await expect(page.getByRole('heading', { name: 'Histórico de vendas' })).toBeVisible();
 
-  const [janelaImpressao] = await Promise.all([
-    context.waitForEvent('page'),
-    page.getByRole('button', { name: 'Finalizar e imprimir' }).click(),
-  ]);
-  await janelaImpressao.waitForLoadState();
-  await janelaImpressao.close();
-  await expect(page.getByText(/Venda de R\$ 50,00 finalizada/)).toBeVisible();
+    await expect(page.getByText(/Venda #\d+/)).toBeVisible();
+    await expect(page.getByText('R$ 120,00')).toBeVisible();
+    // O nome da operadora aparece duas vezes na tela (cabeçalho do Shell e a
+    // linha da venda) — a busca fica restrita à linha da venda.
+    await expect(page.getByText(new RegExp(`·\\s*${DADOS_E2E.operador.nome}`))).toBeVisible();
+    // Venda recém-feita não pode aparecer como já tendo devolução.
+    await expect(page.getByText('já teve devolução')).toHaveCount(0);
+  });
 
-  // --- Histórico -----------------------------------------------------------
-  await page.getByRole('button', { name: 'Histórico' }).click();
-  await expect(page.getByRole('heading', { name: 'Histórico de vendas' })).toBeVisible();
+  test('busca por cliente filtra a lista, e nome inexistente esvazia', async ({ page }) => {
+    await irParaVenda(page);
 
-  await expect(page.locator('.lista-historico li')).toHaveCount(1);
-  await expect(page.locator('.lista-historico .valor')).toHaveText('R$ 50,00');
-  await expect(page.getByText(new RegExp(DADOS_E2E.operador.nome))).toBeVisible();
+    await page.getByLabel(/Buscar produto/).fill('perfume');
+    await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
+    await page.getByRole('complementary').getByRole('button', { name: 'Finalizar' }).click();
+    const modal = page.getByRole('dialog');
+    await modal.getByRole('button', { name: 'Débito' }).click();
+    await modal.getByRole('button', { name: 'Lançar pagamento' }).click();
+    await modal.getByRole('button', { name: 'Confirmar venda' }).click();
+    await expect(page).toHaveURL(/\/venda\/concluida/);
 
-  // --- Devolução direto pela lista, sem digitar número/código -------------
-  await page.getByRole('button', { name: 'Devolver' }).click();
-  await expect(page.getByText(/Venda #\d+/)).toBeVisible();
-  await expect(page.getByText(/disponível 1/)).toBeVisible();
+    await page.getByRole('link', { name: 'Histórico' }).click();
+    await expect(page.getByText(/Venda #\d+/)).toBeVisible();
 
-  await page.locator('.itens-devolucao li').getByRole('button', { name: '+' }).click();
-  await page.getByPlaceholder('Ex.: peça com defeito').fill('Cliente trocou de ideia');
-  await page.locator('label', { hasText: 'Login do gerente' }).locator('input').fill(DADOS_E2E.gerente.login);
-  await page.locator('label', { hasText: 'Senha do gerente' }).locator('input').fill(DADOS_E2E.gerente.senha);
-  await page.getByRole('button', { name: 'Confirmar devolução' }).click();
+    // A venda não teve cliente identificado — buscar por qualquer nome some
+    // com ela, inclusive um nome real de outro cadastro.
+    await page.getByLabel('Buscar').fill(DADOS_E2E.clienteFiado.nome);
+    await expect(
+      page.getByText(`Nenhuma venda de "${DADOS_E2E.clienteFiado.nome}" nesta sessão de caixa.`),
+    ).toBeVisible();
+  });
 
-  await expect(page.getByText(/Devolução de R\$ 50,00 registrada/)).toBeVisible();
-  await page.getByRole('button', { name: 'Ok' }).click();
+  test('sem caixa aberto, explica em vez de listar', async ({ page }) => {
+    const { loginOperador, configurarTerminal } = await import('../fixtures.js');
+    await loginOperador(page);
+    await configurarTerminal(page);
+    await page.goto('/historico');
 
-  // Concluir a devolução a partir do histórico volta pra lista do histórico
-  // (não pra tela de venda) — e já mostra o resultado atualizado.
-  await expect(page.getByRole('heading', { name: 'Histórico de vendas' })).toBeVisible();
-  await expect(page.getByText(/já teve devolução/)).toBeVisible();
-});
+    await expect(page.getByRole('heading', { name: 'Não há caixa aberto' })).toBeVisible();
+  });
 
-test.skip('busca por cliente filtra a lista do histórico', async ({ page, context }) => {
-  await irParaTelaCaixa(page);
+  test('devolver a partir da lista leva à tela de devolução', async ({ page }) => {
+    await irParaVenda(page);
+    await esperarCatalogoSincronizado(page, 4);
 
-  await page.getByPlaceholder('0,00').fill('100,00');
-  await page.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(page.getByPlaceholder(/Bipe o código de barras/)).toBeVisible();
-  await esperarCatalogoSincronizado(page, 2);
+    await page.getByLabel(/Buscar produto/).fill('perfume');
+    await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
+    await page.getByRole('complementary').getByRole('button', { name: 'Finalizar' }).click();
+    const modal = page.getByRole('dialog');
+    await modal.getByRole('button', { name: 'Débito' }).click();
+    await modal.getByRole('button', { name: 'Lançar pagamento' }).click();
+    await modal.getByRole('button', { name: 'Confirmar venda' }).click();
+    await expect(page).toHaveURL(/\/venda\/concluida/);
 
-  const busca = page.getByPlaceholder(/Bipe o código de barras/);
-  await busca.fill('camiseta');
-  await page.getByRole('button', { name: new RegExp(DADOS_E2E.produto.nome) }).click();
-  await page.getByPlaceholder(/Falta/).fill('50,00');
-  await page.getByRole('button', { name: 'Débito' }).click();
+    await page.getByRole('link', { name: 'Histórico' }).click();
+    await page.getByRole('button', { name: 'Devolver' }).click();
 
-  const [janelaImpressao] = await Promise.all([
-    context.waitForEvent('page'),
-    page.getByRole('button', { name: 'Finalizar e imprimir' }).click(),
-  ]);
-  await janelaImpressao.waitForLoadState();
-  await janelaImpressao.close();
-  await expect(page.getByText(/Venda de R\$ 50,00 finalizada/)).toBeVisible();
-
-  await page.getByRole('button', { name: 'Histórico' }).click();
-  await expect(page.locator('.lista-historico li')).toHaveCount(1);
-
-  // Busca por um nome que não corresponde a nenhum cliente da venda (venda
-  // não teve cliente identificado) — a lista deve esvaziar.
-  await page.getByPlaceholder('Nome do cliente').fill('Cliente Inexistente');
-  await expect(page.getByText('Nenhuma venda encontrada nesta sessão de caixa.')).toBeVisible();
+    await expect(page).toHaveURL(/\/devolucao/);
+    await expect(page.getByRole('heading', { name: 'Devolução' })).toBeVisible();
+  });
 });

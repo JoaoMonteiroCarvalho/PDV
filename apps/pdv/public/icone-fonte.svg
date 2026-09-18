@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!--
+    Ícone do PWA — fundo marfim da marca (--rm-marfim, #f6efe9) com o símbolo
+    da RM em vinho (--rm-vinho, #7a2e3a), preenchido e centralizado.
+
+    Preenchido, não só contorno: o line-art de `rm-icone-cor.svg` (traço fino
+    de 2.13, pensado para favicon de 16-32px) desaparece num ícone de app em
+    tamanho real de tela. Preenchido garante massa visível em qualquer
+    tamanho, da gaveta de apps ao atalho da área de trabalho.
+
+    O grupo interno usa viewBox 0-100 e é centralizado por `translate` +
+    `scale` para caber com folga dentro do quadrado de 200×200 — cerca de
+    70% da altura, deixando margem de segurança para máscaras adaptativas
+    (Android "maskable", squircle do iOS) que recortam a arte em formas
+    variadas sem aviso.
+  -->
+  <rect width="200" height="200" fill="#f6efe9" />
+  <g transform="translate(41 33) scale(1.18)" fill="#7a2e3a">
+    <path
+      fill-rule="evenodd"
+      d="M50 22
+         C34 30 28 46 34 58
+         C39 68 45 73 50 73
+         C55 73 61 68 66 58
+         C72 46 66 30 50 22
+         Z
+         M50 30.5
+         C60.5 37 65 46.5 61 54
+         C57.5 60.5 53 65 50 65
+         C47 65 42.5 60.5 39 54
+         C35 46.5 39.5 37 50 30.5
+         Z"
+    />
+    <path
+      fill="none"
+      stroke="#7a2e3a"
+      stroke-width="4.4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      d="M39 60 C33 52 35 40 47 38 C58 36 64 46 58 54 C53 60 44 58 44 50 C44 45 50 44 53 48"
+    />
+  </g>
+</svg>
