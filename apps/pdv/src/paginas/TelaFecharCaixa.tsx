@@ -32,11 +32,18 @@ import { CampoDinheiro } from '../componentes/CampoDinheiro.js';
 import { useEstadoSincronizacao } from '../componentes/IndicadorConexao.js';
 import { useCaixa } from '../estado/caixaStore.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
+import { RelatorioZ } from '../caixa/RelatorioZ.js';
 
 type Resultado = {
   readonly valorEsperadoCentavos: number;
   readonly valorContadoCentavos: number;
   readonly diferencaCentavos: number;
+  /**
+   * Guardado aqui porque `encerrar()` zera a sessão local no instante do
+   * fechamento — sem esta cópia, o relatório do turno perderia o id da sessão
+   * que acabou de ser fechada, que é justamente a que a operadora quer ver.
+   */
+  readonly sessaoCaixaId: string;
 };
 
 export function TelaFecharCaixa() {
@@ -86,8 +93,9 @@ export function TelaFecharCaixa() {
     setErro(null);
     setEnviando(true);
     try {
-      const retorno = await clienteApi.fecharSessao(sessao!.id, valorContado);
-      setResultado(retorno);
+      const sessaoCaixaId = sessao!.id;
+      const retorno = await clienteApi.fecharSessao(sessaoCaixaId, valorContado);
+      setResultado({ ...retorno, sessaoCaixaId });
       // A sessão morreu no servidor; o estado local precisa acompanhar, senão
       // o guard de rota deixaria a operadora voltar a vender sem caixa.
       encerrar();
@@ -430,6 +438,17 @@ function Conferencia({ resultado, aoSair }: { resultado: Resultado; aoSair: () =
           fresco — troco entregue a mais, sangria não lançada, venda cancelada no papel.
         </p>
       )}
+
+      {/*
+        O relatório vem DEPOIS da diferença, não antes. A pergunta do
+        fechamento é "bateu?", e ela tem que ser respondida antes de a tela
+        começar a detalhar; quem precisa do detalhe é quem não bateu, e para
+        esse a quebra por forma está logo abaixo.
+      */}
+      <div className="mt-8">
+        <h2 className="mb-4 font-titulo text-[20px]">Relatório do turno</h2>
+        <RelatorioZ sessaoCaixaId={resultado.sessaoCaixaId} />
+      </div>
 
       <Botao variante="primario" tamanho="grande" className="mt-8" onClick={aoSair}>
         Concluir

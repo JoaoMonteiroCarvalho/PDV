@@ -283,3 +283,165 @@ export async function obterSessaoAberta(
     saldoEsperadoCentavos: saldoEsperado,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Relatório de fechamento (Z)
+// ---------------------------------------------------------------------------
+
+/**
+ * O documento do fim do turno.
+ *
+ * Antes, fechar o caixa devolvia três números — esperado, contado, diferença —
+ * e mais nada. Isso responde "bateu?" mas não "bateu com o quê?": sem a quebra
+ * por forma de pagamento não dá para conciliar o extrato da maquininha nem
+ * saber quanto do dia foi Pix.
+ *
+ * **Só DINHEIRO entra na conferência da gaveta.** Cartão e Pix não passam pela
+ * gaveta — a maquininha opera separada do PDV —, e crediário não é dinheiro
+ * recebido, é promessa. Somá-los ao esperado faria toda gaveta fechar com
+ * sobra fantasma. Eles aparecem no relatório porque o turno os movimentou, não
+ * porque entram no caixa físico.
+ *
+ * O valor por forma é LÍQUIDO do troco: a nota de R$ 100 dada para pagar R$ 50
+ * é R$ 50 de dinheiro na gaveta, não R$ 100.
+ */
+export interface RelatorioFechamento {
+  readonly sessaoId: string;
+  readonly terminal: string;
+  readonly operador: string;
+  readonly abertaEm: Date;
+  readonly fechadaEm: Date | null;
+  readonly status: 'ABERTA' | 'FECHADA';
+  readonly vendas: { readonly quantidade: number; readonly totalCentavos: number };
+  readonly porForma: readonly {
+    readonly forma: string;
+    readonly quantidade: number;
+    readonly totalCentavos: number;
+  }[];
+  readonly gaveta: {
+    readonly fundoTrocoCentavos: number;
+    readonly vendasEmDinheiroCentavos: number;
+    readonly recebimentosCrediarioCentavos: number;
+    readonly suprimentosCentavos: number;
+    readonly sangriasCentavos: number;
+    readonly devolucoesCentavos: number;
+    readonly esperadoCentavos: number;
+    readonly contadoCentavos: number | null;
+    readonly diferencaCentavos: number | null;
+  };
+  readonly movimentos: readonly {
+    readonly tipo: string;
+    readonly valorCentavos: number;
+    readonly observacao: string | null;
+    readonly criadoEm: Date;
+    readonly usuario: string;
+    readonly autorizadoPor: string | null;
+  }[];
+}
+
+export async function gerarRelatorioFechamento(
+  prisma: PrismaClient,
+  sessaoCaixaId: string,
+): Promise<RelatorioFechamento> {
+  const sessao = await prisma.sessaoCaixa.findUnique({
+    where: { id: sessaoCaixaId },
+    select: {
+      id: true,
+      status: true,
+      abertaEm: true,
+      fechadaEm: true,
+      fundoTrocoCentavos: true,
+      valorContadoCentavos: true,
+      diferencaCentavos: true,
+      terminal: { select: { nome: true } },
+      operador: { select: { nome: true } },
+    },
+  });
+  if (!sessao) throw new ErroCaixa('SESSAO_INEXISTENTE', 'Sessão de caixa não encontrada.');
+
+  const vendas = await prisma.venda.findMany({
+    where: { sessaoCaixaId },
+    select: {
+      totalCentavos: true,
+      pagamentos: { select: { forma: true, valorCentavos: true, trocoCentavos: true } },
+    },
+  });
+
+  const porForma = new Map<string, { quantidade: number; totalCentavos: number }>();
+  let totalVendido = 0;
+  for (const venda of vendas) {
+    totalVendido += venda.totalCentavos;
+    for (const pagamento of venda.pagamentos) {
+      const acumulado = porForma.get(pagamento.forma) ?? { quantidade: 0, totalCentavos: 0 };
+      porForma.set(pagamento.forma, {
+        quantidade: acumulado.quantidade + 1,
+        totalCentavos:
+          acumulado.totalCentavos + pagamento.valorCentavos - pagamento.trocoCentavos,
+      });
+    }
+  }
+
+  const movimentos = await prisma.movimentoCaixa.findMany({
+    where: { sessaoCaixaId },
+    orderBy: { criadoEm: 'asc' },
+    select: {
+      tipo: true,
+      valorCentavos: true,
+      observacao: true,
+      criadoEm: true,
+      usuario: { select: { nome: true } },
+      autorizadoPor: { select: { nome: true } },
+    },
+  });
+
+  /** Soma os movimentos de um tipo. O sinal do banco é preservado. */
+  const somaDoTipo = (tipo: string): number =>
+    movimentos
+      .filter((movimento) => movimento.tipo === tipo)
+      .reduce((total, movimento) => total + movimento.valorCentavos, 0);
+
+  const vendasEmDinheiro = somaDoTipo('VENDA_DINHEIRO');
+  const recebimentos = somaDoTipo('RECEBIMENTO_CREDIARIO');
+  const suprimentos = somaDoTipo('SUPRIMENTO');
+  const sangrias = somaDoTipo('SANGRIA');
+  const devolucoes = somaDoTipo('CANCELAMENTO');
+
+  // Mesmo cálculo do fechamento: fundo + tudo que não é a abertura.
+  const esperado =
+    sessao.fundoTrocoCentavos +
+    movimentos
+      .filter((movimento) => movimento.tipo !== 'ABERTURA')
+      .reduce((total, movimento) => total + movimento.valorCentavos, 0);
+
+  return {
+    sessaoId: sessao.id,
+    terminal: sessao.terminal.nome,
+    operador: sessao.operador.nome,
+    abertaEm: sessao.abertaEm,
+    fechadaEm: sessao.fechadaEm,
+    status: sessao.status,
+    vendas: { quantidade: vendas.length, totalCentavos: totalVendido },
+    porForma: [...porForma.entries()]
+      .map(([forma, dados]) => ({ forma, ...dados }))
+      .sort((a, b) => b.totalCentavos - a.totalCentavos),
+    gaveta: {
+      fundoTrocoCentavos: sessao.fundoTrocoCentavos,
+      vendasEmDinheiroCentavos: vendasEmDinheiro,
+      recebimentosCrediarioCentavos: recebimentos,
+      suprimentosCentavos: suprimentos,
+      sangriasCentavos: sangrias,
+      devolucoesCentavos: devolucoes,
+      esperadoCentavos: esperado,
+      contadoCentavos: sessao.valorContadoCentavos,
+      diferencaCentavos: sessao.diferencaCentavos,
+    },
+    movimentos: movimentos.map((movimento) => ({
+      tipo: movimento.tipo,
+      valorCentavos: movimento.valorCentavos,
+      observacao: movimento.observacao,
+      criadoEm: movimento.criadoEm,
+      usuario: movimento.usuario.nome,
+      autorizadoPor: movimento.autorizadoPor?.nome ?? null,
+    })),
+  };
+}
