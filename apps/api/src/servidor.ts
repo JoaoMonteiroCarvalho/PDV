@@ -25,6 +25,28 @@ import { ErroCaixa, ErroDevolucao, ErroVenda } from '@pdv/shared';
 import { esquemaAbrirSessao, esquemaFecharSessao, esquemaMovimentoManual } from './esquemas/caixa.js';
 import { esquemaEntradaEstoque } from './esquemas/estoque.js';
 import {
+  esquemaAjusteInventario,
+  esquemaAtualizarProduto,
+  esquemaAtualizarVariante,
+  esquemaCriarCategoria,
+  esquemaCriarProduto,
+  esquemaHistoricoMovimentacao,
+  esquemaListarProdutos,
+  esquemaVarianteNova,
+} from './esquemas/catalogo.js';
+import {
+  ErroCatalogo,
+  atualizarProduto,
+  atualizarVariante,
+  criarCategoria,
+  criarProduto,
+  criarVariante,
+  listarCategorias,
+  listarProdutos,
+  obterProduto,
+} from './servicos/catalogo.js';
+import { ErroAuditoria, consultarAuditoria, listarAcoes } from './servicos/auditoria.js';
+import {
   esquemaAtualizarUsuario,
   esquemaConfiguracaoLoja,
   esquemaCriarUsuario,
@@ -36,7 +58,12 @@ import {
   esquemaReceberParcela,
 } from './esquemas/cliente.js';
 import { esquemaRegistrarDevolucao } from './esquemas/devolucao.js';
-import { ErroEstoque, registrarEntradaEstoque } from './servicos/estoque.js';
+import {
+  ErroEstoque,
+  ajustarInventario,
+  historicoMovimentacao,
+  registrarEntradaEstoque,
+} from './servicos/estoque.js';
 import {
   ErroCliente,
   buscarClientes,
@@ -60,6 +87,7 @@ import { obterDisponivelParaDevolucao, registrarDevolucao } from './servicos/dev
 import {
   abrirSessao,
   fecharSessao,
+  gerarRelatorioFechamento,
   obterSessaoAberta,
   registrarMovimentoManual,
 } from './servicos/sessao-caixa.js';
@@ -784,6 +812,28 @@ export async function construirServidor(
   );
 
   /**
+   * Relatório Z: o documento do fim do turno.
+   *
+   * `exigirOperador`, não gerente: é o caixa DELA, e ela já vê o esperado e o
+   * contado no fechamento. O que estava faltando era a quebra por forma de
+   * pagamento, sem a qual não dá para conciliar o extrato da maquininha.
+   *
+   * Vale com a sessão ainda aberta — conferir o turno no meio do dia é rotina,
+   * e é o que permite descobrir a divergência antes de a gaveta fechar.
+   */
+  app.get('/sessoes-caixa/:id/relatorio', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    if (!parametros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: parametros.error.issues });
+    }
+    try {
+      return await gerarRelatorioFechamento(prisma, parametros.data.id);
+    } catch (erro) {
+      return tratarErroCaixa(erro, resposta);
+    }
+  });
+
+  /**
    * Entrada de mercadoria no estoque.
    *
    * O estoque é livro-razão: isto LANÇA movimentos, nunca escreve um saldo.
@@ -793,6 +843,34 @@ export async function construirServidor(
    * estoque. Clicar duas vezes achando que não foi é o erro mais provável
    * aqui, e ele custa uma conferência de arara inteira para descobrir.
    */
+  const STATUS_ESTOQUE: Readonly<Record<string, number>> = {
+    DOCUMENTO_JA_LANCADO: 409,
+  };
+
+  /**
+   * `statusExtra` existe por causa de `VARIANTE_INEXISTENTE`, que significa
+   * coisas diferentes conforme a rota.
+   *
+   * Em `/estoque/entrada` o id vem no CORPO, entre vários itens: a requisição
+   * é sobre a entrada, não sobre a variante, e um id inválido ali é entrada
+   * recusada por regra — 422. Em `/variantes/:id/...` a variante é o recurso
+   * endereçado, e não existir é 404.
+   */
+  function tratarErroEstoque(
+    erro: unknown,
+    resposta: FastifyReply,
+    statusExtra: Readonly<Record<string, number>> = {},
+  ): FastifyReply | never {
+    if (erro instanceof ErroEstoque) {
+      const status = statusExtra[erro.codigo] ?? STATUS_ESTOQUE[erro.codigo] ?? 422;
+      return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  /** Nas rotas endereçadas por `:id`, a variante ausente é recurso não encontrado. */
+  const VARIANTE_COMO_RECURSO = { VARIANTE_INEXISTENTE: 404 } as const;
+
   app.post('/estoque/entrada', { preHandler: exigirOperador }, async (requisicao, resposta) => {
     const entrada = esquemaEntradaEstoque.safeParse(requisicao.body);
     if (!entrada.success) {
@@ -806,13 +884,252 @@ export async function construirServidor(
       });
       return resposta.status(201).send(resultado);
     } catch (erro) {
-      if (erro instanceof ErroEstoque) {
-        const status = erro.codigo === 'DOCUMENTO_JA_LANCADO' ? 409 : 422;
-        return resposta.status(status).send({ codigo: erro.codigo, mensagem: erro.message });
+      return tratarErroEstoque(erro, resposta);
+    }
+  });
+
+  /**
+   * Ajuste de inventário: corrige o saldo para a quantidade contada na arara.
+   *
+   * Exige GERENTE. Não é dinheiro saindo da gaveta, mas é o caminho pelo qual
+   * peça sumida vira "erro de estoque" — corrigir o número sem deixar rastro é
+   * como furto interno desaparece. Sempre auditado, inclusive quando a
+   * contagem bate.
+   */
+  app.post(
+    '/variantes/:id/inventario',
+    { preHandler: exigirAdministrador },
+    async (requisicao, resposta) => {
+      const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+      const entrada = esquemaAjusteInventario.safeParse(requisicao.body);
+      if (!parametros.success || !entrada.success) {
+        return resposta.status(400).send({
+          codigo: 'ENTRADA_INVALIDA',
+          erros: [
+            ...(parametros.success ? [] : parametros.error.issues),
+            ...(entrada.success ? [] : entrada.error.issues),
+          ],
+        });
+      }
+      try {
+        return await ajustarInventario(
+          prisma,
+          { varianteId: parametros.data.id, ...entrada.data },
+          { operadorId: requisicao.user.sub },
+        );
+      } catch (erro) {
+        return tratarErroEstoque(erro, resposta, VARIANTE_COMO_RECURSO);
+      }
+    },
+  );
+
+  /**
+   * Extrato de uma variação: cada movimento que compõe o saldo atual.
+   *
+   * `exigirOperador`: conferir de onde veio o saldo é trabalho de balcão — a
+   * pergunta "vendi ou sumiu?" aparece com a cliente esperando.
+   */
+  app.get(
+    '/variantes/:id/movimentacao',
+    { preHandler: exigirOperador },
+    async (requisicao, resposta) => {
+      const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+      const consulta = esquemaHistoricoMovimentacao.safeParse(requisicao.query);
+      if (!parametros.success || !consulta.success) {
+        return resposta.status(400).send({
+          codigo: 'ENTRADA_INVALIDA',
+          erros: [
+            ...(parametros.success ? [] : parametros.error.issues),
+            ...(consulta.success ? [] : consulta.error.issues),
+          ],
+        });
+      }
+      try {
+        return await historicoMovimentacao(prisma, parametros.data.id, consulta.data.limite);
+      } catch (erro) {
+        return tratarErroEstoque(erro, resposta, VARIANTE_COMO_RECURSO);
+      }
+    },
+  );
+
+  // --- Catálogo: cadastro ----------------------------------------------------
+
+  const STATUS_CATALOGO: Readonly<Record<string, number>> = {
+    PRODUTO_INEXISTENTE: 404,
+    VARIANTE_INEXISTENTE: 404,
+    CATEGORIA_INEXISTENTE: 404,
+    SKU_EM_USO: 409,
+    CODIGO_BARRAS_EM_USO: 409,
+    CATEGORIA_EM_USO: 409,
+  };
+
+  function tratarErroCatalogo(erro: unknown, resposta: FastifyReply): FastifyReply | never {
+    if (erro instanceof ErroCatalogo) {
+      return resposta
+        .status(STATUS_CATALOGO[erro.codigo] ?? 422)
+        .send({ codigo: erro.codigo, mensagem: erro.message });
+    }
+    throw erro;
+  }
+
+  /**
+   * Cadastro de catálogo: LER é de operador, ESCREVER é de gerente.
+   *
+   * A operadora consulta ficha de produto no balcão o tempo todo. Mudar preço,
+   * criar SKU ou desativar peça é decisão de quem responde pela margem.
+   */
+  app.get('/produtos', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const filtros = esquemaListarProdutos.safeParse(requisicao.query);
+    if (!filtros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: filtros.error.issues });
+    }
+    return listarProdutos(prisma, filtros.data);
+  });
+
+  app.get('/produtos/:id', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    if (!parametros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: parametros.error.issues });
+    }
+    try {
+      return await obterProduto(prisma, parametros.data.id);
+    } catch (erro) {
+      return tratarErroCatalogo(erro, resposta);
+    }
+  });
+
+  app.post('/produtos', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarProduto.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      const produto = await criarProduto(prisma, entrada.data, {
+        operadorId: requisicao.user.sub,
+      });
+      return resposta.status(201).send(produto);
+    } catch (erro) {
+      return tratarErroCatalogo(erro, resposta);
+    }
+  });
+
+  app.patch('/produtos/:id', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarProduto.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [
+          ...(parametros.success ? [] : parametros.error.issues),
+          ...(entrada.success ? [] : entrada.error.issues),
+        ],
+      });
+    }
+    try {
+      return await atualizarProduto(prisma, parametros.data.id, entrada.data, {
+        operadorId: requisicao.user.sub,
+      });
+    } catch (erro) {
+      return tratarErroCatalogo(erro, resposta);
+    }
+  });
+
+  app.post(
+    '/produtos/:id/variantes',
+    { preHandler: exigirAdministrador },
+    async (requisicao, resposta) => {
+      const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+      const entrada = esquemaVarianteNova.safeParse(requisicao.body);
+      if (!parametros.success || !entrada.success) {
+        return resposta.status(400).send({
+          codigo: 'ENTRADA_INVALIDA',
+          erros: [
+            ...(parametros.success ? [] : parametros.error.issues),
+            ...(entrada.success ? [] : entrada.error.issues),
+          ],
+        });
+      }
+      try {
+        const variante = await criarVariante(prisma, parametros.data.id, entrada.data, {
+          operadorId: requisicao.user.sub,
+        });
+        return resposta.status(201).send(variante);
+      } catch (erro) {
+        return tratarErroCatalogo(erro, resposta);
+      }
+    },
+  );
+
+  app.patch('/variantes/:id', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const parametros = z.object({ id: z.string().uuid() }).safeParse(requisicao.params);
+    const entrada = esquemaAtualizarVariante.safeParse(requisicao.body);
+    if (!parametros.success || !entrada.success) {
+      return resposta.status(400).send({
+        codigo: 'ENTRADA_INVALIDA',
+        erros: [
+          ...(parametros.success ? [] : parametros.error.issues),
+          ...(entrada.success ? [] : entrada.error.issues),
+        ],
+      });
+    }
+    try {
+      return await atualizarVariante(prisma, parametros.data.id, entrada.data, {
+        operadorId: requisicao.user.sub,
+      });
+    } catch (erro) {
+      return tratarErroCatalogo(erro, resposta);
+    }
+  });
+
+  app.get('/categorias', { preHandler: exigirOperador }, async () => listarCategorias(prisma));
+
+  app.post('/categorias', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const entrada = esquemaCriarCategoria.safeParse(requisicao.body);
+    if (!entrada.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: entrada.error.issues });
+    }
+    try {
+      return resposta.status(201).send(await criarCategoria(prisma, entrada.data.nome));
+    } catch (erro) {
+      return tratarErroCatalogo(erro, resposta);
+    }
+  });
+
+  // --- Auditoria -------------------------------------------------------------
+
+  /**
+   * Consulta do registro de auditoria. Só gerente.
+   *
+   * O sistema gravava em oito pontos e nada lia. Auditoria que ninguém
+   * consulta não dissuade ninguém — o registro existe para "quem autorizou
+   * isso?" ter resposta fora do banco.
+   */
+  app.get('/auditoria', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
+    const filtros = z
+      .object({
+        acao: z.string().trim().min(1).optional(),
+        usuarioId: z.string().uuid().optional(),
+        de: z.string().optional(),
+        ate: z.string().optional(),
+        pagina: z.coerce.number().int().min(1).default(1),
+        porPagina: z.coerce.number().int().min(1).max(100).default(30),
+      })
+      .safeParse(requisicao.query);
+    if (!filtros.success) {
+      return resposta.status(400).send({ codigo: 'ENTRADA_INVALIDA', erros: filtros.error.issues });
+    }
+    try {
+      return await consultarAuditoria(prisma, filtros.data);
+    } catch (erro) {
+      if (erro instanceof ErroAuditoria) {
+        return resposta.status(400).send({ codigo: erro.codigo, mensagem: erro.message });
       }
       throw erro;
     }
   });
+
+  /** Ações existentes, para montar o filtro da tela. */
+  app.get('/auditoria/acoes', { preHandler: exigirAdministrador }, async () => listarAcoes(prisma));
 
   // --- Clientes e crediário --------------------------------------------------
 

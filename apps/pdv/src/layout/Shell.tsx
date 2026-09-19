@@ -10,11 +10,19 @@ import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { IndicadorConexao } from '../componentes/IndicadorConexao.js';
 import { Botao, Selo, cx } from '../componentes/base.js';
-import { useSessao } from '../estado/sessaoStore.js';
+import { useSessao, ehGerente } from '../estado/sessaoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
 import { sincronizarLoja } from '../impressao/loja.js';
 
+/**
+ * `soGerente` esconde do menu o que a API já recusaria de qualquer forma.
+ *
+ * Esconder não é a proteção — a proteção é o `exigirAdministrador` na rota.
+ * Aqui o motivo é outro: menu com item que dá 403 ao ser clicado ensina a
+ * operadora a ignorar mensagem de erro, e é esse hábito que faz o erro que
+ * importa passar despercebido.
+ */
 const NAVEGACAO = [
   { para: '/venda', rotulo: 'Venda' },
   { para: '/catalogo', rotulo: 'Catálogo' },
@@ -22,12 +30,15 @@ const NAVEGACAO = [
   { para: '/caixa', rotulo: 'Caixa' },
   { para: '/clientes', rotulo: 'Clientes' },
   { para: '/estoque', rotulo: 'Estoque' },
-  { para: '/relatorios', rotulo: 'Relatórios' },
+  { para: '/produtos', rotulo: 'Produtos' },
+  { para: '/relatorios', rotulo: 'Relatórios', soGerente: true },
+  { para: '/auditoria', rotulo: 'Auditoria', soGerente: true },
   { para: '/configuracoes', rotulo: 'Configurações' },
 ] as const;
 
 export function Shell() {
   const operadora = useSessao((estado) => estado.operadora);
+  const gerente = ehGerente(operadora);
   const sair = useSessao((estado) => estado.sair);
   const sessaoCaixa = useCaixa((estado) => estado.sessao);
   const sincronizarCaixa = useCaixa((estado) => estado.sincronizar);
@@ -88,7 +99,7 @@ export function Shell() {
         </a>
 
         <nav className="flex items-center gap-0.5">
-          {NAVEGACAO.map((item) => (
+          {NAVEGACAO.filter((item) => !('soGerente' in item && item.soGerente) || gerente).map((item) => (
             <NavLink
               key={item.para}
               to={item.para}

@@ -30,6 +30,8 @@ import { TelaProduto } from './paginas/TelaProduto.js';
 import { TelaHistorico } from './paginas/TelaHistorico.js';
 import { TelaDevolucao } from './paginas/TelaDevolucao.js';
 import { TelaPendencias } from './paginas/TelaPendencias.js';
+import { TelaProdutos } from './paginas/TelaProdutos.js';
+import { TelaAuditoria } from './paginas/TelaAuditoria.js';
 import { DesignSystem } from './paginas/DesignSystem.js';
 
 function ExigeLogin({ children }: { children: ReactNode }) {
@@ -97,6 +99,8 @@ export const roteador = createBrowserRouter([
       { path: 'caixa/fechar', element: <TelaFecharCaixa /> },
       { path: 'caixa/movimento', element: <TelaMovimentoCaixa /> },
       { path: 'estoque', element: <TelaEstoque /> },
+      { path: 'produtos', element: <TelaProdutos /> },
+      { path: 'auditoria', element: <TelaAuditoria /> },
       { path: 'clientes', element: <TelaClientes /> },
       { path: 'relatorios', element: <TelaRelatorios /> },
       { path: 'configuracoes', element: <TelaConfiguracoes /> },

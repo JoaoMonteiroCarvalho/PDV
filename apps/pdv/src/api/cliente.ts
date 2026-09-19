@@ -363,6 +363,142 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  /** Corrige o saldo para a quantidade contada na arara. Só gerente. */
+  async ajustarInventario(
+    varianteId: string,
+    dados: { quantidadeContada: number; observacao: string },
+  ): Promise<ResultadoAjusteInventario> {
+    return this.json(
+      await fetch(`${BASE}/variantes/${varianteId}/inventario`, {
+        method: 'POST',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  /** Extrato de uma variação: cada movimento que compõe o saldo atual. */
+  async historicoMovimentacao(varianteId: string, limite = 50): Promise<HistoricoMovimentacao> {
+    return this.json(
+      await fetch(`${BASE}/variantes/${varianteId}/movimentacao?limite=${limite}`, {
+        headers: this.cabecalhos(),
+      }),
+    );
+  }
+
+  // --- Cadastro de catálogo ------------------------------------------------------
+
+  async listarProdutos(filtros: {
+    busca?: string | undefined;
+    categoriaId?: string | undefined;
+    incluirInativos?: boolean | undefined;
+    pagina?: number | undefined;
+  }): Promise<ListaProdutos> {
+    const consulta = new URLSearchParams();
+    if (filtros.busca) consulta.set('busca', filtros.busca);
+    if (filtros.categoriaId) consulta.set('categoriaId', filtros.categoriaId);
+    if (filtros.incluirInativos) consulta.set('incluirInativos', 'true');
+    if (filtros.pagina) consulta.set('pagina', String(filtros.pagina));
+    return this.json(await fetch(`${BASE}/produtos?${consulta}`, { headers: this.cabecalhos() }));
+  }
+
+  async obterProduto(produtoId: string): Promise<ProdutoDetalhe> {
+    return this.json(await fetch(`${BASE}/produtos/${produtoId}`, { headers: this.cabecalhos() }));
+  }
+
+  async criarProduto(dados: ProdutoEntrada): Promise<{ id: string; nome: string }> {
+    return this.json(
+      await fetch(`${BASE}/produtos`, {
+        method: 'POST',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  async atualizarProduto(
+    produtoId: string,
+    dados: Partial<Omit<ProdutoEntrada, 'variantes'>> & { ativo?: boolean },
+  ): Promise<{ id: string; nome: string; ativo: boolean }> {
+    return this.json(
+      await fetch(`${BASE}/produtos/${produtoId}`, {
+        method: 'PATCH',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  async criarVariante(produtoId: string, dados: VarianteEntrada): Promise<{ id: string; sku: string }> {
+    return this.json(
+      await fetch(`${BASE}/produtos/${produtoId}/variantes`, {
+        method: 'POST',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  /** `codigoBarras: null` REMOVE o código; ausente deixa como está. */
+  async atualizarVariante(
+    varianteId: string,
+    dados: Partial<Omit<VarianteEntrada, 'codigoBarras'>> & {
+      ativo?: boolean;
+      codigoBarras?: string | null;
+    },
+  ): Promise<VarianteDetalhe> {
+    return this.json(
+      await fetch(`${BASE}/variantes/${varianteId}`, {
+        method: 'PATCH',
+        headers: this.cabecalhos(),
+        body: JSON.stringify(dados),
+      }),
+    );
+  }
+
+  async listarCategorias(): Promise<CategoriaResumo[]> {
+    return this.json(await fetch(`${BASE}/categorias`, { headers: this.cabecalhos() }));
+  }
+
+  async criarCategoria(nome: string): Promise<CategoriaResumo> {
+    return this.json(
+      await fetch(`${BASE}/categorias`, {
+        method: 'POST',
+        headers: this.cabecalhos(),
+        body: JSON.stringify({ nome }),
+      }),
+    );
+  }
+
+  // --- Relatório Z e auditoria ---------------------------------------------------
+
+  /** Relatório do turno, com quebra por forma de pagamento. */
+  async relatorioFechamento(sessaoCaixaId: string): Promise<RelatorioFechamento> {
+    return this.json(
+      await fetch(`${BASE}/sessoes-caixa/${sessaoCaixaId}/relatorio`, {
+        headers: this.cabecalhos(),
+      }),
+    );
+  }
+
+  async consultarAuditoria(filtros: {
+    acao?: string | undefined;
+    de?: string | undefined;
+    ate?: string | undefined;
+    pagina?: number | undefined;
+  }): Promise<ListaAuditoria> {
+    const consulta = new URLSearchParams();
+    if (filtros.acao) consulta.set('acao', filtros.acao);
+    if (filtros.de) consulta.set('de', filtros.de);
+    if (filtros.ate) consulta.set('ate', filtros.ate);
+    if (filtros.pagina) consulta.set('pagina', String(filtros.pagina));
+    return this.json(await fetch(`${BASE}/auditoria?${consulta}`, { headers: this.cabecalhos() }));
+  }
+
+  async listarAcoesAuditoria(): Promise<string[]> {
+    return this.json(await fetch(`${BASE}/auditoria/acoes`, { headers: this.cabecalhos() }));
+  }
+
   // --- Histórico de vendas -----------------------------------------------------
 
   /**
@@ -427,6 +563,158 @@ export class ClienteApi {
     });
     return this.json(resposta);
   }
+}
+
+export interface CategoriaResumo {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  _count?: { produtos: number };
+}
+
+export interface VarianteEntrada {
+  sku: string;
+  codigoBarras?: string | undefined;
+  tamanho?: string | undefined;
+  cor?: string | undefined;
+  precoCentavos: number;
+  custoCentavos: number;
+}
+
+export interface ProdutoEntrada {
+  nome: string;
+  descricao?: string | undefined;
+  marca?: string | undefined;
+  categoriaId?: string | undefined;
+  ncm?: string | undefined;
+  variantes: VarianteEntrada[];
+}
+
+export interface VarianteDetalhe {
+  id: string;
+  sku: string;
+  codigoBarras: string | null;
+  tamanho: string | null;
+  cor: string | null;
+  precoCentavos: number;
+  custoCentavos: number;
+  ativo: boolean;
+  /** Saldo do livro-razão no instante da consulta. */
+  saldoEstoque?: number;
+}
+
+export interface ProdutoDetalhe {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  marca: string | null;
+  ativo: boolean;
+  ncm: string | null;
+  cest: string | null;
+  origem: number | null;
+  situacaoTributaria: string | null;
+  categoria: { id: string; nome: string } | null;
+  variantes: VarianteDetalhe[];
+}
+
+export interface ProdutoResumo {
+  id: string;
+  nome: string;
+  marca: string | null;
+  ativo: boolean;
+  categoria: { id: string; nome: string } | null;
+  quantidadeVariantes: number;
+}
+
+export interface ListaProdutos {
+  itens: ProdutoResumo[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
+}
+
+export interface ResultadoAjusteInventario {
+  saldoAnterior: number;
+  saldoNovo: number;
+  diferenca: number;
+  ajustado: boolean;
+}
+
+export interface MovimentoEstoqueLinha {
+  id: string;
+  tipo: string;
+  quantidade: number;
+  /** Saldo logo APÓS este movimento — reconstruído de trás para frente. */
+  saldoDepois: number;
+  criadoEm: string;
+  observacao: string | null;
+  documentoTipo: string | null;
+  documentoId: string | null;
+  usuario: string | null;
+  vendaNumero: number | null;
+}
+
+export interface HistoricoMovimentacao {
+  variante: {
+    id: string;
+    sku: string;
+    tamanho: string | null;
+    cor: string | null;
+    produto: string;
+  };
+  saldoAtual: number;
+  movimentos: MovimentoEstoqueLinha[];
+}
+
+export interface RelatorioFechamento {
+  sessaoId: string;
+  terminal: string;
+  operador: string;
+  abertaEm: string;
+  fechadaEm: string | null;
+  status: 'ABERTA' | 'FECHADA';
+  vendas: { quantidade: number; totalCentavos: number };
+  porForma: { forma: string; quantidade: number; totalCentavos: number }[];
+  gaveta: {
+    fundoTrocoCentavos: number;
+    vendasEmDinheiroCentavos: number;
+    recebimentosCrediarioCentavos: number;
+    suprimentosCentavos: number;
+    sangriasCentavos: number;
+    devolucoesCentavos: number;
+    esperadoCentavos: number;
+    contadoCentavos: number | null;
+    diferencaCentavos: number | null;
+  };
+  movimentos: {
+    tipo: string;
+    valorCentavos: number;
+    observacao: string | null;
+    criadoEm: string;
+    usuario: string;
+    autorizadoPor: string | null;
+  }[];
+}
+
+export interface RegistroAuditoria {
+  id: string;
+  acao: string;
+  entidade: string;
+  entidadeId: string;
+  valorAntes: unknown;
+  valorDepois: unknown;
+  criadoEm: string;
+  usuario: string;
+  autorizadoPor: string | null;
+}
+
+export interface ListaAuditoria {
+  itens: RegistroAuditoria[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
 }
 
 export type PapelUsuario = 'OPERADOR' | 'GERENTE' | 'ADMIN';

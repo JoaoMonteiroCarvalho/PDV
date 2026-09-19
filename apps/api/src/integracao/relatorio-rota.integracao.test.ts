@@ -21,7 +21,16 @@ import type { RelatorioVendas } from '../servicos/relatorio.js';
 
 const prisma = new PrismaClient();
 let app: FastifyInstance;
+/** Token da operadora: registra as vendas, mas NÃO lê o relatório. */
 let token: string;
+/**
+ * Token da gerente.
+ *
+ * O relatório de vendas é dado de dono — faturamento, ticket médio, ranking de
+ * produto —, não de turno, e por isso exige gerente. A operadora vê o caixa
+ * dela no fechamento; o resultado da loja não é a mesma informação.
+ */
+let tokenGerente: string;
 let sessaoCaixaId: string;
 let operadorId: string;
 let varianteId: string;
@@ -105,7 +114,7 @@ async function buscarRelatorio(de: string, ate: string) {
   const resposta = await app.inject({
     method: 'GET',
     url: `/relatorios/vendas?de=${de}&ate=${ate}`,
-    headers: { authorization: `Bearer ${token}` },
+    headers: { authorization: `Bearer ${tokenGerente}` },
   });
   return { status: resposta.statusCode, corpo: resposta.json() as RelatorioVendas };
 }
@@ -140,6 +149,21 @@ beforeEach(async () => {
   });
   token = (login.json() as { token: string }).token;
 
+  await prisma.usuario.create({
+    data: {
+      nome: 'Bia',
+      login: 'bia.relatorio',
+      senhaHash: await gerarHashSenha('gerente123'),
+      papel: 'GERENTE',
+    },
+  });
+  const loginGerente = await app.inject({
+    method: 'POST',
+    url: '/sessao/login',
+    payload: { login: 'bia.relatorio', senha: 'gerente123' },
+  });
+  tokenGerente = (loginGerente.json() as { token: string }).token;
+
   const terminal = await prisma.terminal.create({ data: { nome: 'Caixa 1' } });
   const sessao = await prisma.sessaoCaixa.create({
     data: { terminalId: terminal.id, operadorId, fundoTrocoCentavos: 0 },
@@ -160,6 +184,21 @@ describe('relatório de vendas', () => {
   it('exige autenticação', async () => {
     const resposta = await app.inject({ method: 'GET', url: '/relatorios/vendas?de=2026-09-01&ate=2026-09-01' });
     expect(resposta.statusCode).toBe(401);
+  });
+
+  it('operadora autenticada NÃO vê o faturamento da loja', async () => {
+    /*
+     * Faturamento, ticket médio e ranking de produto são dado de dono, não de
+     * turno. A operadora precisa do caixa dela — que ela vê no fechamento —,
+     * não do resultado da loja.
+     */
+    const resposta = await app.inject({
+      method: 'GET',
+      url: '/relatorios/vendas?de=2026-09-01&ate=2026-09-01',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(resposta.statusCode).toBe(403);
+    expect((resposta.json() as { codigo: string }).codigo).toBe('SEM_PERMISSAO');
   });
 
   it('soma total, desconto, peças e ticket médio', async () => {
@@ -236,7 +275,7 @@ describe('o dia é o DIA DA LOJA', () => {
     const resposta = await app.inject({
       method: 'GET',
       url: '/relatorios/vendas?de=2026-09-10&ate=2026-09-01',
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${tokenGerente}` },
     });
     expect(resposta.statusCode).toBe(400);
     expect(resposta.json()).toMatchObject({ codigo: 'PERIODO_INVERTIDO' });
@@ -246,7 +285,7 @@ describe('o dia é o DIA DA LOJA', () => {
     const resposta = await app.inject({
       method: 'GET',
       url: '/relatorios/vendas?de=01/09/2026&ate=30/09/2026',
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${tokenGerente}` },
     });
     expect(resposta.statusCode).toBe(400);
   });

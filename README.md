@@ -245,6 +245,60 @@ catálogo: aceitável porque o volume por sessão de caixa é baixo e vendas nun
 são editadas, só inseridas em ordem — não há o risco de deslocamento de página
 que a paginação por chave existe para evitar.
 
+## Cadastro de catálogo
+
+Produto nasce com a **grade inteira**. Peça de lingerie chega em P/M/G × três
+cores; cadastrar o produto e depois nove variações, uma requisição cada,
+transformaria a chegada da coleção numa tarde de trabalho — e deixaria produto
+sem variação nenhuma toda vez que alguém desistisse no meio. A tela tem um
+gerador: escolhe tamanhos, escolhe cores, monta as combinações com SKU
+sugerido, e deixa editar antes de salvar.
+
+**Ler é de operador, escrever é de gerente.** Consultar ficha de produto é
+trabalho de balcão; mudar preço, criar SKU ou desativar peça é decisão de quem
+responde pela margem. Sem essa separação a alçada de desconto não significaria
+nada — bastaria baixar o preço da peça.
+
+Nada é apagado, só desativado: variante assina `ItemVenda` e
+`MovimentoEstoque`. `ativo: false` também é o canal pelo qual o caixa remove o
+item do índice local.
+
+**Alteração de preço vira auditoria**, com o antes, o depois e quem fez. É o
+registro que responde "por que essa peça saiu por R$ 40?" — a venda congela o
+preço praticado, mas não guarda quem o alterou no catálogo.
+
+## Inventário e movimentação
+
+O ajuste de inventário recebe a quantidade **contada na arara**, não a
+diferença: quem confere estoque conta peça, não calcula delta, e errar o sinal
+inverteria o ajuste.
+
+O estoque continua sendo livro-razão. O ajuste não escreve um saldo — lança o
+movimento que falta para o saldo bater com a contagem. Contagem que bate não
+lança nada (movimento de quantidade zero é proibido pelo schema), mas é
+auditada de qualquer forma: a conferência que não achou diferença é o que diz
+desde quando aquele saldo é confiável.
+
+O extrato de cada variação reconstrói o saldo de trás para frente, do saldo de
+hoje desfazendo movimento a movimento. É assim que se responde "vendi ou
+sumiu?", que é a pergunta que traz alguém a essa tela.
+
+## Relatório Z e auditoria
+
+O fechamento devolvia três números — esperado, contado, diferença. Isso
+responde "bateu?" e nada mais; a pergunta seguinte é "bateu com o quê?". O
+relatório do turno quebra por forma de pagamento, líquido do troco.
+
+**Só dinheiro entra na conferência da gaveta.** Cartão e Pix vão direto para a
+conta da loja (a maquininha opera separada do PDV) e crediário não é dinheiro
+recebido, é promessa. Somá-los ao esperado faria toda gaveta fechar com sobra
+fantasma.
+
+A auditoria já era gravada em oito pontos e **nada lia**. `GET /auditoria`
+(só gerente) filtra por ação e período, no dia da loja, e mostra quem fez e
+quem autorizou. Somente leitura: o registro é insert-only e não existe caminho
+no código para alterá-lo.
+
 ## Testes
 
 ```bash
@@ -257,10 +311,10 @@ npm run test:e2e          # Playwright (Chromium)
 |---|---|
 | Unitários (`packages/shared`) — dinheiro, venda, caixa, devolução, CPF | 105 |
 | Unitários (`apps/api`) — autenticação | 7 |
-| Unitários (`apps/pdv`) — carrinho, fila, catálogo, comprovante, telas | 456 |
-| Integração (`apps/api`) — contra Postgres real, todas as rotas | 184 |
+| Unitários (`apps/pdv`) — carrinho, desconto, fila, catálogo, comprovante, telas | 492 |
+| Integração (`apps/api`) — contra Postgres real, todas as rotas | 205 |
 | E2E (Playwright) — fluxo real, clicando na tela | 149 |
-| **Total** | **901** |
+| **Total** | **958** |
 
 `tsc --strict` limpo nos quatro workspaces.
 
