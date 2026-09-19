@@ -142,6 +142,23 @@ Usuarios do seed (**apenas desenvolvimento**): `ana`/`caixa123` (operadora, ate
 > **Bancos separados.** `pdv` para desenvolvimento, `pdv_teste` para os testes
 > de integracao (que dao TRUNCATE a cada caso) e `pdv_e2e` para o Playwright.
 
+### Banco e API em container
+
+```bash
+docker compose up -d --build   # Postgres + API -> http://localhost:3333
+```
+
+O `Dockerfile` da API constroi a partir da RAIZ do repositorio, nao de
+`apps/api`: `@pdv/shared` e workspace npm, e um build feito de dentro da pasta
+da API nao enxergaria o pacote irmao.
+
+O container aplica as migrations pendentes (`prisma migrate deploy`) antes de
+subir o servidor. `deploy` so aplica migrations ja versionadas — nunca gera uma
+nova nem apaga dado, ao contrario de `migrate dev`.
+
+O PWA nao esta no Compose: em desenvolvimento ele roda pelo Vite, e em producao
+e um bundle estatico servido por qualquer servidor web.
+
 ## O caixa (PWA)
 
 Instalável, roda em tela cheia. Continua vendendo com a internet caída:
