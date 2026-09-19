@@ -126,3 +126,169 @@ export async function registrarEntradaEstoque(
 
   return { movimentos: entrada.itens.length, pecas };
 }
+
+// ---------------------------------------------------------------------------
+// Ajuste de inventário
+// ---------------------------------------------------------------------------
+
+export interface ResultadoAjuste {
+  readonly saldoAnterior: number;
+  readonly saldoNovo: number;
+  /** Com sinal: negativo é peça que faltou na arara, positivo é peça a mais. */
+  readonly diferenca: number;
+  /** false quando a contagem bateu — nada foi lançado, e nada precisava ser. */
+  readonly ajustado: boolean;
+}
+
+/**
+ * Corrige o saldo de uma variação para a quantidade CONTADA na arara.
+ *
+ * O estoque continua sendo livro-razão: isto não escreve um saldo, lança o
+ * movimento que falta para o saldo bater com a contagem. É a única forma de
+ * corrigir sem quebrar a regra de que todo saldo é soma de movimentos.
+ *
+ * Contagem que bate não lança nada. Um movimento de quantidade zero é proibido
+ * pelo próprio schema, e gravar linha "nada mudou" só poluiria o histórico que
+ * a gerente vai ler quando faltar peça.
+ *
+ * SEMPRE auditado, inclusive quando bate: a conferência que não achou
+ * diferença é informação — é ela que diz desde quando aquele saldo é confiável.
+ */
+export async function ajustarInventario(
+  prisma: PrismaClient,
+  entrada: { varianteId: string; quantidadeContada: number; observacao: string },
+  contexto: { operadorId: string },
+): Promise<ResultadoAjuste> {
+  const variante = await prisma.variante.findUnique({
+    where: { id: entrada.varianteId },
+    select: { id: true, sku: true, produto: { select: { nome: true } } },
+  });
+  if (!variante) {
+    throw new ErroEstoque('VARIANTE_INEXISTENTE', 'Variação não encontrada.');
+  }
+
+  const [saldoAtual] = await prisma.$queryRaw<{ saldo: number }[]>`
+    SELECT "saldo" FROM "EstoqueAtual" WHERE "varianteId" = ${entrada.varianteId}
+  `;
+  const saldoAnterior = saldoAtual?.saldo ?? 0;
+  const diferenca = entrada.quantidadeContada - saldoAnterior;
+
+  await prisma.$transaction(async (tx) => {
+    if (diferenca !== 0) {
+      await tx.movimentoEstoque.create({
+        data: {
+          varianteId: entrada.varianteId,
+          tipo: 'AJUSTE_INVENTARIO',
+          quantidade: diferenca,
+          documentoTipo: 'INVENTARIO',
+          usuarioId: contexto.operadorId,
+          observacao: entrada.observacao,
+        },
+      });
+    }
+
+    await tx.registroAuditoria.create({
+      data: {
+        acao: 'AJUSTE_INVENTARIO',
+        entidade: 'Variante',
+        entidadeId: entrada.varianteId,
+        usuarioId: contexto.operadorId,
+        valorAntes: {
+          produto: variante.produto.nome,
+          sku: variante.sku,
+          saldo: saldoAnterior,
+        } as Prisma.InputJsonValue,
+        valorDepois: {
+          saldo: entrada.quantidadeContada,
+          diferenca,
+          observacao: entrada.observacao,
+        } as Prisma.InputJsonValue,
+      },
+    });
+  });
+
+  return {
+    saldoAnterior,
+    saldoNovo: entrada.quantidadeContada,
+    diferenca,
+    ajustado: diferenca !== 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Histórico de movimentação
+// ---------------------------------------------------------------------------
+
+/**
+ * Extrato de uma variação: cada linha que compõe o saldo atual.
+ *
+ * O saldo acumulado é calculado de trás para frente — do saldo de hoje,
+ * desfazendo movimento a movimento. É assim que a gerente responde "em que
+ * momento esse estoque ficou negativo?", que é a pergunta que traz alguém a
+ * esta tela.
+ */
+export async function historicoMovimentacao(
+  prisma: PrismaClient,
+  varianteId: string,
+  limite: number,
+) {
+  const variante = await prisma.variante.findUnique({
+    where: { id: varianteId },
+    select: { id: true, sku: true, tamanho: true, cor: true, produto: { select: { nome: true } } },
+  });
+  if (!variante) {
+    throw new ErroEstoque('VARIANTE_INEXISTENTE', 'Variação não encontrada.');
+  }
+
+  const [saldoAtual] = await prisma.$queryRaw<{ saldo: number }[]>`
+    SELECT "saldo" FROM "EstoqueAtual" WHERE "varianteId" = ${varianteId}
+  `;
+  const saldo = saldoAtual?.saldo ?? 0;
+
+  const movimentos = await prisma.movimentoEstoque.findMany({
+    where: { varianteId },
+    orderBy: { criadoEm: 'desc' },
+    take: limite,
+    select: {
+      id: true,
+      tipo: true,
+      quantidade: true,
+      criadoEm: true,
+      observacao: true,
+      documentoTipo: true,
+      documentoId: true,
+      usuario: { select: { nome: true } },
+      venda: { select: { numero: true } },
+    },
+  });
+
+  let acumulado = saldo;
+  const linhas = movimentos.map((movimento) => {
+    const saldoDepois = acumulado;
+    acumulado -= movimento.quantidade;
+    return {
+      id: movimento.id,
+      tipo: movimento.tipo,
+      quantidade: movimento.quantidade,
+      saldoDepois,
+      criadoEm: movimento.criadoEm,
+      observacao: movimento.observacao,
+      documentoTipo: movimento.documentoTipo,
+      documentoId: movimento.documentoId,
+      usuario: movimento.usuario?.nome ?? null,
+      vendaNumero: movimento.venda?.numero ?? null,
+    };
+  });
+
+  return {
+    variante: {
+      id: variante.id,
+      sku: variante.sku,
+      tamanho: variante.tamanho,
+      cor: variante.cor,
+      produto: variante.produto.nome,
+    },
+    saldoAtual: saldo,
+    movimentos: linhas,
+  };
+}
