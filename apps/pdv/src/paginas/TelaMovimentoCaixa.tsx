@@ -20,14 +20,14 @@
 import { formatarBRL, centavos } from '@pdv/shared';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { clienteApi, type AutorizacaoGerente, type Operador } from '../api/cliente.js';
+import { clienteApi, type AutorizacaoGerente as Autorizacao } from '../api/cliente.js';
 import {
   efeitoNoSaldo,
-  ehPapelAutorizador,
   impedimentosDoMovimento,
   type TipoMovimento,
 } from '../caixa/movimento.js';
-import { Botao, Campo, Cartao, Erro, Selo, cx } from '../componentes/base.js';
+import { AutorizacaoGerente } from '../componentes/AutorizacaoGerente.js';
+import { Botao, Cartao, Erro, Selo, cx } from '../componentes/base.js';
 import { CampoDinheiro } from '../componentes/CampoDinheiro.js';
 import { useCaixa } from '../estado/caixaStore.js';
 
@@ -39,7 +39,7 @@ export function TelaMovimentoCaixa() {
   const [tipo, setTipo] = useState<TipoMovimento>('SANGRIA');
   const [valorCentavos, setValorCentavos] = useState(0);
   const [observacao, setObservacao] = useState('');
-  const [autorizacao, setAutorizacao] = useState<AutorizacaoGerente | null>(null);
+  const [autorizacao, setAutorizacao] = useState<Autorizacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [registrado, setRegistrado] = useState<{ tipo: TipoMovimento; valorCentavos: number } | null>(
@@ -223,110 +223,6 @@ function BotaoTipo({
     >
       {children}
     </button>
-  );
-}
-
-/**
- * Identificação da gerente.
- *
- * Usa `entrarSemTrocarSessao`: a operadora continua logada. Guarda o token
- * assinado que o servidor devolveu — é ele, não o id da gerente, que autoriza
- * o movimento; ver `autorizacao.ts` na API.
- */
-function AutorizacaoGerente({
-  autorizacao,
-  aoAutenticar,
-  aoSair,
-}: {
-  autorizacao: AutorizacaoGerente | null;
-  aoAutenticar: (autorizacao: AutorizacaoGerente) => void;
-  aoSair: () => void;
-}) {
-  const [login, setLogin] = useState('');
-  const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState<string | null>(null);
-  const [verificando, setVerificando] = useState(false);
-
-  async function autenticar(evento: React.FormEvent) {
-    evento.preventDefault();
-    setErro(null);
-    setVerificando(true);
-    try {
-      const { operador, tokenAutorizacao } = await clienteApi.entrarSemTrocarSessao(
-        login.trim(),
-        senha,
-      );
-      if (!ehPapelAutorizador(operador.papel)) {
-        // Credencial correta, papel errado: dizer isso é mais útil que
-        // "credenciais inválidas", e não vaza nada que a pessoa não saiba.
-        setErro(`${operador.nome} não tem perfil de gerente e não pode autorizar.`);
-        return;
-      }
-      aoAutenticar({ operador, tokenAutorizacao });
-      setLogin('');
-      setSenha('');
-    } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível autenticar.');
-    } finally {
-      setVerificando(false);
-    }
-  }
-
-  if (autorizacao) {
-    return (
-      <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[8px] border border-ok/30 bg-ok/5 px-4 py-3">
-        <Selo tom="ok">Autorizado</Selo>
-        <span className="flex-1 text-[14px] text-ink">{autorizacao.operador.nome}</span>
-        <Botao variante="discreto" onClick={aoSair} className="h-8 px-3 text-[13px]">
-          Trocar
-        </Botao>
-      </div>
-    );
-  }
-
-  return (
-    <Cartao className="mt-5 p-5">
-      <h2 className="font-titulo text-[16px] font-medium">Autorização da gerente</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-faint">
-        A operadora continua logada — a gerente só confirma a identidade para esta operação.
-      </p>
-
-      <form onSubmit={(evento) => void autenticar(evento)} className="mt-4 flex flex-wrap gap-3">
-        <div className="min-w-[10rem] flex-1">
-          <Campo
-            rotulo="Gerente"
-            name="gerente-login"
-            autoComplete="off"
-            value={login}
-            onChange={(evento) => setLogin(evento.target.value)}
-          />
-        </div>
-        <div className="min-w-[10rem] flex-1">
-          <Campo
-            rotulo="Senha"
-            name="gerente-senha"
-            type="password"
-            autoComplete="off"
-            value={senha}
-            onChange={(evento) => setSenha(evento.target.value)}
-          />
-        </div>
-        <Botao
-          type="submit"
-          variante="neutro"
-          className="self-end"
-          disabled={verificando || login.trim() === '' || senha === ''}
-        >
-          {verificando ? 'Verificando…' : 'Autorizar'}
-        </Botao>
-      </form>
-
-      {erro && (
-        <div className="mt-4">
-          <Erro>{erro}</Erro>
-        </div>
-      )}
-    </Cartao>
   );
 }
 

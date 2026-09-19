@@ -211,7 +211,14 @@ export interface DadosFechamento {
   readonly sessaoCaixaId: string;
   readonly pagamentos: readonly PagamentoEntrada[];
   readonly clienteId?: string | undefined;
-  readonly autorizadoPorId?: string | undefined;
+  /**
+   * Prova assinada de que uma gerente liberou o desconto desta venda.
+   *
+   * É o TOKEN que vai, nunca o id da gerente: o servidor lê quem autorizou da
+   * assinatura. Mandar o id permitiria forjar a liberação sabendo o UUID de
+   * qualquer gerente — foi assim que a falha existiu antes de 661ab1a.
+   */
+  readonly tokenAutorizacao?: string | undefined;
   readonly crediario?:
     | { readonly quantidadeParcelas: number; readonly primeiroVencimento: Date }
     | undefined;
@@ -254,7 +261,7 @@ export function fecharVenda(
       sessaoCaixaId: dados.sessaoCaixaId,
       criadaEmCliente: agora().toISOString(),
       clienteId: dados.clienteId,
-      autorizadoPorId: dados.autorizadoPorId,
+      tokenAutorizacao: dados.tokenAutorizacao,
       descontoSobreTotalCentavos: estado.descontoSobreTotalCentavos,
       itens: estado.itens.map((item) => ({
         varianteId: item.varianteId,

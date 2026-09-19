@@ -10,14 +10,16 @@
  * pagamentos lançados e o passo de finalização.
  */
 
-import type { PagamentoEntrada, VendaCalculada } from '@pdv/shared';
+import { centavos, type PagamentoEntrada, type VendaCalculada } from '@pdv/shared';
 import { create } from 'zustand';
+import type { AutorizacaoGerente } from '../api/cliente.js';
 import type { ItemCatalogo } from '../banco/local.js';
 import type { DadosComprovante } from '../impressao/comprovante.js';
 import {
   CARRINHO_VAZIO,
   adicionar,
   alterarQuantidade,
+  definirDescontoDoItem,
   definirDescontoDoTotal,
   remover,
   type EstadoCarrinho,
@@ -41,11 +43,23 @@ interface EstadoLoja {
   pagamentos: PagamentoEntrada[];
   /** Última venda fechada, para a tela de comprovante. */
   ultimaVenda: VendaConcluida | null;
+  /**
+   * Liberação de gerente para o desconto desta venda, quando ele passou da
+   * alçada da operadora.
+   *
+   * Vive no carrinho, não na tela do desconto, porque quem precisa dela é o
+   * FECHAMENTO — que acontece vários passos depois, em outro componente. Morre
+   * junto com a venda em `limparVenda`: autorização pendurada de uma venda
+   * anterior liberaria um desconto que ninguém aprovou.
+   */
+  autorizacaoDesconto: AutorizacaoGerente | null;
 
   adicionarItem: (item: ItemCatalogo, quantidade?: number) => void;
   mudarQuantidade: (varianteId: string, quantidade: number) => void;
   removerItem: (varianteId: string) => void;
-  aplicarDesconto: (centavos: number) => void;
+  aplicarDescontoNoItem: (varianteId: string, descontoCentavos: number) => void;
+  aplicarDescontoNoTotal: (descontoCentavos: number) => void;
+  definirAutorizacaoDesconto: (autorizacao: AutorizacaoGerente | null) => void;
   lancarPagamento: (pagamento: PagamentoEntrada) => void;
   removerPagamento: (indice: number) => void;
   limparPagamentos: () => void;
@@ -58,6 +72,7 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
   carrinho: CARRINHO_VAZIO,
   pagamentos: [],
   ultimaVenda: null,
+  autorizacaoDesconto: null,
 
   adicionarItem: (item, quantidade = 1) =>
     set((estado) => ({
@@ -82,10 +97,17 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
   removerItem: (varianteId) =>
     set((estado) => ({ carrinho: remover(estado.carrinho, varianteId) })),
 
-  aplicarDesconto: (centavos) =>
+  aplicarDescontoNoItem: (varianteId, descontoCentavos) =>
     set((estado) => ({
-      carrinho: definirDescontoDoTotal(estado.carrinho, centavos as never),
+      carrinho: definirDescontoDoItem(estado.carrinho, varianteId, centavos(descontoCentavos)),
     })),
+
+  aplicarDescontoNoTotal: (descontoCentavos) =>
+    set((estado) => ({
+      carrinho: definirDescontoDoTotal(estado.carrinho, centavos(descontoCentavos)),
+    })),
+
+  definirAutorizacaoDesconto: (autorizacao) => set({ autorizacaoDesconto: autorizacao }),
 
   lancarPagamento: (pagamento) =>
     set((estado) => ({ pagamentos: [...estado.pagamentos, pagamento] })),
@@ -97,7 +119,8 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
 
   // Zera tudo depois de finalizar ou cancelar. Os pagamentos vão junto: deixar
   // pagamento de uma venda anterior pendurado é como o dinheiro some do caixa.
-  limparVenda: () => set({ carrinho: CARRINHO_VAZIO, pagamentos: [] }),
+  // A autorização de desconto também: ela valeu para aquela venda e só.
+  limparVenda: () => set({ carrinho: CARRINHO_VAZIO, pagamentos: [], autorizacaoDesconto: null }),
 
   registrarSucesso: (venda) => set({ ultimaVenda: venda }),
   descartarAviso: () => set({ ultimaVenda: null }),

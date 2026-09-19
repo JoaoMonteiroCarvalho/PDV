@@ -49,6 +49,7 @@ export function TelaVenda() {
   const limparVenda = useCarrinho((estado) => estado.limparVenda);
   const registrarSucesso = useCarrinho((estado) => estado.registrarSucesso);
   const carrinho = useCarrinho((estado) => estado.carrinho);
+  const autorizacaoDesconto = useCarrinho((estado) => estado.autorizacaoDesconto);
   const sessao = useCaixa((estado) => estado.sessao);
   const operadora = useSessao((estado) => estado.operadora);
   const navegar = useNavigate();
@@ -157,6 +158,12 @@ export function TelaVenda() {
       // Fiado precisa da cliente: `validarPagamentos` recusa sem ela, aqui
       // mesmo, antes de a venda entrar na fila.
       clienteId: crediario?.clienteId,
+      /*
+       * Liberação do desconto, quando houve. O token pode chegar EXPIRADO ao
+       * servidor — a venda fecha offline e sobe horas depois —, e a rota aceita
+       * isso de propósito: o que impede forjar é a assinatura, não o prazo.
+       */
+      tokenAutorizacao: autorizacaoDesconto?.tokenAutorizacao,
       crediario: crediario
         ? {
             quantidadeParcelas: crediario.quantidadeParcelas,

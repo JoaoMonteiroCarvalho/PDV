@@ -11,17 +11,19 @@
  */
 
 import { ZERO, centavos, formatarBRL } from '@pdv/shared';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Botao, Erro, cx } from '../componentes/base.js';
 import { SwatchCor } from '../componentes/SwatchCor.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { calcular, totalDePecas, type ItemCarrinho } from './carrinho.js';
+import { ModalDesconto, type AlvoDesconto } from './ModalDesconto.js';
 
 export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
   const carrinho = useCarrinho((estado) => estado.carrinho);
   const mudarQuantidade = useCarrinho((estado) => estado.mudarQuantidade);
   const removerItem = useCarrinho((estado) => estado.removerItem);
   const limparVenda = useCarrinho((estado) => estado.limparVenda);
+  const [alvoDesconto, setAlvoDesconto] = useState<AlvoDesconto | null>(null);
 
   const vazio = carrinho.itens.length === 0;
 
@@ -64,6 +66,9 @@ export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
                 item={item}
                 aoMudarQuantidade={(quantidade) => mudarQuantidade(item.varianteId, quantidade)}
                 aoRemover={() => removerItem(item.varianteId)}
+                aoDarDesconto={() =>
+                  setAlvoDesconto({ tipo: 'ITEM', varianteId: item.varianteId })
+                }
               />
             ))}
           </ul>
@@ -97,6 +102,26 @@ export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
             <Linha rotulo="Subtotal" valor={calculo.venda.subtotalCentavos} />
             <Linha rotulo="Desconto" valor={-calculo.venda.descontoCentavos} tom="alerta" />
           </dl>
+        )}
+
+        {/*
+          O desconto fica ACIMA do total, do lado do número que ele muda, e não
+          entre os botões de ação: dar desconto não é um desfecho da venda como
+          finalizar ou cancelar — é um ajuste na conta, e é da conta que ele
+          tem que parecer parte.
+        */}
+        {!vazio && (
+          <div className="mb-2 flex justify-end">
+            <Botao
+              variante="discreto"
+              onClick={() => setAlvoDesconto({ tipo: 'TOTAL' })}
+              className="h-8 px-2.5 text-[13px]"
+            >
+              {carrinho.descontoSobreTotalCentavos > 0
+                ? `Desconto na venda: ${formatarBRL(carrinho.descontoSobreTotalCentavos)}`
+                : 'Dar desconto na venda'}
+            </Botao>
+          </div>
         )}
 
         <div className="mb-4 flex items-baseline justify-between">
@@ -142,6 +167,10 @@ export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
           </Botao>
         </div>
       </footer>
+
+      {alvoDesconto && (
+        <ModalDesconto alvo={alvoDesconto} aoFechar={() => setAlvoDesconto(null)} />
+      )}
     </aside>
   );
 }
@@ -169,10 +198,12 @@ function LinhaItem({
   item,
   aoMudarQuantidade,
   aoRemover,
+  aoDarDesconto,
 }: {
   item: ItemCarrinho;
   aoMudarQuantidade: (quantidade: number) => void;
   aoRemover: () => void;
+  aoDarDesconto: () => void;
 }) {
   const detalhe = [item.cor, item.tamanho].filter(Boolean).join(' · ');
 
@@ -186,6 +217,16 @@ function LinhaItem({
           {detalhe ? `${detalhe} · ` : ''}
           {formatarBRL(item.precoUnitarioCentavos)}
         </p>
+        {/*
+          O desconto do item aparece na própria linha. Sem isso ele só existiria
+          dentro do total, e a operadora não teria como conferir em qual peça
+          deu desconto — nem descobrir que deu na peça errada.
+        */}
+        {item.descontoCentavos > 0 && (
+          <p className="num truncate text-[12px] text-alerta">
+            desconto {formatarBRL(item.descontoCentavos)}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-1">
@@ -203,6 +244,18 @@ function LinhaItem({
           +
         </BotaoQuantidade>
       </div>
+
+      <button
+        type="button"
+        onClick={aoDarDesconto}
+        aria-label={`Desconto em ${item.nome}`}
+        className={cx(
+          'rounded-[8px] px-2 py-1 text-[13px] transition-colors hover:bg-sunken hover:text-ink',
+          item.descontoCentavos > 0 ? 'text-alerta' : 'text-ink-faint',
+        )}
+      >
+        %
+      </button>
 
       <button
         type="button"
