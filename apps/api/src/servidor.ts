@@ -903,8 +903,12 @@ export async function construirServidor(
    * O recorte é por DIA DA LOJA, no fuso do servidor. Com corte em UTC, no
    * Brasil toda venda depois das 21h cairia no dia seguinte e o relatório do
    * dia fecharia errado sem ninguém entender por quê.
+   *
+   * Exige GERENTE: faturamento, ticket médio e ranking de produto são dado de
+   * dono, não de turno. A operadora precisa do caixa dela — que ela vê no
+   * fechamento — não do resultado da loja.
    */
-  app.get('/relatorios/vendas', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+  app.get('/relatorios/vendas', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {
     const filtros = z
       .object({ de: z.string(), ate: z.string() })
       .safeParse(requisicao.query);
