@@ -29,6 +29,7 @@ import { TelaRelatorios } from './paginas/TelaRelatorios.js';
 import { TelaProduto } from './paginas/TelaProduto.js';
 import { TelaHistorico } from './paginas/TelaHistorico.js';
 import { TelaDevolucao } from './paginas/TelaDevolucao.js';
+import { TelaPendencias } from './paginas/TelaPendencias.js';
 import { DesignSystem } from './paginas/DesignSystem.js';
 
 function ExigeLogin({ children }: { children: ReactNode }) {
@@ -89,6 +90,9 @@ export const roteador = createBrowserRouter([
       { path: 'produto/:produtoId', element: <TelaProduto /> },
       { path: 'historico', element: <TelaHistorico /> },
       { path: 'devolucao', element: <TelaDevolucao /> },
+      // Fora do guard de caixa: venda presa precisa ser resolvida mesmo com o
+      // caixa já fechado — é justamente quando a divergência aparece.
+      { path: 'pendencias', element: <TelaPendencias /> },
       { path: 'caixa', element: <TelaCaixa /> },
       { path: 'caixa/fechar', element: <TelaFecharCaixa /> },
       { path: 'caixa/movimento', element: <TelaMovimentoCaixa /> },

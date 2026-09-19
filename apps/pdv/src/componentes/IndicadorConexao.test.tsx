@@ -7,6 +7,7 @@
  */
 
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EstadoSincronizacao } from '../sincronizacao/motor.js';
 
@@ -22,6 +23,18 @@ vi.mock('../sincronizacao/motorGlobal.js', () => ({
 }));
 
 const { IndicadorConexao } = await import('./IndicadorConexao.js');
+
+/**
+ * Os selos de pendência são links para `/pendencias` — sem contexto de rota o
+ * React Router lança antes de qualquer asserção acontecer.
+ */
+function renderizar(): void {
+  render(
+    <MemoryRouter>
+      <IndicadorConexao />
+    </MemoryRouter>,
+  );
+}
 
 function definirEstado(parcial: Partial<EstadoSincronizacao>): void {
   estadoAtual.valor = {
@@ -43,7 +56,7 @@ afterEach(() => {
 describe('IndicadorConexao', () => {
   it('diz "Online" em palavras, não só por cor ou ícone', () => {
     definirEstado({ online: true });
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.getByText('Online')).toBeVisible();
   });
 
@@ -52,7 +65,7 @@ describe('IndicadorConexao', () => {
     // acertar mesmo antes de o motor de sincronizacao subir.
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     definirEstado({ online: false });
-    render(<IndicadorConexao />);
+    renderizar();
     // A operadora não pode achar que o caixa parou.
     expect(screen.getByText(/vendendo normalmente/i)).toBeVisible();
   });
@@ -61,38 +74,47 @@ describe('IndicadorConexao', () => {
     // Cenario da corrida real: tela montada, motor ainda subindo, rede caida.
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     estadoAtual.valor = null; // motor nunca emitiu nada
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.getByText(/vendendo normalmente/i)).toBeVisible();
   });
 
   it('mostra quantas vendas aguardam envio, com o número exato', () => {
     definirEstado({ online: true, pendentes: 3 });
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.getByText(/3 vendas aguardando envio/i)).toBeVisible();
   });
 
   it('usa singular quando há uma só venda pendente', () => {
     definirEstado({ online: true, pendentes: 1 });
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.getByText(/1 venda aguardando envio/i)).toBeVisible();
   });
 
   it('não polui a barra quando não há nada pendente', () => {
     definirEstado({ online: true, pendentes: 0, bloqueadas: 0 });
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.queryByText(/aguardando envio/i)).toBeNull();
     expect(screen.queryByText(/chame o gerente/i)).toBeNull();
   });
 
   it('venda bloqueada diz o que fazer, não só que deu errado', () => {
     definirEstado({ online: true, bloqueadas: 2 });
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.getByText(/2 com problema — chame o gerente/i)).toBeVisible();
+  });
+
+  it('o aviso leva à tela de pendências — avisar sem dar saída não resolve', () => {
+    definirEstado({ online: true, bloqueadas: 2 });
+    renderizar();
+    expect(screen.getByRole('link', { name: /chame o gerente/i })).toHaveAttribute(
+      'href',
+      '/pendencias',
+    );
   });
 
   it('sinaliza sincronização em andamento', () => {
     definirEstado({ online: true, sincronizando: true });
-    render(<IndicadorConexao />);
+    renderizar();
     expect(screen.getByText('Sincronizando')).toBeVisible();
   });
 });

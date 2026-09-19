@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Selo } from './base.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
 import type { EstadoSincronizacao } from '../sincronizacao/motor.js';
@@ -73,17 +74,27 @@ export function IndicadorConexao() {
       )}
 
       {pendentes > 0 && (
-        <Selo tom="accent">
-          {pendentes} {pendentes === 1 ? 'venda aguardando' : 'vendas aguardando'} envio
-        </Selo>
+        <Link to="/pendencias">
+          <Selo tom="accent">
+            {pendentes} {pendentes === 1 ? 'venda aguardando' : 'vendas aguardando'} envio
+          </Selo>
+        </Link>
       )}
 
       {/*
         Venda bloqueada é o único estado aqui que exige ação humana: o servidor
         recusou por regra de negócio e retentar não resolve. Por isso é o único
-        em vermelho, e diz o que fazer.
+        em vermelho.
+
+        Os dois selos são LINK para a tela de pendências: o aviso dizia o que
+        houve e não levava a lugar nenhum, então nem a gerente chamada tinha
+        onde olhar qual venda travou.
       */}
-      {bloqueadas > 0 && <Selo tom="perigo">{bloqueadas} com problema — chame o gerente</Selo>}
+      {bloqueadas > 0 && (
+        <Link to="/pendencias" title="Ver vendas a enviar">
+          <Selo tom="perigo">{bloqueadas} com problema — chame o gerente</Selo>
+        </Link>
+      )}
     </div>
   );
 }
