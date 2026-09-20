@@ -24,4 +24,5 @@ e2e/.dados-seed.json
 # Ferramentas locais de editor/assistente — nunca versionar
 .claude/
 .cursor/
+.vscode/
 .aider*
