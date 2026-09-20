@@ -7,6 +7,7 @@
  */
 
 import fastifyCors from '@fastify/cors';
+import fastifyHelmet from '@fastify/helmet';
 import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { Prisma, PrismaClient } from '@prisma/client';
@@ -71,7 +72,12 @@ import {
   obterCliente,
   receberParcela,
 } from './servicos/cliente.js';
-import { ErroRelatorio, gerarRelatorioVendas } from './servicos/relatorio.js';
+import {
+  ErroRelatorio,
+  gerarContasAReceber,
+  gerarMaisVendidos,
+  gerarRelatorioVendas,
+} from './servicos/relatorio.js';
 import {
   ErroAdministracao,
   atualizarUsuario,
@@ -136,6 +142,48 @@ export async function construirServidor(
     logger: { level: configuracao.NODE_ENV === 'production' ? 'info' : 'debug' },
     // O caixa gera o UUID da venda; correlacionar log com venda facilita suporte.
     genReqId: (requisicao) => (requisicao.headers['x-request-id'] as string) ?? crypto.randomUUID(),
+  });
+
+  /**
+   * Cabeçalhos de segurança.
+   *
+   * Esta API devolve JSON e nada mais — nunca HTML, nunca script, nunca
+   * imagem. Por isso a CSP é a mais fechada que existe (`default-src 'none'`):
+   * se um dia uma resposta desta API for renderizada como página, seja por
+   * engano de configuração ou por injeção, ela não consegue carregar recurso
+   * nenhum nem executar script.
+   *
+   * `frameAncestors: 'none'` impede que a API seja embutida num iframe de
+   * outra origem, que é o caminho clássico do clickjacking sobre uma sessão
+   * já autenticada.
+   *
+   * Registrado ANTES do CORS de propósito: o CORS precisa poder sobrescrever
+   * o que for necessário para o preflight, e invertendo a ordem o helmet
+   * derrubaria cabeçalho que o navegador do caixa espera.
+   */
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    },
+    /*
+     * HSTS só faz sentido sob HTTPS, e em desenvolvimento a API roda em
+     * `http://localhost`. Ligado em produção, onde o PWA fala com a API por
+     * TLS: sem ele, a primeira requisição de cada dia pode sair em texto
+     * claro com o token do turno dentro.
+     */
+    hsts: configuracao.NODE_ENV === 'production'
+      ? { maxAge: 31_536_000, includeSubDomains: true }
+      : false,
+    /*
+     * A API é cross-origin por natureza: o PWA roda em 5173 e ela em 3333.
+     * O padrão `same-origin` do helmet bloquearia justamente o caixa.
+     */
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   });
 
   /**
@@ -1243,6 +1291,49 @@ export async function construirServidor(
       throw erro;
     }
   });
+
+  /**
+   * Mais vendidos do período — o atalho da tela de venda.
+   *
+   * `exigirOperador`, e é justamente por isso que existe separado do relatório
+   * de vendas: a resposta NÃO tem dinheiro, só SKU e quantidade. A tela de
+   * venda precisa montar cards do que mais saiu; não precisa saber quanto a
+   * loja faturou.
+   *
+   * Antes o atalho chamava `/relatorios/vendas`. Quando aquela rota passou a
+   * exigir gerente, ele quebrou em silêncio para toda operadora — a tela de
+   * venda simplesmente parou de mostrar os atalhos, sem erro visível.
+   */
+  app.get('/relatorios/mais-vendidos', { preHandler: exigirOperador }, async (requisicao, resposta) => {
+    const filtros = z.object({ de: z.string(), ate: z.string() }).safeParse(requisicao.query);
+    if (!filtros.success) {
+      return resposta
+        .status(400)
+        .send({ codigo: 'ENTRADA_INVALIDA', mensagem: 'Informe o período: de e ate.' });
+    }
+    try {
+      return await gerarMaisVendidos(prisma, filtros.data);
+    } catch (erro) {
+      if (erro instanceof ErroRelatorio) {
+        return resposta.status(400).send({ codigo: erro.codigo, mensagem: erro.message });
+      }
+      throw erro;
+    }
+  });
+
+  /**
+   * Contas a receber: o fiado em aberto, por cliente.
+   *
+   * Exige GERENTE, pela mesma razão do relatório de vendas — é a posição
+   * financeira da loja, não o turno de quem está no balcão.
+   *
+   * Sem período: "o que tenho a receber" é uma pergunta sobre o AGORA. Um
+   * recorte de datas aqui responderia outra coisa (o que venceu naquele mês),
+   * e quem liga para cobrar precisa da lista de hoje.
+   */
+  app.get('/relatorios/contas-a-receber', { preHandler: exigirAdministrador }, async () =>
+    gerarContasAReceber(prisma),
+  );
 
   // --- Usuários e configuração da loja ---------------------------------------
 

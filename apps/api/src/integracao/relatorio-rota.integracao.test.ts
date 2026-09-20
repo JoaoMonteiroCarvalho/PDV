@@ -186,6 +186,49 @@ describe('relatório de vendas', () => {
     expect(resposta.statusCode).toBe(401);
   });
 
+  it('a OPERADORA vê os mais vendidos, e a resposta não traz dinheiro', async () => {
+    /*
+     * Rota separada por causa de um bug real: a tela de venda monta um atalho
+     * com o que mais saiu no mês e chamava `/relatorios/vendas` para isso.
+     * Quando aquela rota passou a exigir gerente, o atalho quebrou em silêncio
+     * para toda operadora.
+     *
+     * A separação é imposta pelo FORMATO, não pela disciplina de quem chama:
+     * sem `totalCentavos` na resposta, esta rota não tem como vazar
+     * faturamento nem por descuido.
+     */
+    await criarVenda({ registradaEm: new Date(2026, 8, 1, 10), totalCentavos: 10_000, quantidade: 2 });
+
+    const resposta = await app.inject({
+      method: 'GET',
+      url: '/relatorios/mais-vendidos?de=2026-09-01&ate=2026-09-01',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(resposta.statusCode).toBe(200);
+    const corpo = resposta.json() as { maisVendidos: Record<string, unknown>[] };
+    expect(corpo.maisVendidos[0]).toMatchObject({ sku: 'CJ-1', quantidade: 2 });
+    expect(corpo.maisVendidos[0]).not.toHaveProperty('totalCentavos');
+  });
+
+  it('mais vendidos ignora venda cancelada', async () => {
+    // Sugerir como atalho a peça que a cliente devolveu é o oposto do que o
+    // atalho serve para fazer.
+    await criarVenda({
+      registradaEm: new Date(2026, 8, 1, 10),
+      totalCentavos: 10_000,
+      cancelada: true,
+    });
+
+    const resposta = await app.inject({
+      method: 'GET',
+      url: '/relatorios/mais-vendidos?de=2026-09-01&ate=2026-09-01',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect((resposta.json() as { maisVendidos: unknown[] }).maisVendidos).toEqual([]);
+  });
+
   it('operadora autenticada NÃO vê o faturamento da loja', async () => {
     /*
      * Faturamento, ticket médio e ranking de produto são dado de dono, não de

@@ -182,3 +182,228 @@ export async function gerarRelatorioVendas(
       .slice(0, 20),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Mais vendidos — o atalho da tela de venda
+// ---------------------------------------------------------------------------
+
+/**
+ * Ranking de produtos do período, SEM dinheiro nenhum.
+ *
+ * Existe separado de `gerarRelatorioVendas` por uma razão de permissão, e ela
+ * é a lição de um bug real: a tela de venda monta um atalho com o que mais
+ * saiu no mês, e chamava o relatório completo para isso. Quando o relatório
+ * passou a exigir gerente — faturamento é dado de dono —, o atalho quebrou
+ * silenciosamente para toda operadora.
+ *
+ * A resposta não foi reabrir o relatório, foi separar o que cada um precisa:
+ * o atalho quer SKU e quantidade para montar cards, nunca quanto a loja
+ * faturou. Sem `totalCentavos` aqui, a rota pode ser de operador sem vazar
+ * nada — e a separação fica imposta pelo formato, não pela disciplina de quem
+ * chama.
+ */
+export interface ProdutoMaisVendido {
+  readonly descricao: string;
+  readonly sku: string;
+  readonly quantidade: number;
+}
+
+export async function gerarMaisVendidos(
+  prisma: PrismaClient,
+  periodo: PeriodoRelatorio,
+  limite = 20,
+): Promise<{ de: string; ate: string; maisVendidos: ProdutoMaisVendido[] }> {
+  const { inicio, fim } = montarIntervalo(periodo);
+
+  const itens = await prisma.itemVenda.findMany({
+    where: {
+      venda: {
+        registradaEm: { gte: inicio, lt: fim },
+        // Venda cancelada não conta: sugerir como atalho a peça que a cliente
+        // devolveu é o oposto do que o atalho serve para fazer.
+        cancelamentos: { none: {} },
+      },
+    },
+    select: { descricao: true, sku: true, quantidade: true },
+  });
+
+  const porSku = new Map<string, ProdutoMaisVendido>();
+  for (const item of itens) {
+    const acumulado = porSku.get(item.sku) ?? {
+      descricao: item.descricao,
+      sku: item.sku,
+      quantidade: 0,
+    };
+    porSku.set(item.sku, { ...acumulado, quantidade: acumulado.quantidade + item.quantidade });
+  }
+
+  return {
+    de: periodo.de,
+    ate: periodo.ate,
+    maisVendidos: [...porSku.values()]
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, limite),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Contas a receber — o fiado em aberto
+// ---------------------------------------------------------------------------
+
+/**
+ * Quanto a loja tem para receber, e de quem.
+ *
+ * O crediário é a única parte do sistema em que a venda já aconteceu e o
+ * dinheiro ainda não entrou. Sem este relatório a loja sabe o que faturou, não
+ * o que tem a receber — e são números diferentes: uma venda fiada de R$ 300
+ * entra inteira no faturamento do dia e não põe um centavo na gaveta.
+ *
+ * O valor de cada parcela é o que FALTA: parcela de R$ 100 com R$ 40 já
+ * recebidos vale R$ 60 aqui. Usar o valor cheio inflaria a expectativa de
+ * caixa justamente nas parcelas que o cliente vem pagando aos poucos.
+ *
+ * Parcela vencida é a que passou do dia — comparação por DIA, não por
+ * instante: uma parcela que vence hoje às 23h não está vencida às 9h da manhã.
+ */
+export interface ParcelaAReceber {
+  readonly parcelaId: string;
+  readonly numero: number;
+  readonly totalParcelas: number;
+  readonly vendaNumero: number;
+  readonly vencimento: Date;
+  readonly valorCentavos: number;
+  readonly recebidoCentavos: number;
+  readonly abertoCentavos: number;
+  readonly diasDeAtraso: number;
+}
+
+export interface ClienteAReceber {
+  readonly clienteId: string;
+  readonly nome: string;
+  readonly telefone: string | null;
+  readonly abertoCentavos: number;
+  readonly vencidoCentavos: number;
+  readonly parcelas: readonly ParcelaAReceber[];
+}
+
+export interface RelatorioContasAReceber {
+  readonly resumo: {
+    readonly clientes: number;
+    readonly parcelas: number;
+    readonly abertoCentavos: number;
+    readonly vencidoCentavos: number;
+    readonly aVencerCentavos: number;
+  };
+  readonly clientes: readonly ClienteAReceber[];
+}
+
+/** Meia-noite de hoje, no fuso da loja. Base da comparação de atraso. */
+function inicioDeHoje(): Date {
+  const agora = new Date();
+  return new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0, 0);
+}
+
+const UM_DIA_MS = 24 * 60 * 60 * 1000;
+
+export async function gerarContasAReceber(
+  prisma: PrismaClient,
+): Promise<RelatorioContasAReceber> {
+  const parcelas = await prisma.parcelaCrediario.findMany({
+    where: {
+      status: 'ABERTA',
+      // Título cancelado não é dívida: a venda foi desfeita.
+      titulo: { status: 'ABERTO' },
+    },
+    orderBy: { vencimento: 'asc' },
+    select: {
+      id: true,
+      numero: true,
+      valorCentavos: true,
+      vencimento: true,
+      recebimentos: { select: { valorCentavos: true } },
+      titulo: {
+        select: {
+          cliente: { select: { id: true, nome: true, telefone: true } },
+          venda: { select: { numero: true } },
+          _count: { select: { parcelas: true } },
+        },
+      },
+    },
+  });
+
+  const hoje = inicioDeHoje();
+  const porCliente = new Map<
+    string,
+    { nome: string; telefone: string | null; parcelas: ParcelaAReceber[] }
+  >();
+
+  for (const parcela of parcelas) {
+    const recebido = parcela.recebimentos.reduce((soma, r) => soma + r.valorCentavos, 0);
+    const aberto = parcela.valorCentavos - recebido;
+    // Parcela já quitada por recebimentos parciais que somaram o total: o
+    // status ainda diria ABERTA se algo falhou no fechamento, e ela não deve
+    // aparecer como dívida.
+    if (aberto <= 0) continue;
+
+    const vencimento = parcela.vencimento;
+    const diaDoVencimento = new Date(
+      vencimento.getFullYear(),
+      vencimento.getMonth(),
+      vencimento.getDate(),
+    );
+    const diasDeAtraso =
+      diaDoVencimento >= hoje
+        ? 0
+        : Math.round((hoje.getTime() - diaDoVencimento.getTime()) / UM_DIA_MS);
+
+    const cliente = parcela.titulo.cliente;
+    const acumulado = porCliente.get(cliente.id) ?? {
+      nome: cliente.nome,
+      telefone: cliente.telefone,
+      parcelas: [],
+    };
+    acumulado.parcelas.push({
+      parcelaId: parcela.id,
+      numero: parcela.numero,
+      totalParcelas: parcela.titulo._count.parcelas,
+      vendaNumero: parcela.titulo.venda.numero,
+      vencimento,
+      valorCentavos: parcela.valorCentavos,
+      recebidoCentavos: recebido,
+      abertoCentavos: aberto,
+      diasDeAtraso,
+    });
+    porCliente.set(cliente.id, acumulado);
+  }
+
+  const clientes: ClienteAReceber[] = [...porCliente.entries()]
+    .map(([clienteId, dados]) => ({
+      clienteId,
+      nome: dados.nome,
+      telefone: dados.telefone,
+      abertoCentavos: dados.parcelas.reduce((soma, p) => soma + p.abertoCentavos, 0),
+      vencidoCentavos: dados.parcelas
+        .filter((p) => p.diasDeAtraso > 0)
+        .reduce((soma, p) => soma + p.abertoCentavos, 0),
+      parcelas: dados.parcelas,
+    }))
+    /*
+     * Quem deve vencido vem primeiro, e dentro disso quem deve mais. É a ordem
+     * da ligação de cobrança: a lista existe para alguém começar do topo.
+     */
+    .sort((a, b) => b.vencidoCentavos - a.vencidoCentavos || b.abertoCentavos - a.abertoCentavos);
+
+  const abertoTotal = clientes.reduce((soma, c) => soma + c.abertoCentavos, 0);
+  const vencidoTotal = clientes.reduce((soma, c) => soma + c.vencidoCentavos, 0);
+
+  return {
+    resumo: {
+      clientes: clientes.length,
+      parcelas: clientes.reduce((soma, c) => soma + c.parcelas.length, 0),
+      abertoCentavos: abertoTotal,
+      vencidoCentavos: vencidoTotal,
+      aVencerCentavos: abertoTotal - vencidoTotal,
+    },
+    clientes,
+  };
+}

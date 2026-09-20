@@ -300,6 +300,20 @@ export class ClienteApi {
     return this.json(resposta);
   }
 
+  /**
+   * Mais vendidos do período — para o atalho da tela de venda.
+   *
+   * Rota própria, de operador, SEM dinheiro na resposta. O relatório completo
+   * exige gerente; o atalho só precisa de SKU e quantidade.
+   */
+  async maisVendidos(de: string, ate: string): Promise<{ maisVendidos: ProdutoMaisVendido[] }> {
+    return this.json(
+      await fetch(`${BASE}/relatorios/mais-vendidos?de=${de}&ate=${ate}`, {
+        headers: this.cabecalhos(),
+      }),
+    );
+  }
+
   // --- Clientes e crediário ------------------------------------------------------
 
   async buscarClientes(busca: string): Promise<ClienteResumo[]> {
@@ -478,6 +492,13 @@ export class ClienteApi {
       await fetch(`${BASE}/sessoes-caixa/${sessaoCaixaId}/relatorio`, {
         headers: this.cabecalhos(),
       }),
+    );
+  }
+
+  /** O fiado em aberto, por cliente. Sem período: é uma pergunta sobre o agora. */
+  async contasAReceber(): Promise<RelatorioContasAReceber> {
+    return this.json(
+      await fetch(`${BASE}/relatorios/contas-a-receber`, { headers: this.cabecalhos() }),
     );
   }
 
@@ -697,6 +718,39 @@ export interface RelatorioFechamento {
   }[];
 }
 
+export interface ParcelaAReceber {
+  parcelaId: string;
+  numero: number;
+  totalParcelas: number;
+  vendaNumero: number;
+  vencimento: string;
+  valorCentavos: number;
+  recebidoCentavos: number;
+  /** O que FALTA nesta parcela — já descontados os recebimentos parciais. */
+  abertoCentavos: number;
+  diasDeAtraso: number;
+}
+
+export interface ClienteAReceber {
+  clienteId: string;
+  nome: string;
+  telefone: string | null;
+  abertoCentavos: number;
+  vencidoCentavos: number;
+  parcelas: ParcelaAReceber[];
+}
+
+export interface RelatorioContasAReceber {
+  resumo: {
+    clientes: number;
+    parcelas: number;
+    abertoCentavos: number;
+    vencidoCentavos: number;
+    aVencerCentavos: number;
+  };
+  clientes: ClienteAReceber[];
+}
+
 export interface RegistroAuditoria {
   id: string;
   acao: string;
@@ -760,6 +814,12 @@ export interface RelatorioVendas {
   porDia: { dia: string; quantidade: number; totalCentavos: number }[];
   porForma: { forma: string; quantidade: number; totalCentavos: number }[];
   maisVendidos: { descricao: string; sku: string; quantidade: number; totalCentavos: number }[];
+}
+
+export interface ProdutoMaisVendido {
+  descricao: string;
+  sku: string;
+  quantidade: number;
 }
 
 export interface ClienteResumo {

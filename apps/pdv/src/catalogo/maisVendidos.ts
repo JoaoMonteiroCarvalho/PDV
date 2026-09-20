@@ -170,7 +170,15 @@ export async function atualizarMaisVendidos(
   try {
     if (!precisaAtualizar(await lerGuardado(banco), agora)) return false;
 
-    const relatorio = await clienteApi.relatorioVendas(
+    /*
+     * Rota própria, de operador, sem dinheiro na resposta.
+     *
+     * Antes isto chamava `relatorioVendas`, que passou a exigir gerente —
+     * faturamento é dado de dono. O atalho quebrou em silêncio para toda
+     * operadora: a tela de venda parou de mostrar os cards e nada indicava o
+     * porquê. O ranking precisa de SKU e quantidade, nunca de faturamento.
+     */
+    const relatorio = await clienteApi.maisVendidos(
       diasAtras(JANELA_DIAS, agora),
       diasAtras(0, agora),
     );

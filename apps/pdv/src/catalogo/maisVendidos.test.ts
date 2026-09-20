@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clienteApi, type RelatorioVendas } from '../api/cliente.js';
+import { clienteApi, type ProdutoMaisVendido } from '../api/cliente.js';
 import { BancoLocal, type ItemCatalogo } from '../banco/local.js';
 import {
   atualizarMaisVendidos,
@@ -116,23 +116,14 @@ function variante(parcial: Partial<ItemCatalogo> = {}): ItemCatalogo {
   };
 }
 
-function relatorio(
-  maisVendidos: RelatorioVendas['maisVendidos'],
-): RelatorioVendas {
-  return {
-    de: '2026-08-09',
-    ate: '2026-09-08',
-    resumo: {
-      quantidadeVendas: 0,
-      totalCentavos: 0,
-      descontoCentavos: 0,
-      ticketMedioCentavos: 0,
-      pecasVendidas: 0,
-    },
-    porDia: [],
-    porForma: [],
-    maisVendidos,
-  };
+/**
+ * Resposta de `/relatorios/mais-vendidos`.
+ *
+ * SEM dinheiro, de propósito: o atalho precisa de SKU e quantidade, e é essa
+ * ausência que deixa a rota ser de operador sem vazar faturamento.
+ */
+function relatorio(maisVendidos: ProdutoMaisVendido[]) {
+  return { de: '2026-08-09', ate: '2026-09-08', maisVendidos };
 }
 
 describe('cache no banco local', () => {
@@ -171,12 +162,12 @@ describe('cache no banco local', () => {
   });
 
   it('guarda o ranking e devolve os produtos NA ORDEM do ranking', async () => {
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(
       relatorio([
-        { descricao: 'Pijama Cetim', sku: 'PJ-M-ROSA', quantidade: 9, totalCentavos: 1000 },
-        { descricao: 'Perfume Sedução', sku: 'PF-UNICO', quantidade: 2, totalCentavos: 100 },
-        { descricao: 'Conjunto Renda', sku: 'CJ-P-PRETO', quantidade: 3, totalCentavos: 300 },
-        { descricao: 'Conjunto Renda', sku: 'CJ-M-PRETO', quantidade: 3, totalCentavos: 300 },
+        { descricao: 'Pijama Cetim', sku: 'PJ-M-ROSA', quantidade: 9 },
+        { descricao: 'Perfume Sedução', sku: 'PF-UNICO', quantidade: 2 },
+        { descricao: 'Conjunto Renda', sku: 'CJ-P-PRETO', quantidade: 3 },
+        { descricao: 'Conjunto Renda', sku: 'CJ-M-PRETO', quantidade: 3 },
       ]),
     );
 
@@ -190,8 +181,8 @@ describe('cache no banco local', () => {
 
   it('não consulta o servidor de novo enquanto o cache está fresco', async () => {
     const consulta = vi
-      .spyOn(clienteApi, 'relatorioVendas')
-      .mockResolvedValue(relatorio([{ descricao: 'x', sku: 'PF-UNICO', quantidade: 1, totalCentavos: 1 }]));
+      .spyOn(clienteApi, 'maisVendidos')
+      .mockResolvedValue(relatorio([{ descricao: 'x', sku: 'PF-UNICO', quantidade: 1 }]));
 
     await atualizarMaisVendidos(banco, new Date('2026-09-08T12:00:00.000Z'));
     await atualizarMaisVendidos(banco, new Date('2026-09-08T14:00:00.000Z'));
@@ -200,13 +191,13 @@ describe('cache no banco local', () => {
   });
 
   it('OFFLINE: mantém o ranking anterior em vez de esvaziar a tela', async () => {
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(
-      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4, totalCentavos: 400 }]),
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(
+      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4 }]),
     );
     await atualizarMaisVendidos(banco, new Date('2026-09-08T00:00:00.000Z'));
 
     // A rede cai e o cache já venceu: a consulta falha.
-    vi.spyOn(clienteApi, 'relatorioVendas').mockRejectedValue(new Error('sem rede'));
+    vi.spyOn(clienteApi, 'maisVendidos').mockRejectedValue(new Error('sem rede'));
     expect(await atualizarMaisVendidos(banco, new Date('2026-09-09T00:00:00.000Z'))).toBe(false);
 
     // A lista de ontem continua lá — é muito melhor que uma tela vazia.
@@ -214,12 +205,12 @@ describe('cache no banco local', () => {
   });
 
   it('mês sem venda APAGA o ranking antigo', async () => {
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(
-      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4, totalCentavos: 400 }]),
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(
+      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4 }]),
     );
     await atualizarMaisVendidos(banco, new Date('2026-09-08T00:00:00.000Z'));
 
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(relatorio([]));
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(relatorio([]));
     await atualizarMaisVendidos(banco, new Date('2026-09-09T00:00:00.000Z'));
 
     // Exibir "mais vendidos" de um período que já passou seria mentir.
@@ -234,8 +225,8 @@ describe('cache no banco local', () => {
      * passaria o turno sem ele, sem nada explicando por quê.
      */
     const semCatalogo = new BancoLocal(`teste-sem-catalogo-${Math.random()}`);
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(
-      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4, totalCentavos: 400 }]),
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(
+      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4 }]),
     );
 
     expect(await atualizarMaisVendidos(semCatalogo)).toBe(false);
@@ -248,15 +239,15 @@ describe('cache no banco local', () => {
     // Contraprova do teste acima: se ele gravasse nos dois casos, ou em
     // nenhum, um dos dois comportamentos estaria errado e o outro passaria
     // por acidente.
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(relatorio([]));
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(relatorio([]));
 
     expect(await atualizarMaisVendidos(banco)).toBe(true);
     expect(await banco.metadados.get('catalogo.maisVendidos')).toBeDefined();
   });
 
   it('produto desativado sai do atalho', async () => {
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(
-      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4, totalCentavos: 400 }]),
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(
+      relatorio([{ descricao: 'Perfume', sku: 'PF-UNICO', quantidade: 4 }]),
     );
     await atualizarMaisVendidos(banco);
     await banco.catalogo.update('v-3', { ativo: false });
@@ -265,11 +256,11 @@ describe('cache no banco local', () => {
   });
 
   it('respeita o limite de cards', async () => {
-    vi.spyOn(clienteApi, 'relatorioVendas').mockResolvedValue(
+    vi.spyOn(clienteApi, 'maisVendidos').mockResolvedValue(
       relatorio([
-        { descricao: 'a', sku: 'PJ-M-ROSA', quantidade: 9, totalCentavos: 1 },
-        { descricao: 'b', sku: 'CJ-P-PRETO', quantidade: 5, totalCentavos: 1 },
-        { descricao: 'c', sku: 'PF-UNICO', quantidade: 2, totalCentavos: 1 },
+        { descricao: 'a', sku: 'PJ-M-ROSA', quantidade: 9 },
+        { descricao: 'b', sku: 'CJ-P-PRETO', quantidade: 5 },
+        { descricao: 'c', sku: 'PF-UNICO', quantidade: 2 },
       ]),
     );
     await atualizarMaisVendidos(banco);
