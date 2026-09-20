@@ -28,6 +28,25 @@ type Pagina = import('@playwright/test').Page;
  * turno dela. Por isso o teste troca para a gerente antes de abrir a tela,
  * que é exatamente o que acontece no balcão.
  */
+/**
+ * Escolhe o período e CONFERE que os campos ficaram com o que foi digitado.
+ *
+ * A tela abre no período padrão e só então busca no servidor; digitar antes
+ * de essa primeira carga terminar fazia o componente repor a data com o
+ * padrão. O sintoma era cruel: o campo "Até" guardava o valor digitado e o
+ * "De" voltava sozinho, então o teste falhava dizendo "não apareceu 'sem
+ * movimento'" quando o período consultado nunca tinha sido o pedido.
+ */
+async function definirPeriodo(page: Pagina, de: string, ate: string) {
+  await expect(page.getByTestId('faturamento')).toBeVisible();
+
+  await page.getByLabel('De').fill(de);
+  await page.getByLabel('Até').fill(ate);
+
+  await expect(page.getByLabel('De')).toHaveValue(de);
+  await expect(page.getByLabel('Até')).toHaveValue(ate);
+}
+
 async function irParaRelatorios(page: Pagina) {
   await loginGerente(page);
   await page.getByRole('link', { name: 'Relatórios' }).click();
@@ -78,10 +97,7 @@ test.describe('números do período', () => {
   test('período sem venda diz isso, em vez de tela vazia', async ({ page }) => {
     await loginGerente(page);
     await page.getByRole('link', { name: 'Relatórios' }).click();
-
-    // Um período no passado onde o seed não criou nada.
-    await page.getByLabel('De').fill('2020-01-01');
-    await page.getByLabel('Até').fill('2020-01-02');
+    await definirPeriodo(page, '2020-01-01', '2020-01-02');
 
     await expect(page.getByText('Sem movimento no período.')).toBeVisible();
     await expect(page.getByTestId('faturamento')).toHaveText('R$ 0,00');
@@ -139,8 +155,7 @@ test.describe('exportação CSV', () => {
     // Um CSV só com cabeçalho parece download quebrado para quem clicou.
     await loginGerente(page);
     await page.getByRole('link', { name: 'Relatórios' }).click();
-    await page.getByLabel('De').fill('2020-01-01');
-    await page.getByLabel('Até').fill('2020-01-02');
+    await definirPeriodo(page, '2020-01-01', '2020-01-02');
 
     /*
      * Espera o período novo CHEGAR antes de olhar o botão.
