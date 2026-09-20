@@ -53,6 +53,14 @@ export const esquemaRegistrarVenda = z
      */
     id: z.string().uuid(),
     sessaoCaixaId: z.string().uuid(),
+    /**
+     * Quem ATENDEU a cliente — base da comissão.
+     *
+     * Opcional: o caixa manda o operador logado por padrão, mas uma venda que
+     * subiu de uma versão anterior do PWA, ainda na fila offline, não tem o
+     * campo. Recusá-la por isso descartaria venda já paga e impressa.
+     */
+    vendedorId: z.string().uuid().optional(),
     clienteId: z.string().uuid().optional(),
     /** Relógio do caixa no fechamento. Pode ser bem anterior à chegada aqui. */
     criadaEmCliente: z.coerce.date(),

@@ -187,6 +187,47 @@ function Conteudo({ relatorio }: { relatorio: RelatorioVendas }) {
         )}
       </section>
 
+      {/*
+        Quem vendeu — a base da comissão.
+        Só aparece com mais de uma pessoa no período: numa loja de uma
+        vendedora só, a seção repetiria o faturamento total com outro título.
+      */}
+      {relatorio.porVendedor.length > 1 && (
+        <section className="mt-8">
+          <h2 className="font-titulo text-[18px]">Quem vendeu</h2>
+          <ul className="mt-3 divide-y divide-line rounded-card border border-line">
+            {relatorio.porVendedor.map((vendedora) => (
+              <li
+                key={vendedora.vendedorId ?? 'sem-vendedor'}
+                className="flex items-center justify-between px-4 py-3"
+              >
+                <span className="text-[14px]">
+                  {vendedora.vendedor ?? (
+                    /*
+                      Vendas anteriores ao campo existir. `Venda` é imutável por
+                      trigger, então não dá para preenchê-las nem por migration
+                      — e inventar um nome seria fabricar base de comissão.
+                    */
+                    <span className="text-ink-faint">
+                      Não informado{' '}
+                      <span className="text-[12px]">(vendas antigas)</span>
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-3">
+                  <Selo tom="neutro">
+                    <span className="num">{vendedora.quantidade}</span>
+                  </Selo>
+                  <span className="num text-[15px] font-medium">
+                    {formatarBRL(centavos(vendedora.totalCentavos))}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-titulo text-[18px]">O que mais saiu</h2>

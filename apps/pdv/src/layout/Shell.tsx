@@ -14,6 +14,7 @@ import { useSessao, ehGerente } from '../estado/sessaoStore.js';
 import { useCaixa } from '../estado/caixaStore.js';
 import { motorSincronizacao } from '../sincronizacao/motorGlobal.js';
 import { sincronizarLoja } from '../impressao/loja.js';
+import { sincronizarVendedores } from '../venda/vendedores.js';
 
 /**
  * `soGerente` esconde do menu o que a API já recusaria de qualquer forma.
@@ -57,6 +58,9 @@ export function Shell() {
     // Os dados da loja saem no comprovante, inclusive offline: busca uma vez
     // ao entrar e guarda localmente. Falha aqui não interrompe nada.
     void sincronizarLoja();
+    // Quem pode ser marcada como vendedora. Cacheada, porque a venda fecha
+    // offline e escolher quem atendeu não pode depender de rede.
+    void sincronizarVendedores();
     motorSincronizacao.iniciar();
     return () => motorSincronizacao.parar();
   }, [sincronizarCaixa]);

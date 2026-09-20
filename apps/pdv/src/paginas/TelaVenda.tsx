@@ -50,6 +50,7 @@ export function TelaVenda() {
   const registrarSucesso = useCarrinho((estado) => estado.registrarSucesso);
   const carrinho = useCarrinho((estado) => estado.carrinho);
   const autorizacaoDesconto = useCarrinho((estado) => estado.autorizacaoDesconto);
+  const vendedorId = useCarrinho((estado) => estado.vendedorId);
   const sessao = useCaixa((estado) => estado.sessao);
   const operadora = useSessao((estado) => estado.operadora);
   const navegar = useNavigate();
@@ -158,6 +159,12 @@ export function TelaVenda() {
       // Fiado precisa da cliente: `validarPagamentos` recusa sem ela, aqui
       // mesmo, antes de a venda entrar na fila.
       clienteId: crediario?.clienteId,
+      /*
+       * Quem atendeu. Sem escolha explícita vai a operadora logada — na maior
+       * parte das vendas são a mesma pessoa, e o servidor faz a mesma queda
+       * caso o campo chegue vazio.
+       */
+      vendedorId: vendedorId ?? operadora?.id,
       /*
        * Liberação do desconto, quando houve. O token pode chegar EXPIRADO ao
        * servidor — a venda fecha offline e sobe horas depois —, e a rota aceita

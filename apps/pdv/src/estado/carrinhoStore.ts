@@ -54,6 +54,14 @@ interface EstadoLoja {
    * anterior liberaria um desconto que ninguém aprovou.
    */
   autorizacaoDesconto: AutorizacaoGerente | null;
+  /**
+   * Quem atendeu esta venda. `null` significa "a operadora logada".
+   *
+   * Vive no carrinho, e não numa preferência de tela, porque é por VENDA: a
+   * próxima cliente pode ser atendida por outra pessoa, e herdar a escolha
+   * anterior mandaria comissão para quem não vendeu.
+   */
+  vendedorId: string | null;
 
   adicionarItem: (item: ItemCatalogo, quantidade?: number) => void;
   mudarQuantidade: (varianteId: string, quantidade: number) => void;
@@ -61,6 +69,7 @@ interface EstadoLoja {
   aplicarDescontoNoItem: (varianteId: string, descontoCentavos: number) => void;
   aplicarDescontoNoTotal: (descontoCentavos: number) => void;
   definirAutorizacaoDesconto: (autorizacao: AutorizacaoGerente | null) => void;
+  definirVendedor: (vendedorId: string | null) => void;
   lancarPagamento: (pagamento: PagamentoLancado) => void;
   removerPagamento: (indice: number) => void;
   limparPagamentos: () => void;
@@ -74,6 +83,7 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
   pagamentos: [],
   ultimaVenda: null,
   autorizacaoDesconto: null,
+  vendedorId: null,
 
   adicionarItem: (item, quantidade = 1) =>
     set((estado) => ({
@@ -110,6 +120,8 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
 
   definirAutorizacaoDesconto: (autorizacao) => set({ autorizacaoDesconto: autorizacao }),
 
+  definirVendedor: (vendedorId) => set({ vendedorId }),
+
   lancarPagamento: (pagamento) =>
     set((estado) => ({ pagamentos: [...estado.pagamentos, pagamento] })),
 
@@ -121,7 +133,10 @@ export const useCarrinho = create<EstadoLoja>((set) => ({
   // Zera tudo depois de finalizar ou cancelar. Os pagamentos vão junto: deixar
   // pagamento de uma venda anterior pendurado é como o dinheiro some do caixa.
   // A autorização de desconto também: ela valeu para aquela venda e só.
-  limparVenda: () => set({ carrinho: CARRINHO_VAZIO, pagamentos: [], autorizacaoDesconto: null }),
+  // A vendedora volta ao padrão junto: a próxima cliente pode ser de outra
+  // pessoa, e herdar a escolha mandaria comissão para quem não vendeu.
+  limparVenda: () =>
+    set({ carrinho: CARRINHO_VAZIO, pagamentos: [], autorizacaoDesconto: null, vendedorId: null }),
 
   registrarSucesso: (venda) => set({ ultimaVenda: venda }),
   descartarAviso: () => set({ ultimaVenda: null }),
