@@ -45,8 +45,12 @@ const esquemaAmbiente = z.object({
 
   /**
    * Módulo fiscal. Esta versão NÃO emite NFC-e: imprime comprovante não
-   * fiscal. A flag existe para que ligar o fiscal seja configuração, não
-   * refatoração. Enquanto false, nada no caminho da venda a consulta.
+   * fiscal.
+   *
+   * A flag existe para que ligar o fiscal seja configuração, não refatoração —
+   * e desde a porta em `fiscal/porta.ts` isso é literal: `criarEmissorFiscal`
+   * é o único lugar que precisa ganhar um ramo novo. Enquanto false, nada no
+   * caminho da venda consulta nada de fiscal.
    */
   FISCAL_HABILITADO: z
     .enum(['true', 'false'])
@@ -69,10 +73,23 @@ export function carregarConfiguracao(ambiente: NodeJS.ProcessEnv = process.env):
     );
   }
 
+  /*
+   * Recusa subir com a flag ligada, e isso continua certo mesmo agora que a
+   * porta fiscal existe.
+   *
+   * A porta é o ENCAIXE; não há emissor para encaixar nela. Subir com
+   * `FISCAL_HABILITADO=true` faria a loja acreditar que está emitindo
+   * documento fiscal enquanto não emite — que é pior do que assumir que não
+   * emite. Falhar na partida, com mensagem dizendo o que falta, é o único
+   * desfecho honesto.
+   */
   if (resultado.data.FISCAL_HABILITADO) {
     throw new Error(
-      'FISCAL_HABILITADO=true, mas o módulo fiscal não está implementado nesta versão. ' +
-        'O sistema emite apenas comprovante NÃO FISCAL. Mantenha a flag em false.',
+      'FISCAL_HABILITADO=true, mas nenhum emissor fiscal está implementado nesta versão. ' +
+        'O sistema emite apenas comprovante NÃO FISCAL.\n' +
+        'Para ligar: implemente a interface `EmissorFiscal` (apps/api/src/fiscal/porta.ts) ' +
+        'e devolva-a em `criarEmissorFiscal` (apps/api/src/fiscal/desligado.ts). ' +
+        'Até lá, mantenha a flag em false.',
     );
   }
 

@@ -34,6 +34,13 @@ import {
   type PagamentoEntrada,
 } from '@pdv/shared';
 import type { EntradaRegistrarVenda } from '../esquemas/venda.js';
+import { emissorDesligado } from '../fiscal/desligado.js';
+import type {
+  EmissorFiscal,
+  ItemParaFiscal,
+  ResultadoFiscal,
+  VendaParaFiscal,
+} from '../fiscal/porta.js';
 
 /**
  * A venda como o serviço a recebe: com a identidade de quem liberou desconto
@@ -56,24 +63,41 @@ export interface ResultadoRegistroVenda {
   readonly totalCentavos: number;
   /** true quando a venda já estava registrada — retry da fila offline. */
   readonly jaEstavaRegistrada: boolean;
+  /**
+   * Desfecho da emissão fiscal. `DESLIGADO` nesta versão, que imprime
+   * comprovante não fiscal.
+   *
+   * Sobe no resultado em vez de virar log solto porque quem chama precisa
+   * poder DECIDIR: um dia, uma venda rejeitada pela SEFAZ terá que aparecer
+   * para a gerente, não só numa linha de log que ninguém lê.
+   */
+  readonly fiscal: ResultadoFiscal;
 }
 
 export async function registrarVenda(
   prisma: PrismaClient,
   entrada: VendaParaRegistrar,
-  contexto: { operadorId: string },
+  contexto: { operadorId: string; emissorFiscal?: EmissorFiscal },
 ): Promise<ResultadoRegistroVenda> {
+  const emissor = contexto.emissorFiscal ?? emissorDesligado;
   // --- Caminho de idempotência: barato e antes de qualquer trabalho ---------
   const jaRegistrada = await prisma.venda.findUnique({
     where: { id: entrada.id },
     select: { id: true, numero: true, totalCentavos: true },
   });
   if (jaRegistrada) {
+    /*
+     * NÃO emite de novo. O documento fiscal desta venda foi resolvido no
+     * primeiro registro; reenviar a venda é a fila offline repetindo, não um
+     * fato novo. Emitir aqui geraria um segundo documento para a mesma venda
+     * — o erro que a idempotência existe para impedir.
+     */
     return {
       vendaId: jaRegistrada.id,
       numero: jaRegistrada.numero,
       totalCentavos: jaRegistrada.totalCentavos,
       jaEstavaRegistrada: true,
+      fiscal: { situacao: 'DESLIGADO' },
     };
   }
 
@@ -152,7 +176,18 @@ export async function registrarVenda(
       cor: true,
       precoCentavos: true,
       custoCentavos: true,
-      produto: { select: { nome: true } },
+      /*
+       * Os campos fiscais vêm junto porque é o emissor que precisa deles, e
+       * ele precisa do estado NO MOMENTO DA VENDA. Buscar depois traria o
+       * cadastro de hoje: se o NCM for corrigido na semana que vem, o
+       * documento de uma venda de ontem sairia com o dado novo.
+       *
+       * Nada os lê enquanto o fiscal está desligado — são quatro colunas na
+       * mesma consulta que já acontecia, não uma consulta a mais.
+       */
+      produto: {
+        select: { nome: true, ncm: true, cest: true, origem: true, situacaoTributaria: true },
+      },
     },
   });
   const porId = new Map(variantes.map((variante) => [variante.id, variante]));
@@ -325,11 +360,32 @@ export async function registrarVenda(
       return registro;
     });
 
+    /*
+     * EMISSÃO FISCAL — depois do commit, de propósito.
+     *
+     * A transação acima já fechou: a venda está gravada, o estoque baixado, o
+     * dinheiro lançado no caixa. Emitir dentro dela significaria manter uma
+     * transação de banco aberta pelo tempo de resposta da SEFAZ e, no timeout,
+     * desfazer o registro de uma venda que aconteceu no mundo real.
+     *
+     * Nesta versão o emissor está desligado e isto devolve `DESLIGADO` sem
+     * consultar nada.
+     */
+    const fiscal = await emitirDocumento(prisma, emissor, {
+      vendaId: criada.id,
+      numero: criada.numero,
+      registradaEm: new Date(),
+      venda,
+      entrada,
+      porId,
+    });
+
     return {
       vendaId: criada.id,
       numero: criada.numero,
       totalCentavos: criada.totalCentavos,
       jaEstavaRegistrada: false,
+      fiscal,
     };
   } catch (erro) {
     // Corrida entre dois retries simultâneos da mesma venda: o segundo bate na
@@ -345,6 +401,7 @@ export async function registrarVenda(
           numero: existente.numero,
           totalCentavos: existente.totalCentavos,
           jaEstavaRegistrada: true,
+          fiscal: { situacao: 'DESLIGADO' },
         };
       }
     }
@@ -382,4 +439,98 @@ async function calcularLimiteCrediarioDisponivel(
 
   const usado = emAberto._sum.valorCentavos ?? 0;
   return centavos(Math.max(0, cliente.limiteCrediarioCentavos - usado));
+}
+
+// ---------------------------------------------------------------------------
+// Documento fiscal
+// ---------------------------------------------------------------------------
+
+/**
+ * Chama a porta fiscal sem deixar que ela derrube a venda.
+ *
+ * Duas proteções, e as duas existem pelo mesmo motivo — a venda já aconteceu:
+ *
+ *   1. Com o emissor desligado, NADA é montado. Nem o payload, nem a consulta
+ *      do cliente. É o que sustenta a promessa de que o módulo desligado não
+ *      custa uma linha de trabalho no caminho da venda.
+ *
+ *   2. Se um emissor real quebrar o contrato e LANÇAR — bug dele, timeout não
+ *      tratado, biblioteca de terceiro —, a exceção morre aqui e vira
+ *      `INDISPONIVEL`. Uma venda gravada, paga e entregue não pode virar erro
+ *      500 para o caixa porque a SEFAZ tossiu. O contrato diz para não lançar;
+ *      isto é o cinto de segurança para quando alguém esquecer.
+ */
+async function emitirDocumento(
+  prisma: PrismaClient,
+  emissor: EmissorFiscal,
+  dados: {
+    vendaId: string;
+    numero: number;
+    registradaEm: Date;
+    venda: ReturnType<typeof calcularVenda>;
+    entrada: VendaParaRegistrar;
+    porId: Map<string, { sku: string; produto: { nome: string; ncm: string | null; cest: string | null; origem: number | null; situacaoTributaria: string | null } }>;
+  },
+): Promise<ResultadoFiscal> {
+  if (!emissor.habilitado) return { situacao: 'DESLIGADO' };
+
+  try {
+    const payload = await montarVendaParaFiscal(prisma, dados);
+    return await emissor.emitir(payload);
+  } catch (erro) {
+    return {
+      situacao: 'INDISPONIVEL',
+      motivo: erro instanceof Error ? erro.message : 'Falha desconhecida na emissão.',
+    };
+  }
+}
+
+async function montarVendaParaFiscal(
+  prisma: PrismaClient,
+  dados: Parameters<typeof emitirDocumento>[2],
+): Promise<VendaParaFiscal> {
+  const { venda, entrada, porId } = dados;
+
+  const itens: ItemParaFiscal[] = venda.itens.map((item, indice) => {
+    const variante = porId.get(item.varianteId)!;
+    return {
+      sequencia: indice + 1,
+      descricao: variante.produto.nome,
+      sku: variante.sku,
+      quantidade: item.quantidade,
+      precoUnitarioCentavos: item.precoUnitarioCentavos,
+      totalCentavos: item.totalCentavos,
+      ncm: variante.produto.ncm,
+      cest: variante.produto.cest,
+      origem: variante.produto.origem,
+      situacaoTributaria: variante.produto.situacaoTributaria,
+    };
+  });
+
+  // A consulta do cliente só acontece com o fiscal ligado E com cliente
+  // identificado. NFC-e sem CPF é o caso normal no balcão.
+  const cliente = entrada.clienteId
+    ? await prisma.cliente.findUnique({
+        where: { id: entrada.clienteId },
+        select: { nome: true, cpf: true },
+      })
+    : null;
+
+  return {
+    vendaId: dados.vendaId,
+    numero: dados.numero,
+    registradaEm: dados.registradaEm,
+    subtotalCentavos: venda.subtotalCentavos,
+    descontoCentavos: venda.descontoCentavos,
+    totalCentavos: venda.totalCentavos,
+    itens,
+    pagamentos: entrada.pagamentos.map((pagamento) => ({
+      forma: pagamento.forma,
+      valorCentavos: pagamento.valorCentavos,
+      trocoCentavos: pagamento.trocoCentavos,
+      bandeira: pagamento.bandeira ?? null,
+      parcelasCartao: pagamento.parcelasCartao ?? null,
+    })),
+    cliente,
+  };
 }

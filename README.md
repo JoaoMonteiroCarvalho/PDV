@@ -10,8 +10,9 @@ Nada aqui é genérico por acidente — cada decisão abaixo resolve um problema
 concreto de balcão.
 
 **Esta versão não emite documento fiscal.** Imprime comprovante de venda **não
-fiscal**. O módulo fiscal está preparado no schema (campos nuláveis) e
-desligado por configuração — nenhum cálculo de venda depende dele.
+fiscal**. O módulo fiscal está preparado — campos nuláveis no schema e uma
+porta (`EmissorFiscal`) que o registro de venda já chama — e desligado por
+configuração. Nenhum cálculo de venda depende dele.
 
 ## Premissas do projeto
 
@@ -27,6 +28,44 @@ Os campos fiscais (`ncm`, `cest`, `origem`, `situacaoTributaria`) existem, são
 nuláveis e não são lidos. `situacaoTributaria` é string livre de propósito:
 serve para CSOSN (Simples Nacional) ou CST (Lucro Presumido) sem exigir
 remodelagem.
+
+## A porta do documento fiscal
+
+Ligar a NFC-e um dia **não pode significar abrir o serviço que registra a
+venda** — o código mais sensível do sistema — e costurar chamadas de rede no
+meio de uma transação que hoje é toda local. Seria cirurgia no coração do PDV
+feita sob pressão de prazo fiscal.
+
+Por isso a porta existe antes do emissor. `registrar-venda.ts` já chama
+`EmissorFiscal.emitir()`; a implementação de hoje é `emissorDesligado`, que
+devolve `DESLIGADO` e não faz nada. Ligar vira trocar o retorno de
+`criarEmissorFiscal` — um ramo, num arquivo.
+
+Três regras que a porta impõe, e que valem para qualquer emissor futuro:
+
+**A venda já aconteceu.** Quando a porta é chamada, o dinheiro entrou na
+gaveta e a cliente foi embora. SEFAZ fora do ar não desfaz isso. `emitir`
+nunca lança para cancelar a venda: devolve uma *situação*, e
+indisponibilidade é situação prevista, não exceção. Se um emissor quebrar o
+contrato e lançar, o serviço converte em `INDISPONIVEL` — uma venda paga e
+entregue não vira erro 500 porque uma biblioteca estourou.
+
+**A emissão é fora da transação.** Emitir dentro dela manteria uma transação
+de banco aberta pelo tempo de resposta da SEFAZ e, no timeout, desfaria o
+registro de uma venda real.
+
+**Desligado não custa nada.** Com `habilitado: false` o payload sequer é
+montado — nem a consulta do cliente roda. Os campos fiscais do produto vêm na
+mesma consulta que já existia, e são capturados no momento da venda: corrigir
+o NCM na semana que vem não pode mudar o documento de ontem.
+
+`INDISPONIVEL` é separado de `REJEITADO` porque o que a loja faz depois é
+diferente: rejeição é dado errado que alguém corrige; SEFAZ fora é esperar ou
+entrar em contingência.
+
+A flag `FISCAL_HABILITADO=true` **derruba a API na partida**, de propósito:
+existe a porta, não existe emissor, e deixar subir faria a loja acreditar que
+emite documento fiscal enquanto não emite.
 
 ## Stack
 
@@ -369,9 +408,9 @@ npm run test:e2e          # Playwright (Chromium)
 | Unitários (`packages/shared`) — dinheiro, venda, caixa, devolução, CPF | 105 |
 | Unitários (`apps/api`) — autenticação | 7 |
 | Unitários (`apps/pdv`) — carrinho, desconto, fila, catálogo, comprovante, telas | 492 |
-| Integração (`apps/api`) — contra Postgres real, todas as rotas | 218 |
+| Integração (`apps/api`) — contra Postgres real, rotas e porta fiscal | 232 |
 | E2E (Playwright) — fluxo real, clicando na tela | 149 |
-| **Total** | **971** |
+| **Total** | **985** |
 
 `tsc --strict` limpo nos quatro workspaces.
 
@@ -399,8 +438,12 @@ propósito, quero ver a gestão mesmo com sessão aberta".
 
 ## Limitações conhecidas
 
-- **Sem emissão fiscal.** Comprovante não fiscal apenas; ligar NFC-e exige
-  certificado digital e contrato com SEFAZ ou gateway.
+- **Sem emissão fiscal.** Comprovante não fiscal apenas. A porta
+  (`EmissorFiscal`) está pronta e testada, mas não há emissor: ligar a NFC-e
+  exige certificado digital, contrato com SEFAZ ou gateway, e a definição do
+  regime tributário pelo contador. Falta também decidir onde o estado do
+  documento (autorizado, rejeitado, em contingência) será persistido — hoje a
+  porta devolve a situação e quem chama decide o que fazer com ela.
 - **Impressora térmica não validada em hardware.** A impressão passa pelo
   diálogo do sistema operacional (`window.print()` com `@page`), o que funciona
   com qualquer driver, mas largura de coluna e corte de papel só se confirmam

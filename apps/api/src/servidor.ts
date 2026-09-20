@@ -98,6 +98,7 @@ import {
   registrarMovimentoManual,
 } from './servicos/sessao-caixa.js';
 import { registrarVenda } from './servicos/registrar-venda.js';
+import { criarEmissorFiscal } from './fiscal/desligado.js';
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
@@ -276,6 +277,16 @@ export async function construirServidor(
     }
   }
 
+  /*
+   * O emissor fiscal é resolvido UMA vez, na partida — não por requisição.
+   *
+   * Um emissor real carrega certificado digital e mantém conexão com a SEFAZ;
+   * recriá-lo a cada venda seria pagar esse custo no caminho mais quente do
+   * sistema. Nesta versão ele está desligado e não custa nada, mas o lugar
+   * certo de construí-lo já é este.
+   */
+  const emissorFiscal = criarEmissorFiscal(configuracao);
+
   // --- Saúde ---------------------------------------------------------------
 
   app.get('/saude', async () => ({
@@ -427,6 +438,7 @@ export async function construirServidor(
     try {
       const resultado = await registrarVenda(prisma, venda, {
         operadorId: requisicao.user.sub,
+        emissorFiscal,
       });
       return resposta.status(resultado.jaEstavaRegistrada ? 200 : 201).send(resultado);
     } catch (erro) {
