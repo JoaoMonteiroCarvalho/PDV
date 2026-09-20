@@ -196,6 +196,34 @@ Usuarios do seed (**apenas desenvolvimento**): `ana`/`caixa123` (operadora, ate
 > **Bancos separados.** `pdv` para desenvolvimento, `pdv_teste` para os testes
 > de integracao (que dao TRUNCATE a cada caso) e `pdv_e2e` para o Playwright.
 
+### Fluxo de trabalho: branch e PR
+
+A `main` é protegida por ruleset e **exige os três jobs do CI verdes**. Isso
+significa que `git push origin main` não funciona mais, e não é limitação da
+ferramenta: o CI só roda depois que o commit chega ao GitHub, então um commit
+novo ainda não tem check nenhum e o push é recusado. O caminho passa a ser
+sempre branch + PR.
+
+```bash
+git checkout -b feat/nome-curto
+# ... trabalho, commits ...
+git push -u origin feat/nome-curto
+
+gh pr create --fill          # abre o PR com título e corpo dos commits
+gh pr checks --watch         # acompanha o CI até terminar
+gh pr merge --squash --delete-branch
+```
+
+Sem o `gh` instalado, o `git push` já imprime a URL de "Create a pull
+request" — basta abrir e seguir pela interface.
+
+**A espera é real: o job de E2E leva ~13 minutos.** É o preço de não repetir o
+que já aconteceu duas vezes aqui — mudança de permissão de rota que ficou dias
+quebrada porque rodar a suíte dependia de alguém lembrar. Se a espera
+incomodar num commit trivial (só README, por exemplo), o caminho honesto é
+esperar mesmo assim ou afrouxar o ruleset de propósito — não criar exceção
+caso a caso, que é como proteção vira decoração.
+
 ### Banco e API em container
 
 ```bash
@@ -480,9 +508,11 @@ propósito, quero ver a gestão mesmo com sessão aberta".
   com qualquer driver, mas largura de coluna e corte de papel só se confirmam
   imprimindo de verdade. O que falta checar está em
   `CHECKLIST-IMPRESSAO-TERMICA.md`.
-- **CI não bloqueia merge ainda.** O workflow roda em todo push e PR, mas a
-  proteção de branch não está configurada no GitHub — nada impede subir para
-  `main` com a suíte vermelha. É configuração do repositório, não do código.
+- **Merge custa ~13 minutos.** A `main` exige os três jobs verdes, e o E2E é
+  lento por natureza — navegador de verdade, clicando na tela. Dá para
+  encurtar paralelizando os specs em vários workers, mas eles compartilham um
+  banco só (`fullyParallel: false`), então isso exige um banco por worker
+  antes de qualquer ganho.
 - **`servidor.ts` concentra todas as rotas.** São mais de trinta agora. Está
   coberto por testes, mas pede divisão em plugins por domínio — é o próximo
   refactor que se paga.
