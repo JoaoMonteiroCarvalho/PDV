@@ -3,6 +3,12 @@ dist/
 build/
 .env
 .env.local
+
+# Dumps do banco. NUNCA versionar: contêm o cadastro de clientes com CPF e
+# telefone, além de todo o histórico financeiro da loja. Um backup no
+# repositório é um vazamento com histórico de commits.
+backups/
+*.dump
 *.log
 coverage/
 playwright-report/

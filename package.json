@@ -20,6 +20,9 @@
     "db:studio": "prisma studio --schema apps/api/prisma/schema.prisma",
     "test:integracao": "npm run test:integracao --workspaces --if-present",
     "db:migrate:teste": "node scripts/migrar-teste.mjs",
+    "db:backup": "node scripts/backup.mjs",
+    "db:restaurar": "node scripts/restaurar.mjs",
+    "db:testar-backup": "node scripts/restaurar.mjs --testar",
     "test:e2e": "npm run test -w @pdv/e2e"
   },
   "devDependencies": {
