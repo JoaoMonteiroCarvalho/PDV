@@ -1,0 +1,188 @@
+name: CI
+
+# Roda no push para main e em todo PR. O objetivo declarado: nenhuma mudança
+# de permissão de rota volta a ficar dias quebrada sem ninguém perceber — foi
+# o que aconteceu quando `/relatorios/vendas` passou a exigir gerente e a
+# suíte de integração só foi rodada à mão dias depois.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Um push novo cancela a execução anterior do mesmo branch: o resultado do
+# commit antigo não interessa mais, e a fila de runners é curta.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Credenciais DESCARTÁVEIS, de banco efêmero que morre com o runner. Ficam
+  # aqui à vista de propósito: segredo de verdade em `secrets` dá a impressão
+  # de que há algo a proteger, e aqui não há — confundir os dois é como
+  # segredo real acaba tratado com o mesmo descuido.
+  POSTGRES_USER: pdv
+  POSTGRES_PASSWORD: ci
+  # 32+ caracteres porque `config.ts` recusa subir com menos.
+  JWT_SEGREDO: ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Tipos e testes que não precisam de banco. É o job mais rápido, e o que
+  # pega a maioria dos erros — roda primeiro para dar retorno em ~2 minutos.
+  # ---------------------------------------------------------------------------
+  verificacao:
+    name: Tipos e testes unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # O cliente do Prisma é GERADO, não versionado: sem isto o `tsc` não
+      # encontra os tipos de `@prisma/client` e o typecheck falha inteiro.
+      - name: Gerar cliente Prisma
+        run: npx prisma generate --schema apps/api/prisma/schema.prisma
+
+      # `@pdv/shared` precisa ser compilado ANTES: a API e o PWA importam os
+      # tipos do `dist` dele, não do fonte. Esquecer este passo produz um erro
+      # que parece "módulo não encontrado" e manda investigar o lugar errado.
+      - name: Compilar @pdv/shared
+        run: npm run build --workspace=packages/shared
+
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Testes unitários
+        run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Integração: contra Postgres real, porque é onde mora a regra de dinheiro.
+  # ---------------------------------------------------------------------------
+  integracao:
+    name: Integração (Postgres real)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pdv
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: pdv
+        ports:
+          - 5432:5432
+        # Sem o healthcheck, os testes começam antes de o Postgres aceitar
+        # conexão e falham todos de uma vez por um motivo que não é o deles.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://pdv:ci@localhost:5432/pdv?schema=public
+      DATABASE_URL_TESTE: postgresql://pdv:ci@localhost:5432/pdv_teste?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Gerar cliente Prisma
+        run: npx prisma generate --schema apps/api/prisma/schema.prisma
+
+      - name: Compilar @pdv/shared
+        run: npm run build --workspace=packages/shared
+
+      # Banco próprio para os testes, que dão TRUNCATE a cada caso. O
+      # `ambiente.ts` recusa rodar se ele for o mesmo do desenvolvimento.
+      - name: Criar banco de teste
+        run: PGPASSWORD=ci psql -h localhost -U pdv -d pdv -c 'CREATE DATABASE pdv_teste'
+
+      - name: Migrar banco de teste
+        run: npm run db:migrate:teste
+
+      - name: Testes de integração
+        run: npm run test:integracao
+
+  # ---------------------------------------------------------------------------
+  # E2E: o navegador de verdade, clicando na tela.
+  #
+  # É o job mais lento (~10 min) e o único que pegou bugs que os outros dois
+  # não pegariam — a venda que parou de mostrar os mais vendidos para a
+  # operadora passou pelo typecheck e pela integração sem reclamar.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pdv
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: pdv
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://pdv:ci@localhost:5432/pdv?schema=public
+      DATABASE_URL_E2E: postgresql://pdv:ci@localhost:5432/pdv_e2e?schema=public
+      ORIGENS_PERMITIDAS: http://localhost:5174
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Gerar cliente Prisma
+        run: npx prisma generate --schema apps/api/prisma/schema.prisma
+
+      - name: Compilar @pdv/shared
+        run: npm run build --workspace=packages/shared
+
+      - name: Criar banco de E2E
+        run: PGPASSWORD=ci psql -h localhost -U pdv -d pdv -c 'CREATE DATABASE pdv_e2e'
+
+      # Só o Chromium: é o único projeto configurado no playwright.config.ts,
+      # e baixar os três navegadores custaria minutos por nada.
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      # O `global-setup` migra o banco e semeia. A API e o PWA sobem pelo
+      # próprio Playwright (`webServer`), nas portas 3334/5174.
+      - name: Testes E2E
+        run: npm run test:e2e
+
+      # O relatório só interessa quando quebrou — e aí interessa muito: traz
+      # screenshot, vídeo e trace do passo exato que falhou.
+      - name: Guardar relatório da falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7

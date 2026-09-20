@@ -414,11 +414,42 @@ npm run test:e2e          # Playwright (Chromium)
 
 `tsc --strict` limpo nos quatro workspaces.
 
-O E2E roda contra um banco exclusivo, recriado e semeado do zero a cada
-execução (`e2e/seed-e2e.ts`), então nunca depende de estado deixado por uma
-rodada anterior. A API e o PWA sobem em portas próprias (3334/5174),
+O E2E roda contra um banco exclusivo, migrado, recriado e semeado do zero a
+cada execução (`e2e/global-setup.ts`), então nunca depende de estado deixado
+por uma rodada anterior. A API e o PWA sobem em portas próprias (3334/5174),
 diferentes das de desenvolvimento — dá para rodar o E2E com `npm run dev` já
 aberto.
+
+### Integração contínua
+
+`.github/workflows/ci.yml` roda as três camadas em todo push para `main` e em
+todo PR, em jobs paralelos:
+
+| Job | O que roda | Precisa de |
+|---|---|---|
+| `verificacao` | `tsc --strict` + unitários | nada — é o retorno rápido |
+| `integracao` | suíte contra Postgres real | serviço `postgres:16-alpine` |
+| `e2e` | Playwright no Chromium | Postgres + navegador |
+
+O CI existe por um motivo específico e recente: uma mudança de permissão de
+rota deixou a suíte de integração vermelha por dias sem ninguém notar, porque
+rodá-la era um gesto manual que dependia de alguém lembrar. E foi o E2E — o
+job mais lento, o mais fácil de pular — que pegou o bug em que a tela de
+venda parou de mostrar os mais vendidos para a operadora: um erro que passou
+pelo typecheck e pela integração sem reclamar.
+
+Dois detalhes do workflow que não são óbvios e quebram tudo quando faltam:
+`prisma generate` antes do typecheck (o cliente é gerado, não versionado) e
+`build` do `@pdv/shared` antes de qualquer coisa que o importe (a API e o PWA
+leem os tipos do `dist`, não do fonte).
+
+As credenciais do banco ficam à vista no workflow, não em `secrets`: são de um
+Postgres efêmero que morre com o runner. Guardá-las como segredo daria a
+impressão de que há algo a proteger, e é assim que segredo de verdade acaba
+tratado com o mesmo descuido.
+
+Quando o E2E falha, o relatório do Playwright — com screenshot, vídeo e trace
+do passo exato — sobe como artefato da execução.
 
 ### O E2E encontrou bugs reais, não só validou o que já estava certo
 
@@ -449,9 +480,9 @@ propósito, quero ver a gestão mesmo com sessão aberta".
   com qualquer driver, mas largura de coluna e corte de papel só se confirmam
   imprimindo de verdade. O que falta checar está em
   `CHECKLIST-IMPRESSAO-TERMICA.md`.
-- **Sem CI.** Os testes rodam localmente; não há pipeline bloqueando merge.
-  Sem isso, uma mudança de permissão numa rota já passou despercebida até a
-  suíte de integração ser rodada à mão, dias depois.
+- **CI não bloqueia merge ainda.** O workflow roda em todo push e PR, mas a
+  proteção de branch não está configurada no GitHub — nada impede subir para
+  `main` com a suíte vermelha. É configuração do repositório, não do código.
 - **`servidor.ts` concentra todas as rotas.** São mais de trinta agora. Está
   coberto por testes, mas pede divisão em plugins por domínio — é o próximo
   refactor que se paga.
