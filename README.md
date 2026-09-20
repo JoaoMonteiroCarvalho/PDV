@@ -271,11 +271,39 @@ operacao que apaga o presente para trazer o passado. Restaure num banco novo
 `backups/` e `*.dump` estao no `.gitignore`: o dump contem o cadastro de
 clientes com CPF e telefone.
 
+#### Onde o backup mora importa mais que ele existir
+
+Por padrao o dump vai para `./backups`, no mesmo disco do banco. Isso cobre
+**um** cenario — alguem apagou dado por engano — e nenhum dos outros: disco
+que falha, maquina roubada, ransomware. O arquivo existe, a rotina roda
+verde, e a protecao e menor do que parece.
+
+Por isso o script **avisa em voz alta** quando o destino nao esta fora da
+maquina, em tres niveis: dentro do projeto, mesmo volume, ou fora. Ele avisa
+e nao falha — recusar o backup por estar no mesmo disco deixaria a loja sem
+backup nenhum, que e pior.
+
+Para apontar para fora, `PDV_BACKUP_DESTINO` (ou `--destino`):
+
+```bash
+PDV_BACKUP_DESTINO=D:/backups-pdv  npm run db:backup   # outro disco
+PDV_BACKUP_DESTINO=//nas/pdv       npm run db:backup   # pasta de rede
+```
+
+A variavel de ambiente existe para o agendador ser configurado UMA vez, em
+vez de depender de quem agendou ter lembrado de passar a flag.
+
+> **Antes de mandar para a nuvem:** o dump contem CPF, telefone e o historico
+> de compras das clientes. Sincronizar a pasta com um servico de nuvem e uma
+> decisao de LGPD, nao de conveniencia — o script nao faz isso por voce de
+> proposito.
+
 **Agendamento.** No Windows, Agendador de Tarefas com acao
-`npm run db:backup` na pasta do projeto. Num VPS Linux, cron:
+`npm run db:backup` na pasta do projeto, com `PDV_BACKUP_DESTINO` definida no
+ambiente da tarefa. Num VPS Linux, cron:
 
 ```cron
-0 22 * * *  cd /opt/pdv && npm run db:backup >> /var/log/pdv-backup.log 2>&1
+0 22 * * *  cd /opt/pdv && PDV_BACKUP_DESTINO=/mnt/backup npm run db:backup >> /var/log/pdv-backup.log 2>&1
 0 3 * * 0   cd /opt/pdv && npm run db:testar-backup >> /var/log/pdv-backup.log 2>&1
 ```
 
@@ -521,7 +549,9 @@ propósito, quero ver a gestão mesmo com sessão aberta".
 - **Sem etiquetas nem estoque mínimo.** Não há geração de etiqueta de preço e
   nada avisa quando uma variação está acabando — a ruptura só aparece quando
   alguém olha o saldo.
-- **Backup é local por padrão.** `npm run db:backup` grava em `./backups`, na
-  mesma máquina do banco. Copiar para fora (nuvem, pen drive) ainda é passo
-  manual, e um backup que mora no disco que pode falhar protege menos do que
-  parece.
+- **Backup fora da máquina ainda é configuração, não padrão.** O script aceita
+  `PDV_BACKUP_DESTINO` e avisa em voz alta quando a cópia ficou no mesmo disco
+  do banco, mas não sobe nada para lugar nenhum sozinho — o dump tem CPF das
+  clientes, e mandá-lo para a nuvem é decisão de LGPD que o dono da loja
+  precisa tomar. Enquanto o destino não for definido, o aviso aparece a cada
+  execução.
