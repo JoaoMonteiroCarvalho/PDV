@@ -10,7 +10,7 @@
  * pagamentos lançados e o passo de finalização.
  */
 
-import { centavos, type PagamentoEntrada, type VendaCalculada } from '@pdv/shared';
+import { centavos, type VendaCalculada } from '@pdv/shared';
 import { create } from 'zustand';
 import type { AutorizacaoGerente } from '../api/cliente.js';
 import type { ItemCatalogo } from '../banco/local.js';
@@ -23,6 +23,7 @@ import {
   definirDescontoDoTotal,
   remover,
   type EstadoCarrinho,
+  type PagamentoLancado,
 } from '../venda/carrinho.js';
 
 /**
@@ -40,7 +41,7 @@ export interface VendaConcluida {
 
 interface EstadoLoja {
   carrinho: EstadoCarrinho;
-  pagamentos: PagamentoEntrada[];
+  pagamentos: PagamentoLancado[];
   /** Última venda fechada, para a tela de comprovante. */
   ultimaVenda: VendaConcluida | null;
   /**
@@ -60,7 +61,7 @@ interface EstadoLoja {
   aplicarDescontoNoItem: (varianteId: string, descontoCentavos: number) => void;
   aplicarDescontoNoTotal: (descontoCentavos: number) => void;
   definirAutorizacaoDesconto: (autorizacao: AutorizacaoGerente | null) => void;
-  lancarPagamento: (pagamento: PagamentoEntrada) => void;
+  lancarPagamento: (pagamento: PagamentoLancado) => void;
   removerPagamento: (indice: number) => void;
   limparPagamentos: () => void;
   limparVenda: () => void;

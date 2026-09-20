@@ -207,9 +207,27 @@ export function calcularTroco(
   return centavos(Math.max(0, excedente));
 }
 
+/**
+ * Pagamento como o caixa o lança, com os dados da maquininha.
+ *
+ * `PagamentoEntrada` (o tipo do domínio) tem só o que decide se a venda fecha:
+ * forma, valor e troco. Bandeira, autorização e parcelas não entram em conta
+ * nenhuma — são digitados do comprovante da maquininha, que opera separada do
+ * PDV, e existem para conciliar o extrato da adquirente no fim do mês.
+ *
+ * Por isso ficam AQUI e não em `@pdv/shared`: são dado de registro, não regra
+ * de negócio, e pôr no domínio faria `validarPagamentos` parecer depender
+ * deles.
+ */
+export interface PagamentoLancado extends PagamentoEntrada {
+  readonly bandeira?: string | undefined;
+  readonly autorizacao?: string | undefined;
+  readonly parcelasCartao?: number | undefined;
+}
+
 export interface DadosFechamento {
   readonly sessaoCaixaId: string;
-  readonly pagamentos: readonly PagamentoEntrada[];
+  readonly pagamentos: readonly PagamentoLancado[];
   readonly clienteId?: string | undefined;
   /**
    * Prova assinada de que uma gerente liberou o desconto desta venda.
@@ -273,6 +291,11 @@ export function fecharVenda(
         forma: pagamento.forma,
         valorCentavos: pagamento.valorCentavos,
         trocoCentavos: pagamento.trocoCentavos,
+        // Informativos: nenhuma venda depende deles para fechar. Vão vazios
+        // quando a operadora não teve o comprovante da maquininha em mãos.
+        bandeira: pagamento.bandeira,
+        autorizacao: pagamento.autorizacao,
+        parcelasCartao: pagamento.parcelasCartao,
       })),
       crediario: dados.crediario
         ? {

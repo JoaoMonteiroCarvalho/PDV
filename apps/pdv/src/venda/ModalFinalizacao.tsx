@@ -12,14 +12,14 @@
  * DINHEIRO — a maquininha opera separada do PDV e não devolve nada.
  */
 
-import { ZERO, centavos, formatarBRL, type FormaPagamento, type PagamentoEntrada } from '@pdv/shared';
+import { ZERO, centavos, formatarBRL, type FormaPagamento } from '@pdv/shared';
 import { useMemo, useState } from 'react';
-import { Botao, Erro, cx } from '../componentes/base.js';
+import { Botao, Campo, Erro, cx } from '../componentes/base.js';
 import { CampoDinheiro } from '../componentes/CampoDinheiro.js';
 import type { ClienteDetalhe } from '../api/cliente.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
 import { AVISO_NA_TELA, vendaExigeAvisoDeHigiene } from '../impressao/politicaTroca.js';
-import { calcular, saldoAPagar } from './carrinho.js';
+import { calcular, saldoAPagar, type PagamentoLancado } from './carrinho.js';
 import { SeletorCliente } from './SeletorCliente.js';
 
 const FORMAS: { readonly valor: FormaPagamento; readonly rotulo: string }[] = [
@@ -32,6 +32,18 @@ const FORMAS: { readonly valor: FormaPagamento; readonly rotulo: string }[] = [
 
 /** Parcelamentos que a loja pratica. Além de 6x o risco não se justifica. */
 const PARCELAS_POSSIVEIS = [1, 2, 3, 4, 5, 6];
+
+/** As formas que passam pela maquininha e têm comprovante para conferir. */
+const FORMAS_DE_CARTAO: readonly FormaPagamento[] = ['DEBITO', 'CREDITO'];
+
+/**
+ * Bandeiras que a loja costuma receber.
+ *
+ * Lista fechada de propósito: digitada à mão, "Mastercard", "master" e "MC"
+ * virariam três bandeiras diferentes na hora de conciliar o extrato da
+ * adquirente — que é a única coisa para a qual este campo serve.
+ */
+const BANDEIRAS = ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard', 'Outra'] as const;
 
 /**
  * Primeiro vencimento: um mês depois, no mesmo dia.
@@ -54,7 +66,7 @@ export interface PlanoCrediario {
 interface Props {
   readonly aoFechar: () => void;
   readonly aoConfirmar: (
-    pagamentos: readonly PagamentoEntrada[],
+    pagamentos: readonly PagamentoLancado[],
     crediario: PlanoCrediario | null,
   ) => Promise<void>;
 }
@@ -72,6 +84,11 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
   const [avisouTroca, setAvisouTroca] = useState(false);
   const [cliente, setCliente] = useState<ClienteDetalhe | null>(null);
   const [parcelas, setParcelas] = useState(1);
+  const [bandeira, setBandeira] = useState('');
+  const [autorizacao, setAutorizacao] = useState('');
+  const [parcelasCartao, setParcelasCartao] = useState(1);
+
+  const ehCartao = FORMAS_DE_CARTAO.includes(forma);
 
   const venda = useMemo(() => calcular(carrinho), [carrinho]);
   const saldo = saldoAPagar(venda, pagamentos);
@@ -142,8 +159,21 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
       forma,
       valorCentavos: centavos(valorEfetivo),
       trocoCentavos: centavos(troco),
+      // Só em cartão, e só o que a operadora de fato digitou: campo vazio vai
+      // como ausente, não como string vazia, para o relatório não contar uma
+      // bandeira chamada "".
+      ...(ehCartao
+        ? {
+            bandeira: bandeira || undefined,
+            autorizacao: autorizacao.trim() || undefined,
+            parcelasCartao: forma === 'CREDITO' ? parcelasCartao : 1,
+          }
+        : {}),
     });
     setValorDigitado(0);
+    setBandeira('');
+    setAutorizacao('');
+    setParcelasCartao(1);
   }
 
   async function confirmar() {
@@ -216,6 +246,20 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
                 <li key={indice} className="flex items-center gap-3 px-4 py-2.5">
                   <span className="flex-1 text-[14px]">
                     {FORMAS.find((f) => f.valor === pagamento.forma)?.rotulo ?? pagamento.forma}
+                    {/*
+                      O que foi digitado da maquininha aparece na linha: é a
+                      única chance de a operadora ver que marcou a bandeira
+                      errada enquanto o comprovante ainda está na mão dela.
+                    */}
+                    {pagamento.bandeira && (
+                      <span className="text-[12px] text-ink-faint">
+                        {' '}
+                        · {pagamento.bandeira}
+                        {pagamento.parcelasCartao && pagamento.parcelasCartao > 1
+                          ? ` ${pagamento.parcelasCartao}x`
+                          : ''}
+                      </span>
+                    )}
                   </span>
                   <span className="num text-[14px]">{formatarBRL(pagamento.valorCentavos)}</span>
                   {pagamento.trocoCentavos > 0 && (
@@ -256,6 +300,71 @@ export function ModalFinalizacao({ aoFechar, aoConfirmar }: Props) {
                   </button>
                 ))}
               </div>
+
+              {/*
+                Dados da maquininha. São INFORMATIVOS — nenhuma venda depende
+                deles para fechar, e por isso nada aqui é obrigatório: a
+                operadora não pode ficar travada porque o comprovante da
+                maquininha não saiu. O que eles resolvem é a conciliação do
+                extrato da adquirente no fim do mês, que hoje é feita no olho.
+              */}
+              {ehCartao && (
+                <div className="space-y-3 rounded-[8px] bg-sunken px-4 py-3">
+                  <p className="text-[13px] text-ink-soft">
+                    Do comprovante da maquininha — opcional, ajuda a conferir o extrato depois.
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {BANDEIRAS.map((opcao) => (
+                      <button
+                        key={opcao}
+                        type="button"
+                        onClick={() => setBandeira(bandeira === opcao ? '' : opcao)}
+                        aria-pressed={bandeira === opcao}
+                        className={cx(
+                          'h-9 rounded-[8px] px-3 text-[13px] font-medium transition-colors duration-200',
+                          bandeira === opcao
+                            ? 'bg-accent text-accent-ink'
+                            : 'bg-surface text-ink-soft hover:text-ink',
+                        )}
+                      >
+                        {opcao}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[10rem] flex-1">
+                      <Campo
+                        rotulo="Autorização"
+                        numerico
+                        autoComplete="off"
+                        placeholder="código do comprovante"
+                        value={autorizacao}
+                        onChange={(evento) => setAutorizacao(evento.target.value)}
+                      />
+                    </div>
+
+                    {/* Parcelamento só existe no crédito. */}
+                    {forma === 'CREDITO' && (
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[13px] text-ink-soft">Parcelas</span>
+                        <select
+                          value={parcelasCartao}
+                          onChange={(evento) => setParcelasCartao(Number(evento.target.value))}
+                          className="h-12 rounded-[8px] border border-line bg-surface px-4 text-[15px] text-ink focus:border-accent focus:outline-none"
+                        >
+                          {PARCELAS_POSSIVEIS.map((quantidade) => (
+                            <option key={quantidade} value={quantidade}>
+                              {quantidade}x
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {forma === 'CREDIARIO' && (
                 <div className="space-y-3">
