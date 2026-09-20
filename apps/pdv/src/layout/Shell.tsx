@@ -32,6 +32,7 @@ const NAVEGACAO = [
   { para: '/estoque', rotulo: 'Estoque' },
   { para: '/produtos', rotulo: 'Produtos' },
   { para: '/relatorios', rotulo: 'Relatórios', soGerente: true },
+  { para: '/contas-a-receber', rotulo: 'A receber', soGerente: true },
   { para: '/auditoria', rotulo: 'Auditoria', soGerente: true },
   { para: '/configuracoes', rotulo: 'Configurações' },
 ] as const;
