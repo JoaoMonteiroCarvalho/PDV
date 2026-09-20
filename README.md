@@ -435,6 +435,38 @@ O extrato de cada variação reconstrói o saldo de trás para frente, do saldo 
 hoje desfazendo movimento a movimento. É assim que se responde "vendi ou
 sumiu?", que é a pergunta que traz alguém a essa tela.
 
+## Vendedor da venda
+
+Quem **atendeu** a cliente não é necessariamente quem operou o caixa: numa
+loja com duas pessoas, uma acompanha a prova e a outra fecha a venda. Derivar
+a comissão do operador daria o crédito à pessoa errada justamente nos dias de
+movimento, que é quando ela mais importa.
+
+Por isso `Venda.vendedorId` existe separado de `operadorId`. O seletor fica no
+**topo do carrinho**, visível a venda inteira — e não escondido na
+finalização, porque vendedora errada é o tipo de erro que ninguém percebe no
+momento, só no fim do mês, quando já não dá para reconstituir quem atendeu
+quem. Ele some quando a loja tem uma pessoa só: seletor de uma opção é ruído.
+
+A lista de vendedoras é **cacheada no `localStorage`**, como os dados da loja:
+a venda fecha offline, e escolher quem atendeu não pode depender de rede.
+`GET /vendedores` é rota de operador e devolve só id e nome — papel e alçada
+de desconto são informação de administração e não têm por que circular no
+caixa.
+
+**Vendedor inválido não recusa a venda.** Id inexistente ou usuária desativada
+caem para o operador e viram auditoria (`VENDEDOR_SUBSTITUIDO`), mesma
+disciplina da divergência de preço. Recusar descartaria venda já paga e
+impressa; reatribuir em silêncio esconderia comissão indo para a pessoa
+errada. O registro é o que permite alguém notar.
+
+### As vendas antigas ficam sem vendedor, e é assim mesmo
+
+O campo é nulável porque `Venda` é imutável por trigger: as vendas registradas
+antes dele existir **não podem** receber valor, nem por migration — há um
+teste que confirma que o banco recusa. Elas aparecem no relatório como "não
+informado". Inventar um vendedor para elas seria fabricar base de comissão.
+
 ## Relatório Z e auditoria
 
 O fechamento devolvia três números — esperado, contado, diferença. Isso
@@ -464,9 +496,9 @@ npm run test:e2e          # Playwright (Chromium)
 | Unitários (`packages/shared`) — dinheiro, venda, caixa, devolução, CPF | 105 |
 | Unitários (`apps/api`) — autenticação | 7 |
 | Unitários (`apps/pdv`) — carrinho, desconto, fila, catálogo, comprovante, telas | 492 |
-| Integração (`apps/api`) — contra Postgres real, rotas e porta fiscal | 232 |
+| Integração (`apps/api`) — contra Postgres real, rotas e porta fiscal | 244 |
 | E2E (Playwright) — fluxo real, clicando na tela | 149 |
-| **Total** | **985** |
+| **Total** | **997** |
 
 `tsc --strict` limpo nos quatro workspaces.
 
@@ -544,6 +576,9 @@ propósito, quero ver a gestão mesmo com sessão aberta".
 - **`servidor.ts` concentra todas as rotas.** São mais de trinta agora. Está
   coberto por testes, mas pede divisão em plugins por domínio — é o próximo
   refactor que se paga.
+- **Comissão é relatório, não cálculo.** O sistema diz quanto cada pessoa
+  vendeu no período; a regra de percentual e o fechamento da comissão ainda
+  são feitos fora dele.
 - **Sem Pix integrado.** A forma de pagamento é registrada, mas não há geração
   de QR nem conferência automática: a baixa é manual, olhando o app do banco.
 - **Sem etiquetas nem estoque mínimo.** Não há geração de etiqueta de preço e

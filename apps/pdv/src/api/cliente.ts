@@ -233,6 +233,14 @@ export class ClienteApi {
 
   // --- Usuários e configuração da loja --------------------------------------------
 
+  /**
+   * Quem pode ser marcada como vendedora. Rota de OPERADOR — diferente de
+   * `listarUsuarios`, que é de gerente e devolve papel e alçada.
+   */
+  async listarVendedores(): Promise<Vendedor[]> {
+    return this.json(await fetch(`${BASE}/vendedores`, { headers: this.cabecalhos() }));
+  }
+
   async listarUsuarios(): Promise<UsuarioAdmin[]> {
     return this.json(await fetch(`${BASE}/usuarios`, { headers: this.cabecalhos() }));
   }
@@ -771,6 +779,11 @@ export interface ListaAuditoria {
   totalPaginas: number;
 }
 
+export interface Vendedor {
+  id: string;
+  nome: string;
+}
+
 export type PapelUsuario = 'OPERADOR' | 'GERENTE' | 'ADMIN';
 
 export interface UsuarioAdmin {
@@ -813,6 +826,13 @@ export interface RelatorioVendas {
   };
   porDia: { dia: string; quantidade: number; totalCentavos: number }[];
   porForma: { forma: string; quantidade: number; totalCentavos: number }[];
+  /** `vendedor: null` são as vendas anteriores ao campo existir. */
+  porVendedor: {
+    vendedorId: string | null;
+    vendedor: string | null;
+    quantidade: number;
+    totalCentavos: number;
+  }[];
   maisVendidos: { descricao: string; sku: string; quantidade: number; totalCentavos: number }[];
 }
 

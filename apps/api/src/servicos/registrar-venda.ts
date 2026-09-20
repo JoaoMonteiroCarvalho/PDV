@@ -124,6 +124,32 @@ export async function registrarVenda(
     throw new ErroVenda('OPERADOR_INVALIDO', 'Operador não encontrado ou inativo.');
   }
 
+  /*
+   * Vendedor: confere que existe e está ativo ANTES de gravar.
+   *
+   * Sem isto, um id inválido estouraria na chave estrangeira e viraria erro
+   * 500 para o caixa — numa venda que já aconteceu no mundo real.
+   *
+   * Vendedor desconhecido NÃO recusa a venda: cai para o operador e vira
+   * auditoria, mesma disciplina da divergência de preço. Recusar descartaria
+   * venda já paga e impressa por causa de um cadastro que mudou; reatribuir em
+   * silêncio esconderia comissão indo para a pessoa errada. O registro é o que
+   * permite alguém notar e corrigir.
+   */
+  let vendedorId = contexto.operadorId;
+  let vendedorTrocado: { pedido: string } | null = null;
+  if (entrada.vendedorId && entrada.vendedorId !== contexto.operadorId) {
+    const vendedor = await prisma.usuario.findUnique({
+      where: { id: entrada.vendedorId },
+      select: { id: true, ativo: true },
+    });
+    if (vendedor && vendedor.ativo) {
+      vendedorId = vendedor.id;
+    } else {
+      vendedorTrocado = { pedido: entrada.vendedorId };
+    }
+  }
+
   const autorizadorId = entrada.autorizadoPorId;
   let autorizadorEhGerente = false;
   if (autorizadorId) {
@@ -225,6 +251,11 @@ export async function registrarVenda(
           id: entrada.id,
           sessaoCaixaId: entrada.sessaoCaixaId,
           operadorId: operador.id,
+          /*
+           * Resolvido acima: o informado pelo caixa quando válido, senão o
+           * operador. Na maior parte das vendas são a mesma pessoa.
+           */
+          vendedorId,
           clienteId: entrada.clienteId ?? null,
           subtotalCentavos: venda.subtotalCentavos,
           descontoCentavos: venda.descontoCentavos,
@@ -337,6 +368,30 @@ export async function registrarVenda(
               descontoBps: alcada.descontoBps,
               limiteOperadorBps: operador.limiteDescontoBps,
             },
+          },
+        });
+      }
+
+      /*
+       * Auditoria: a venda pediu um vendedor que não dá para honrar.
+       *
+       * A comissão foi para o operador. Sem este registro, a pessoa que
+       * atendeu simplesmente não veria a venda dela no relatório do mês e não
+       * teria como saber por quê.
+       */
+      if (vendedorTrocado) {
+        await tx.registroAuditoria.create({
+          data: {
+            acao: 'VENDEDOR_SUBSTITUIDO',
+            entidade: 'Venda',
+            entidadeId: entrada.id,
+            usuarioId: operador.id,
+            terminalId: sessao.terminalId,
+            valorAntes: { vendedorPedido: vendedorTrocado.pedido } as Prisma.InputJsonValue,
+            valorDepois: {
+              vendedorGravado: vendedorId,
+              motivo: 'Vendedor não encontrado ou inativo. Comissão foi para o operador.',
+            } as Prisma.InputJsonValue,
           },
         });
       }

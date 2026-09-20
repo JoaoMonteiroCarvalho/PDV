@@ -227,6 +227,14 @@ export interface PagamentoLancado extends PagamentoEntrada {
 
 export interface DadosFechamento {
   readonly sessaoCaixaId: string;
+  /**
+   * Quem ATENDEU a cliente — base da comissão.
+   *
+   * Separado do operador de propósito: numa loja com duas pessoas, uma
+   * acompanha a prova e a outra fecha a venda. Derivar do operador daria a
+   * comissão à pessoa errada justamente nos dias de movimento.
+   */
+  readonly vendedorId?: string | undefined;
   readonly pagamentos: readonly PagamentoLancado[];
   readonly clienteId?: string | undefined;
   /**
@@ -279,6 +287,7 @@ export function fecharVenda(
       sessaoCaixaId: dados.sessaoCaixaId,
       criadaEmCliente: agora().toISOString(),
       clienteId: dados.clienteId,
+      vendedorId: dados.vendedorId,
       tokenAutorizacao: dados.tokenAutorizacao,
       descontoSobreTotalCentavos: estado.descontoSobreTotalCentavos,
       itens: estado.itens.map((item) => ({

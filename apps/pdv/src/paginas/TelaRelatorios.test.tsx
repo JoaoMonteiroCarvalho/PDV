@@ -23,6 +23,7 @@ function relatorio(parcial: Partial<RelatorioVendas> = {}): RelatorioVendas {
       { forma: 'DINHEIRO', quantidade: 3, totalCentavos: 30_000 },
       { forma: 'PIX', quantidade: 1, totalCentavos: 15_000 },
     ],
+    porVendedor: [{ vendedorId: 'v-1', vendedor: 'Ana', quantidade: 4, totalCentavos: 45_000 }],
     maisVendidos: [
       { descricao: 'Conjunto Renda', sku: 'CJ-1', quantidade: 6, totalCentavos: 30_000 },
       { descricao: 'Perfume', sku: 'PF-1', quantidade: 3, totalCentavos: 15_000 },

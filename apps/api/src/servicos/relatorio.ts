@@ -45,6 +45,20 @@ export interface RelatorioVendas {
   };
   readonly porDia: { readonly dia: string; readonly quantidade: number; readonly totalCentavos: number }[];
   readonly porForma: { readonly forma: string; readonly quantidade: number; readonly totalCentavos: number }[];
+  /**
+   * Quanto cada pessoa vendeu — a base da comissão.
+   *
+   * `vendedor: null` agrupa as vendas anteriores ao campo existir. `Venda` é
+   * imutável por trigger, então elas não podem ser preenchidas nem por
+   * migration, e inventar um vendedor para elas seria fabricar base de
+   * comissão. Aparecem como "não informado", que é a verdade.
+   */
+  readonly porVendedor: {
+    readonly vendedorId: string | null;
+    readonly vendedor: string | null;
+    readonly quantidade: number;
+    readonly totalCentavos: number;
+  }[];
   readonly maisVendidos: {
     readonly descricao: string;
     readonly sku: string;
@@ -108,12 +122,17 @@ export async function gerarRelatorioVendas(
       descontoCentavos: true,
       pagamentos: { select: { forma: true, valorCentavos: true, trocoCentavos: true } },
       itens: { select: { descricao: true, sku: true, quantidade: true, totalCentavos: true } },
+      vendedor: { select: { id: true, nome: true } },
     },
   });
 
   const porDia = new Map<string, { quantidade: number; totalCentavos: number }>();
   const porForma = new Map<string, { quantidade: number; totalCentavos: number }>();
   const porProduto = new Map<string, { descricao: string; sku: string; quantidade: number; totalCentavos: number }>();
+  const porVendedor = new Map<
+    string,
+    { vendedorId: string | null; vendedor: string | null; quantidade: number; totalCentavos: number }
+  >();
 
   let totalCentavos = 0;
   let descontoCentavos = 0;
@@ -128,6 +147,23 @@ export async function gerarRelatorioVendas(
     porDia.set(dia, {
       quantidade: acumuladoDia.quantidade + 1,
       totalCentavos: acumuladoDia.totalCentavos + venda.totalCentavos,
+    });
+
+    /*
+     * Chave textual para o `Map` porque `null` precisa virar um grupo próprio:
+     * as vendas sem vendedor são um bucket legítimo, não um caso a ignorar.
+     */
+    const chaveVendedor = venda.vendedor?.id ?? 'sem-vendedor';
+    const acumuladoVendedor = porVendedor.get(chaveVendedor) ?? {
+      vendedorId: venda.vendedor?.id ?? null,
+      vendedor: venda.vendedor?.nome ?? null,
+      quantidade: 0,
+      totalCentavos: 0,
+    };
+    porVendedor.set(chaveVendedor, {
+      ...acumuladoVendedor,
+      quantidade: acumuladoVendedor.quantidade + 1,
+      totalCentavos: acumuladoVendedor.totalCentavos + venda.totalCentavos,
     });
 
     for (const pagamento of venda.pagamentos) {
@@ -177,6 +213,9 @@ export async function gerarRelatorioVendas(
     porForma: [...porForma.entries()]
       .map(([forma, dados]) => ({ forma, ...dados }))
       .sort((a, b) => b.totalCentavos - a.totalCentavos),
+    // Quem mais vendeu primeiro: é a ordem em que a conversa sobre comissão
+    // acontece.
+    porVendedor: [...porVendedor.values()].sort((a, b) => b.totalCentavos - a.totalCentavos),
     maisVendidos: [...porProduto.values()]
       .sort((a, b) => b.quantidade - a.quantidade)
       .slice(0, 20),

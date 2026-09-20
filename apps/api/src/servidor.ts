@@ -1394,6 +1394,22 @@ export async function construirServidor(
     }
   }
 
+  /**
+   * Quem pode ser marcado como vendedor numa venda.
+   *
+   * Rota separada de `/usuarios`, que é de gerente, porque a OPERADORA precisa
+   * desta lista: é ela que marca quem atendeu, no meio do balcão. Devolve só
+   * id e nome — nada de papel, alçada de desconto ou data de criação, que são
+   * informações de administração e não têm por que circular no caixa.
+   */
+  app.get('/vendedores', { preHandler: exigirOperador }, async () =>
+    prisma.usuario.findMany({
+      where: { ativo: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true },
+    }),
+  );
+
   app.get('/usuarios', { preHandler: exigirAdministrador }, async () => listarUsuarios(prisma));
 
   app.post('/usuarios', { preHandler: exigirAdministrador }, async (requisicao, resposta) => {

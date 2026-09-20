@@ -15,6 +15,8 @@ import { useMemo, useState } from 'react';
 import { Botao, Erro, cx } from '../componentes/base.js';
 import { SwatchCor } from '../componentes/SwatchCor.js';
 import { useCarrinho } from '../estado/carrinhoStore.js';
+import { useSessao } from '../estado/sessaoStore.js';
+import { lerVendedores } from './vendedores.js';
 import { calcular, totalDePecas, type ItemCarrinho } from './carrinho.js';
 import { ModalDesconto, type AlvoDesconto } from './ModalDesconto.js';
 
@@ -46,11 +48,14 @@ export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
 
   return (
     <aside className="flex h-full w-[380px] shrink-0 flex-col border-l border-line bg-surface">
-      <header className="flex items-baseline justify-between border-b border-line px-5 py-3">
-        <h2 className="font-titulo text-[15px] font-medium">Venda atual</h2>
-        <span className="num text-[13px] text-ink-faint">
-          {totalDePecas(carrinho)} {totalDePecas(carrinho) === 1 ? 'peça' : 'peças'}
-        </span>
+      <header className="border-b border-line px-5 py-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-titulo text-[15px] font-medium">Venda atual</h2>
+          <span className="num text-[13px] text-ink-faint">
+            {totalDePecas(carrinho)} {totalDePecas(carrinho) === 1 ? 'peça' : 'peças'}
+          </span>
+        </div>
+        <SeletorVendedora />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -172,6 +177,44 @@ export function PainelCarrinho({ aoFinalizar }: { aoFinalizar: () => void }) {
         <ModalDesconto alvo={alvoDesconto} aoFechar={() => setAlvoDesconto(null)} />
       )}
     </aside>
+  );
+}
+
+/**
+ * Quem atendeu esta venda.
+ *
+ * Fica no TOPO do carrinho, visível a venda inteira, e não escondido na
+ * finalização. Vendedora errada manda a comissão para a pessoa errada, e isso
+ * é o tipo de erro que ninguém percebe no momento — só no fim do mês, quando
+ * já não dá para reconstituir quem atendeu quem.
+ *
+ * Some quando a loja tem uma pessoa só: um seletor de uma opção não é escolha,
+ * é ruído numa tela que precisa ser lida com pressa.
+ */
+function SeletorVendedora() {
+  const vendedorId = useCarrinho((estado) => estado.vendedorId);
+  const definirVendedor = useCarrinho((estado) => estado.definirVendedor);
+  const operadora = useSessao((estado) => estado.operadora);
+  const vendedores = lerVendedores();
+
+  if (vendedores.length <= 1) return null;
+
+  return (
+    <label className="mt-2 flex items-center gap-2">
+      <span className="shrink-0 text-[12px] text-ink-faint">Vendeu</span>
+      <select
+        value={vendedorId ?? operadora?.id ?? ''}
+        onChange={(evento) => definirVendedor(evento.target.value)}
+        aria-label="Quem atendeu esta venda"
+        className="min-w-0 flex-1 rounded-[8px] border border-line bg-surface px-2 py-1 text-[13px] text-ink focus:border-accent focus:outline-none"
+      >
+        {vendedores.map((vendedora) => (
+          <option key={vendedora.id} value={vendedora.id}>
+            {vendedora.nome}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

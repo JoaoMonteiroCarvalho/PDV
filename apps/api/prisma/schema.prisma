@@ -48,6 +48,7 @@ model Usuario {
 
   sessoesCaixa          SessaoCaixa[]
   vendas                Venda[]              @relation("OperadorDaVenda")
+  vendasAtendidas       Venda[]              @relation("VendedorDaVenda")
   movimentosCaixa       MovimentoCaixa[]     @relation("AutorDoMovimentoCaixa")
   movimentosAutorizados MovimentoCaixa[]     @relation("AutorizadorDoMovimentoCaixa")
   movimentosEstoque     MovimentoEstoque[]
@@ -228,6 +229,14 @@ model Venda {
   numero        Int     @unique @default(autoincrement())
   sessaoCaixaId String
   operadorId    String
+  /// Quem ATENDEU a cliente, que nem sempre é quem operou o caixa: numa loja
+  /// com duas pessoas, uma acompanha a prova e a outra fecha a venda. É a base
+  /// da comissão, e por isso não pode ser derivado do operador.
+  ///
+  /// Nulável porque a venda é imutável: as vendas registradas antes deste
+  /// campo existir não podem receber valor — há trigger no banco recusando
+  /// UPDATE. Elas ficam como "não informado" no relatório, que é a verdade.
+  vendedorId    String?
   clienteId     String?
   /// NAO existe coluna de status. Venda cancelada e aquela que possui um
   /// registro em Cancelamento apontando para ela. Isso mantem a tabela
@@ -245,6 +254,7 @@ model Venda {
 
   sessaoCaixa   SessaoCaixa        @relation(fields: [sessaoCaixaId], references: [id])
   operador      Usuario            @relation("OperadorDaVenda", fields: [operadorId], references: [id])
+  vendedor      Usuario?           @relation("VendedorDaVenda", fields: [vendedorId], references: [id])
   cliente       Cliente?           @relation(fields: [clienteId], references: [id])
   itens         ItemVenda[]
   pagamentos    Pagamento[]
@@ -257,6 +267,8 @@ model Venda {
 
   @@index([sessaoCaixaId])
   @@index([registradaEm])
+  /// Sustenta o relatório de comissão: "quanto a Ana vendeu no mês".
+  @@index([vendedorId, registradaEm])
 }
 
 model ItemVenda {
