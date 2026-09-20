@@ -12,7 +12,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { DADOS_E2E, garantirTerminalFechado, irParaVenda, loginOperador } from '../fixtures.js';
+import { DADOS_E2E, garantirTerminalFechado, irParaVenda, loginGerente } from '../fixtures.js';
 
 test.beforeEach(async () => {
   await garantirTerminalFechado();
@@ -20,7 +20,16 @@ test.beforeEach(async () => {
 
 type Pagina = import('@playwright/test').Page;
 
+/**
+ * Relatório é dado de DONO, não de turno.
+ *
+ * A operadora não vê o item no menu e a API responde 403 — faturamento,
+ * ticket médio e ranking de produto são a posição da loja, não o caixa do
+ * turno dela. Por isso o teste troca para a gerente antes de abrir a tela,
+ * que é exatamente o que acontece no balcão.
+ */
 async function irParaRelatorios(page: Pagina) {
+  await loginGerente(page);
   await page.getByRole('link', { name: 'Relatórios' }).click();
   await expect(page.getByRole('heading', { name: 'Relatórios' })).toBeVisible();
   await page.getByRole('button', { name: 'Hoje' }).click();
@@ -67,7 +76,7 @@ test.describe('números do período', () => {
   });
 
   test('período sem venda diz isso, em vez de tela vazia', async ({ page }) => {
-    await loginOperador(page);
+    await loginGerente(page);
     await page.getByRole('link', { name: 'Relatórios' }).click();
 
     // Um período no passado onde o seed não criou nada.
@@ -128,11 +137,21 @@ test.describe('exportação CSV', () => {
 
   test('não deixa exportar período sem venda', async ({ page }) => {
     // Um CSV só com cabeçalho parece download quebrado para quem clicou.
-    await loginOperador(page);
+    await loginGerente(page);
     await page.getByRole('link', { name: 'Relatórios' }).click();
     await page.getByLabel('De').fill('2020-01-01');
     await page.getByLabel('Até').fill('2020-01-02');
 
+    /*
+     * Espera o período novo CHEGAR antes de olhar o botão.
+     *
+     * A tela abre no período de hoje, que nos outros testes da suíte já tem
+     * venda — então o botão começa habilitado e só desabilita quando a
+     * resposta de 2020 volta. Sem esta espera o teste lê o estado anterior e
+     * passa ou falha conforme a ordem em que a suíte rodou, que é a definição
+     * de teste instável.
+     */
+    await expect(page.getByText('Sem movimento no período.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Exportar CSV' }).first()).toBeDisabled();
   });
 });

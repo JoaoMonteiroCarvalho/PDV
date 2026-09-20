@@ -27,11 +27,47 @@ export function terminalIdSemeado(): string {
  */
 export async function loginOperador(page: Page): Promise<void> {
   const { DADOS_E2E } = await import('./dados.js');
+  await entrarComo(page, DADOS_E2E.operador.login, DADOS_E2E.operador.senha);
+}
+
+/**
+ * Login da gerente.
+ *
+ * Relatórios, contas a receber e auditoria são dado de dono, não de turno: a
+ * API responde 403 para operadora e o menu nem mostra o item. Teste que
+ * precisa dessas telas entra como gerente — é o mesmo caminho que a pessoa
+ * real faz.
+ */
+export async function loginGerente(page: Page): Promise<void> {
+  const { DADOS_E2E } = await import('./dados.js');
+  await entrarComo(page, DADOS_E2E.gerente.login, DADOS_E2E.gerente.senha);
+}
+
+/**
+ * Espera a RESPOSTA do POST /sessao/login antes de retornar — sem isso, o
+ * teste segue em frente enquanto o token ainda está a caminho, e o passo
+ * seguinte (configurar terminal / reload) corre com a sessão pela metade.
+ */
+async function entrarComo(page: Page, login: string, senha: string): Promise<void> {
+  /*
+   * Limpa a sessão anterior ANTES de ir para /entrar.
+   *
+   * `TelaEntrar` redireciona para dentro do app quando já há alguém logado —
+   * comportamento certo para a loja, e que deixava o teste esperando por um
+   * formulário que nunca aparecia quando ele trocava de operadora para
+   * gerente no meio do fluxo.
+   */
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.removeItem('pdv.token');
+    localStorage.removeItem('pdv.operador');
+  });
+
   // Rota dedicada: `/` cai no guard e redireciona para cá de qualquer forma,
   // mas ir direto evita depender do redirecionamento no caminho feliz.
   await page.goto('/entrar');
-  await page.getByLabel('Operadora').fill(DADOS_E2E.operador.login);
-  await page.getByLabel('Senha').fill(DADOS_E2E.operador.senha);
+  await page.getByLabel('Operadora').fill(login);
+  await page.getByLabel('Senha').fill(senha);
 
   const respostaLogin = page.waitForResponse((resposta) => resposta.url().includes('/sessao/login'));
   await page.getByRole('button', { name: 'Entrar' }).click();

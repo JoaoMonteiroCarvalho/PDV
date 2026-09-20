@@ -141,7 +141,22 @@ test.describe('catálogo visual', () => {
   test('busca filtra a lista', async ({ page }) => {
     await irParaVenda(page);
     await page.getByRole('link', { name: 'Catálogo' }).click();
-    await page.getByLabel('Buscar').fill('perfume');
+
+    /*
+     * Espera a tela assentar ANTES de digitar, e confere que o texto ficou.
+     *
+     * A lista do catálogo carrega em duas etapas (busca local + paginação), e
+     * digitar no meio disso já deixou o campo vazio com a lista inteira na
+     * tela: o teste falhava dizendo "a busca não filtrou" quando a busca nem
+     * tinha acontecido. Conferir o valor separa os dois casos — se o `fill`
+     * não pegou, o erro aponta para o `fill`, e não para o filtro.
+     */
+    await expect(page.getByRole('heading', { name: 'Catálogo' })).toBeVisible();
+    await expect(page.getByRole('link').filter({ hasText: NOME_GRADE })).toBeVisible();
+
+    const busca = page.getByLabel('Buscar');
+    await busca.fill('perfume');
+    await expect(busca).toHaveValue('perfume');
 
     await expect(
       page.getByRole('link').filter({ hasText: DADOS_E2E.produtoSemVariacao.nome }),

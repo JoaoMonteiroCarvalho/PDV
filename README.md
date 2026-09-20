@@ -103,6 +103,21 @@ A venda aceita token expirado **de propósito**: ela fecha offline e pode subir
 horas depois, e recusar pelo prazo descartaria venda já paga e impressa. O que
 impede forjar é a assinatura, não o prazo.
 
+### Cabeçalhos de segurança
+
+`@fastify/helmet` com a CSP mais fechada que existe: `default-src 'none'`.
+Esta API devolve JSON e nada mais — nunca HTML, nunca script. Se uma resposta
+dela for renderizada como página, por engano de configuração ou por injeção,
+ela não consegue carregar recurso nenhum nem executar script.
+
+`frame-ancestors 'none'` impede que a API seja embutida num iframe de outra
+origem, que é o caminho do clickjacking sobre uma sessão já autenticada. HSTS
+só liga em produção: em desenvolvimento a API roda em `http://localhost`.
+
+`crossOriginResourcePolicy: cross-origin` é obrigatório aqui — o PWA roda em
+5173 e a API em 3333, e o padrão `same-origin` do helmet bloquearia
+justamente o caixa.
+
 ### Segredos e superfície de ataque
 
 Nada de credencial no código. Tudo em `.env`, ignorado pelo git;
@@ -158,6 +173,48 @@ nova nem apaga dado, ao contrario de `migrate dev`.
 
 O PWA nao esta no Compose: em desenvolvimento ele roda pelo Vite, e em producao
 e um bundle estatico servido por qualquer servidor web.
+
+### Backup
+
+```bash
+npm run db:backup          # grava em ./backups e verifica o arquivo
+npm run db:testar-backup   # restaura num banco descartavel e confere
+```
+
+Todo o historico financeiro da loja — venda, caixa, crediario, auditoria —
+vive num volume Docker. Volume some: por `docker compose down -v` digitado sem
+pensar, por disco que falha, por maquina trocada.
+
+O dump sai no formato **custom** do `pg_dump` (`-Fc`): comprimido, restauravel
+tabela a tabela, e com indice que o `pg_restore --list` le sem restaurar nada.
+E assim que o backup se verifica sozinho logo depois de gravar — se o arquivo
+saiu truncado, a falha aparece hoje, e nao no dia em que a loja precisar dele.
+
+**Um backup que nunca foi restaurado nao e backup, e um arquivo.** Por isso
+existe `db:testar-backup`: ele cria um banco descartavel, restaura o dump mais
+recente, conta as linhas das tabelas principais, recusa um backup que volte
+sem nenhum usuario (sem usuario ninguem entra no sistema, entao a loja nao
+voltaria a operar) e apaga o banco de teste no fim.
+
+Restaurar POR CIMA do banco em uso nao e oferecido de proposito: e uma
+operacao que apaga o presente para trazer o passado. Restaure num banco novo
+(`npm run db:restaurar -- --para pdv_recuperado`), confira, e so entao aponte
+`DATABASE_URL` para ele.
+
+`backups/` e `*.dump` estao no `.gitignore`: o dump contem o cadastro de
+clientes com CPF e telefone.
+
+**Agendamento.** No Windows, Agendador de Tarefas com acao
+`npm run db:backup` na pasta do projeto. Num VPS Linux, cron:
+
+```cron
+0 22 * * *  cd /opt/pdv && npm run db:backup >> /var/log/pdv-backup.log 2>&1
+0 3 * * 0   cd /opt/pdv && npm run db:testar-backup >> /var/log/pdv-backup.log 2>&1
+```
+
+O script sai com codigo de erro quando falha, para o agendador conseguir
+avisar. Backup que falha em silencio e pior que nao ter backup: cria a
+confianca sem o arquivo.
 
 ## O caixa (PWA)
 
@@ -312,9 +369,9 @@ npm run test:e2e          # Playwright (Chromium)
 | Unitários (`packages/shared`) — dinheiro, venda, caixa, devolução, CPF | 105 |
 | Unitários (`apps/api`) — autenticação | 7 |
 | Unitários (`apps/pdv`) — carrinho, desconto, fila, catálogo, comprovante, telas | 492 |
-| Integração (`apps/api`) — contra Postgres real, todas as rotas | 205 |
+| Integração (`apps/api`) — contra Postgres real, todas as rotas | 218 |
 | E2E (Playwright) — fluxo real, clicando na tela | 149 |
-| **Total** | **958** |
+| **Total** | **971** |
 
 `tsc --strict` limpo nos quatro workspaces.
 
@@ -350,5 +407,17 @@ propósito, quero ver a gestão mesmo com sessão aberta".
   imprimindo de verdade. O que falta checar está em
   `CHECKLIST-IMPRESSAO-TERMICA.md`.
 - **Sem CI.** Os testes rodam localmente; não há pipeline bloqueando merge.
-- **`servidor.ts` concentra todas as rotas.** Funciona e está coberto por
-  testes, mas pede divisão em plugins por domínio.
+  Sem isso, uma mudança de permissão numa rota já passou despercebida até a
+  suíte de integração ser rodada à mão, dias depois.
+- **`servidor.ts` concentra todas as rotas.** São mais de trinta agora. Está
+  coberto por testes, mas pede divisão em plugins por domínio — é o próximo
+  refactor que se paga.
+- **Sem Pix integrado.** A forma de pagamento é registrada, mas não há geração
+  de QR nem conferência automática: a baixa é manual, olhando o app do banco.
+- **Sem etiquetas nem estoque mínimo.** Não há geração de etiqueta de preço e
+  nada avisa quando uma variação está acabando — a ruptura só aparece quando
+  alguém olha o saldo.
+- **Backup é local por padrão.** `npm run db:backup` grava em `./backups`, na
+  mesma máquina do banco. Copiar para fora (nuvem, pen drive) ainda é passo
+  manual, e um backup que mora no disco que pode falhar protege menos do que
+  parece.
